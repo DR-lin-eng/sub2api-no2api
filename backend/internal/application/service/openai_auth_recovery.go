@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+func isOpenAIWorkspaceDeactivatedError(statusCode int, responseBody []byte) bool {
+	return statusCode == http.StatusPaymentRequired &&
+		extractUpstreamErrorCode(responseBody) == "deactivated_workspace"
+}
+
 // An empty token leaves an unsuccessful refresh to the original upstream-error
 // policy. A changed principal is different: stop the current attempt before it
 // can replay a turn prepared for the previous account/user.

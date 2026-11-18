@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
-
-	"github.com/tidwall/gjson"
 )
 
 const (
@@ -22,10 +19,8 @@ const (
 // to OpenAI OAuth accounts and the exact upstream error code, so ordinary 402s
 // and API-key accounts retain their existing handling.
 func (s *RateLimitService) maybeHandleOpenAITeamLinkedError(ctx context.Context, account *Account, statusCode int, responseBody []byte) {
-	if s == nil || s.accountRepo == nil || statusCode != http.StatusPaymentRequired || !isOpenAIOAuthAccount(account) {
-		return
-	}
-	if gjson.GetBytes(responseBody, "detail.code").String() != "deactivated_workspace" {
+	if s == nil || s.accountRepo == nil || !isOpenAIOAuthAccount(account) ||
+		!isOpenAIWorkspaceDeactivatedError(statusCode, responseBody) {
 		return
 	}
 	teamID := strings.TrimSpace(account.GetChatGPTAccountID())

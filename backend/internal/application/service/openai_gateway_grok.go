@@ -1505,7 +1505,7 @@ func (s *OpenAIGatewayService) handleGrokAccountUpstreamError(ctx context.Contex
 	if s == nil || account == nil {
 		return
 	}
-	if statusCode == http.StatusUnauthorized && s.rateLimitService != nil && s.rateLimitService.tryAutoDeleteOAuthAccountOn401(ctx, account) {
+	if s.rateLimitService != nil && s.rateLimitService.tryAutoDeleteOAuthAccountOnAuthError(ctx, account, statusCode, responseBody) {
 		return
 	}
 	if isGrokContentPolicyRejection(statusCode, responseBody) {

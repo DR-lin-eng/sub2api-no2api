@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"sync/atomic"
 	"time"
 )
@@ -41,12 +42,16 @@ func markOAuth401CleanupAttempted(ctx context.Context) bool {
 	return false
 }
 
-// tryAutoDeleteOAuthAccountOn401 handles a confirmed gateway 401 only when the
-// operator enabled the destructive policy. A credential CAS miss means a
-// concurrent reauthorization won; the stale request still fails over without
-// mutating the newly authorized account.
-func (s *RateLimitService) tryAutoDeleteOAuthAccountOn401(ctx context.Context, account *Account) bool {
+// tryAutoDeleteOAuthAccountOnAuthError handles a confirmed gateway 401 or an
+// OpenAI 402 workspace deactivation when the operator enabled cleanup. A
+// credential CAS miss means a concurrent reauthorization won; the stale request
+// still fails over without mutating the newly authorized account.
+func (s *RateLimitService) tryAutoDeleteOAuthAccountOnAuthError(ctx context.Context, account *Account, statusCode int, responseBody []byte) bool {
 	if s == nil || account == nil || account.Type != AccountTypeOAuth || account.IsCredentialShadow() {
+		return false
+	}
+	if statusCode != http.StatusUnauthorized &&
+		!(isOpenAIOAuthAccount(account) && isOpenAIWorkspaceDeactivatedError(statusCode, responseBody)) {
 		return false
 	}
 	if markOAuth401CleanupAttempted(ctx) || !s.oauth401CleanupEnabled(ctx) {
