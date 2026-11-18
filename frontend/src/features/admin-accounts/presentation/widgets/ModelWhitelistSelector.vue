@@ -237,7 +237,7 @@ const availableOptions = computed(() => {
     }
   }
 
-  const options = allModels.filter(model => allowedModels.has(model.value))
+  const options = Array.from(allowedModels, model => ({ value: model, label: model }))
   if (isGrok.value) {
     const existing = new Set(options.map(option => option.value))
     for (const id of [...observedModels.value, ...props.modelValue]) {

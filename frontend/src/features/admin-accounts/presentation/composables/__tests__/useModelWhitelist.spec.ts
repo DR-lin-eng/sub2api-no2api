@@ -4,7 +4,7 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountQueries', () => 
   getAntigravityDefaultModelMapping: vi.fn()
 }))
 
-import { buildModelMappingObject, getModelsByPlatform, getPresetMappingsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
+import { allModels, buildModelMappingObject, getModelsByPlatform, getPresetMappingsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
 
 describe('useModelWhitelist', () => {
   it('exposes Carbon with its declared model ID and identity preset', () => {
@@ -20,25 +20,40 @@ describe('useModelWhitelist', () => {
     expect(getModelsByPlatform('antigravity')).not.toContain('gemini-4-hydrogen')
   })
 
-  it('openai 模型列表包含 GPT-5.4 官方快照', () => {
+  it('OpenAI 渠道默认模型与指定的 Codex 清单和顺序一致', () => {
     const models = getModelsByPlatform('openai')
 
+    expect(models).toEqual([
+      'codex-auto-review',
+      'gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra',
+      'gpt-6-astra', 'gpt-6-luna', 'gpt-6-sol',
+      'gpt-6.1-sol', 'gpt-6.1-terra',
+      'gpt-6.2-astra', 'gpt-6.2-sol',
+      'gpt-image-1', 'gpt-image-1.5', 'gpt-image-2',
+      'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst',
+      'gpt-image-2.6-flare', 'gpt-image-2.6-sunburst',
+      'gpt-reserve'
+    ])
     for (const id of ['gpt-6.2-astra', 'gpt-6.2-sol']) {
-      expect(models).toContain(id)
       expect(getPresetMappingsByPlatform('openai')).toEqual(expect.arrayContaining([
         expect.objectContaining({ from: id, to: id })
       ]))
     }
-    expect(models).toContain('gpt-6-astra')
-    expect(models).toContain('gpt-6.1-sol')
-    expect(models).toContain('gpt-6.1-terra')
-    expect(models).toContain('gpt-6-sol')
-    expect(models).toContain('gpt-6-luna')
-    expect(models).toContain('gpt-5.4')
-    expect(models).toContain('gpt-5.4-mini')
-    expect(models).toContain('gpt-5.4-2026-03-05')
-    expect(models).toContain('codex-auto-review')
-    expect(models).toContain('gpt-5.6')
+  })
+
+  it('渠道清单调整保留总目录中的旧模型，渠道专属项不写入总目录', () => {
+    const globalIds = allModels.map(model => model.value)
+    for (const id of [
+      'gpt-5.2', 'gpt-5.2-2025-12-11', 'gpt-5.2-chat-latest',
+      'gpt-5.2-pro', 'gpt-5.2-pro-2025-12-11',
+      'gpt-5.6', 'gpt-5.5',
+      'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-2026-03-05',
+      'gpt-5.3-codex-spark', 'gpt-4o-audio-preview', 'gpt-4o-realtime-preview'
+    ]) {
+      expect(globalIds).toContain(id)
+      expect(getModelsByPlatform('openai')).not.toContain(id)
+    }
+    expect(globalIds).not.toContain('gpt-reserve')
   })
 
   it('openai 模型列表不再暴露已下线的 ChatGPT 登录 Codex 模型', () => {
