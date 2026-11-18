@@ -51,7 +51,7 @@ func (s *RateLimitService) tryAutoDeleteOAuthAccountOnAuthError(ctx context.Cont
 		return false
 	}
 	if statusCode != http.StatusUnauthorized &&
-		!(isOpenAIOAuthAccount(account) && isOpenAIWorkspaceDeactivatedError(statusCode, responseBody)) {
+		(!isOpenAIOAuthAccount(account) || !isOpenAIWorkspaceDeactivatedError(statusCode, responseBody)) {
 		return false
 	}
 	if markOAuth401CleanupAttempted(ctx) || !s.oauth401CleanupEnabled(ctx) {
