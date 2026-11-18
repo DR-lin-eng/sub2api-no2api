@@ -534,7 +534,13 @@ type RateLimit429CooldownSettings struct {
 }
 
 type OAuth401CleanupSettings struct {
-	Enabled bool `json:"enabled"`
+	Enabled             bool `json:"enabled"`
+	RevokeSameWorkspace bool `json:"revoke_same_workspace"`
+}
+
+type UpdateOAuth401CleanupSettingsRequest struct {
+	Enabled             *bool `json:"enabled"`
+	RevokeSameWorkspace *bool `json:"revoke_same_workspace"`
 }
 
 // GlobalTempUnschedulableSettings 全局临时不可调度配置 DTO

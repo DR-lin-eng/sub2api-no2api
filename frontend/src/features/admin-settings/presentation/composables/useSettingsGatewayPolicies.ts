@@ -64,7 +64,7 @@ export function useSettingsGatewayPolicies() {
   const rateLimit429CooldownSaving = ref(false);
   const oauth401CleanupSaving = ref(false);
   const oauth401CleanupLoading = ref(true);
-  const oauth401CleanupForm = reactive({ enabled: false });
+  const oauth401CleanupForm = reactive({ enabled: false, revoke_same_workspace: false });
   const rateLimit429CooldownForm = reactive({
     enabled: true,
     cooldown_seconds: 5,
@@ -333,8 +333,9 @@ export function useSettingsGatewayPolicies() {
     try {
       const updated = await updateOAuth401CleanupSettings({
         enabled: oauth401CleanupForm.enabled,
+        revoke_same_workspace: oauth401CleanupForm.revoke_same_workspace,
       });
-      Object.assign(oauth401CleanupForm, updated);
+      Object.assign(oauth401CleanupForm, { revoke_same_workspace: false, ...updated });
       appStore.showSuccess(t("admin.settings.oauth401Cleanup.saved"));
     } catch (error: unknown) {
       appStore.showError(
@@ -351,9 +352,10 @@ export function useSettingsGatewayPolicies() {
   async function loadOAuth401CleanupSettings() {
     oauth401CleanupLoading.value = true;
     try {
-      Object.assign(oauth401CleanupForm, await getOAuth401CleanupSettings());
+      Object.assign(oauth401CleanupForm, { revoke_same_workspace: false, ...await getOAuth401CleanupSettings() });
     } catch {
       oauth401CleanupForm.enabled = false;
+      oauth401CleanupForm.revoke_same_workspace = false;
     } finally {
       oauth401CleanupLoading.value = false;
     }

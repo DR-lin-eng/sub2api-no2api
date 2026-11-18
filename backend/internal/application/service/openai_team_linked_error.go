@@ -14,6 +14,10 @@ const (
 	openAITeamLinkedErrorBlockReason   = "team_linked_error"
 )
 
+type openAIWorkspaceRevocationRepository interface {
+	RevokeOpenAIWorkspaceAccounts(context.Context, string, string) ([]int64, error)
+}
+
 // maybeHandleOpenAITeamLinkedError turns a ChatGPT Team workspace deactivation
 // into a bounded sibling-account circuit break. It is intentionally restricted
 // to OpenAI OAuth accounts and the exact upstream error code, so ordinary 402s
@@ -24,7 +28,15 @@ func (s *RateLimitService) maybeHandleOpenAITeamLinkedError(ctx context.Context,
 		return
 	}
 	teamID := strings.TrimSpace(account.GetChatGPTAccountID())
-	if teamID == "" || !s.markOpenAITeamLinkedFired(teamID) {
+	if teamID == "" || !s.loadOAuth401CleanupPolicy(ctx).revokeSameWorkspace {
+		return
+	}
+	repo, ok := s.accountRepo.(openAIWorkspaceRevocationRepository)
+	if !ok {
+		slog.Error("openai_workspace_revocation_repository_unavailable", "account_id", account.ID)
+		return
+	}
+	if !s.markOpenAITeamLinkedFired(teamID) {
 		return
 	}
 
@@ -35,38 +47,21 @@ func (s *RateLimitService) maybeHandleOpenAITeamLinkedError(ctx context.Context,
 	opCtx, cancel := context.WithTimeout(base, openAITeamLinkedErrorFanoutTimeout)
 	defer cancel()
 
-	accounts, err := s.accountRepo.ListByPlatform(opCtx, PlatformOpenAI)
-	if err != nil {
-		slog.Warn("openai_team_linked_error_list_failed", "trigger_account_id", account.ID, "error", err)
-		return
-	}
-	targets := make([]*Account, 0, len(accounts))
-	for i := range accounts {
-		candidate := &accounts[i]
-		if candidate.ID == account.ID || candidate.IsShadow() || strings.TrimSpace(candidate.GetChatGPTAccountID()) != teamID {
-			continue
-		}
-		targets = append(targets, candidate)
-	}
-	if len(targets) == 0 {
-		return
-	}
-
-	// The in-process blocker is immediate; database writes are deliberately
-	// best-effort and isolated per account so one failure cannot stop the fan-out.
-	for _, candidate := range targets {
-		s.notifyAccountSchedulingBlocked(candidate, time.Time{}, openAITeamLinkedErrorBlockReason)
-	}
 	errorMessage := fmt.Sprintf("Workspace deactivated (402): team-linked error triggered by account #%d", account.ID)
-	marked := 0
-	for _, candidate := range targets {
-		if err := s.accountRepo.SetError(opCtx, candidate.ID, errorMessage); err != nil {
-			slog.Warn("openai_team_linked_error_set_error_failed", "account_id", candidate.ID, "error", err)
-			continue
-		}
-		marked++
+	accountIDs, err := repo.RevokeOpenAIWorkspaceAccounts(opCtx, teamID, errorMessage)
+	if err != nil {
+		s.openaiTeamLinkedMu.Lock()
+		delete(s.openaiTeamLinkedRecent, teamID)
+		s.openaiTeamLinkedMu.Unlock()
+		slog.Warn("openai_workspace_revocation_failed", "trigger_account_id", account.ID, "error", err)
+		return
 	}
-	slog.Warn("openai_team_linked_error_fanout", "trigger_account_id", account.ID, "chatgpt_account_id", teamID, "affected", marked, "targets", len(targets))
+	// Only rows whose workspace still matched at the atomic mutation are blocked.
+	// The repository also persists outbox events for every owner and shadow.
+	for _, accountID := range accountIDs {
+		s.notifyAccountSchedulingBlocked(&Account{ID: accountID, Platform: PlatformOpenAI, Type: AccountTypeOAuth}, time.Time{}, openAITeamLinkedErrorBlockReason)
+	}
+	slog.Warn("openai_team_linked_error_fanout", "trigger_account_id", account.ID, "chatgpt_account_id", teamID, "affected", len(accountIDs))
 }
 
 func (s *RateLimitService) markOpenAITeamLinkedFired(teamID string) bool {

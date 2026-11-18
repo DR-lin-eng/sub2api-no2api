@@ -130,6 +130,7 @@ export interface RateLimit429CooldownSettings {
 
 export interface OAuth401CleanupSettings {
   enabled: boolean;
+  revoke_same_workspace?: boolean;
 }
 
 export interface GlobalTempUnschedulableSettings {

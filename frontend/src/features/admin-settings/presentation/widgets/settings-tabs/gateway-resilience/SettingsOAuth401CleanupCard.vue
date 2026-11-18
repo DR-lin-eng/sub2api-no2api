@@ -40,6 +40,21 @@
           {{ t("admin.settings.oauth401Cleanup.warning") }}
         </p>
 
+        <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+          <div>
+            <label class="font-medium text-gray-900 dark:text-white">
+              {{ t("admin.settings.oauth401Cleanup.revokeSameWorkspace") }}
+            </label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              {{ t("admin.settings.oauth401Cleanup.revokeSameWorkspaceHint") }}
+            </p>
+          </div>
+          <Toggle
+            v-model="oauth401CleanupForm.revoke_same_workspace"
+            data-testid="workspace-revocation-toggle"
+          />
+        </div>
+
         <div class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700">
           <button
             type="button"

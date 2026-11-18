@@ -700,7 +700,8 @@ type RateLimit429CooldownSettings struct {
 // accounts after an upstream 401 or OpenAI 402 workspace deactivation observed
 // by the model gateway.
 type OAuth401CleanupSettings struct {
-	Enabled bool `json:"enabled"`
+	Enabled             bool `json:"enabled"`
+	RevokeSameWorkspace bool `json:"revoke_same_workspace"`
 }
 
 // GlobalTempUnschedulableSettings controls temporary account scheduling pauses globally.

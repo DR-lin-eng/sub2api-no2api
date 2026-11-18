@@ -421,10 +421,10 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 // 返回是否应该停止该账号的调度
 func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, requestedModel ...string) (shouldDisable bool) {
 	ctx = withTempUnschedulableModel(ctx, requestedModel)
+	s.maybeHandleOpenAITeamLinkedError(ctx, account, statusCode, responseBody)
 	if s.tryAutoDeleteOAuthAccountOnAuthError(ctx, account, statusCode, responseBody) {
 		return true
 	}
-	s.maybeHandleOpenAITeamLinkedError(ctx, account, statusCode, responseBody)
 	if s.handleUpstreamInsufficientBalance(ctx, account, statusCode, responseBody) {
 		return true
 	}

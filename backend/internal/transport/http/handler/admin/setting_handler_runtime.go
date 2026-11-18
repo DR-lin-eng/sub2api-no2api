@@ -201,21 +201,31 @@ func (h *SettingHandler) GetOAuth401CleanupSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, dto.OAuth401CleanupSettings{Enabled: settings.Enabled})
+	response.Success(c, dto.OAuth401CleanupSettings{Enabled: settings.Enabled, RevokeSameWorkspace: settings.RevokeSameWorkspace})
 }
 
 func (h *SettingHandler) UpdateOAuth401CleanupSettings(c *gin.Context) {
-	var req dto.OAuth401CleanupSettings
+	var req dto.UpdateOAuth401CleanupSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	settings := &service.OAuth401CleanupSettings{Enabled: req.Enabled}
+	settings, err := h.settingService.GetOAuth401CleanupSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if req.Enabled != nil {
+		settings.Enabled = *req.Enabled
+	}
+	if req.RevokeSameWorkspace != nil {
+		settings.RevokeSameWorkspace = *req.RevokeSameWorkspace
+	}
 	if err := h.settingService.SetOAuth401CleanupSettings(c.Request.Context(), settings); err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	response.Success(c, dto.OAuth401CleanupSettings{Enabled: settings.Enabled})
+	response.Success(c, dto.OAuth401CleanupSettings{Enabled: settings.Enabled, RevokeSameWorkspace: settings.RevokeSameWorkspace})
 }
 
 // GetGlobalTempUnschedulableSettings 获取全局临时不可调度配置
