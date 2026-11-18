@@ -12,7 +12,7 @@
 | 同库基线→候选→回退→恢复 | `runtime-final` | PASS，56 个 HTTP 场景 |
 | 同工具链 parser benchmark | `performance-optimized` | PASS，最终两组均 0 B/op、0 allocs/op |
 | 文档 / 源码布局 / 源码摘要 | `docs` / `source-layout` / `source-hashes` | PASS |
-| 8 PR + 版本提交关闭台账 | `ledger` | PASS，268 个继承 PR 台账字节不变 |
+| 8 PR + 版本提交关闭台账 | `ledger` / `ledger-ancestry` | PASS，268 个继承 PR 台账字节不变，tracking merge 树内容不变 |
 
 同库各阶段保持 317 条迁移摘要、用户身份、API Key、订阅、明确配置的价格、历史账单摘要及
 余额等式。真实生产数据、上游 OAuth 权限和生产并发吞吐不属于夹具验证范围。

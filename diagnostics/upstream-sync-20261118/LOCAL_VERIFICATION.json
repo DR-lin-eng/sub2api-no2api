@@ -12,7 +12,8 @@
     "docs",
     "source-layout",
     "source-hashes",
-    "ledger"
+    "ledger",
+    "ledger-ancestry"
   ],
   "records": {
     "integration-final": {
@@ -169,6 +170,11 @@
       "exit_code": 1,
       "elapsed_seconds": 7.293,
       "record": "records/focused-refined.json"
+    },
+    "ledger-ancestry": {
+      "exit_code": 0,
+      "elapsed_seconds": 0.268,
+      "record": "records/ledger-ancestry.json"
     }
   },
   "source_hashes": "PASS",
