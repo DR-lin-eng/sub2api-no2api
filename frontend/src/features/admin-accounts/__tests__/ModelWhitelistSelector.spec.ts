@@ -26,6 +26,7 @@ vi.mock('@/common/composables/useClipboard', () => ({
 }))
 
 import ModelWhitelistSelector from '../presentation/widgets/ModelWhitelistSelector.vue'
+import { allModels } from '../presentation/composables/useModelWhitelist'
 
 function mountSelector(overrides: Record<string, unknown> = {}) {
   return mount(ModelWhitelistSelector, {
@@ -91,6 +92,52 @@ describe('ModelWhitelistSelector', () => {
     await wrapper.get('div.cursor-pointer').trigger('click')
     expect(findModelRow(wrapper, 'gpt-image-2.6-flare').exists()).toBe(true)
     expect(findModelRow(wrapper, 'gpt-image-2.6-sunburst').exists()).toBe(true)
+  })
+
+  it('offers the 19 OpenAI defaults in channel order and selects gpt-reserve', async () => {
+    const wrapper = mountSelector()
+    await wrapper.get('div.cursor-pointer').trigger('click')
+
+    const ids = wrapper.findAll('[data-testid="select-model"]').map(button => button.text())
+    expect(ids).toHaveLength(19)
+    expect(ids.slice(0, 4)).toEqual(['codex-auto-review', 'gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'])
+    expect(ids.at(-1)).toBe('gpt-reserve')
+    expect(ids).not.toContain('gpt-5.4')
+    expect(ids).not.toContain('gpt-5.2')
+    await findModelRow(wrapper, 'gpt-reserve').get('[data-testid="select-model"]').trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-reserve']]])
+  })
+
+  it('fills OpenAI defaults while preserving existing custom and legacy selections', async () => {
+    const selected = ['custom-openai-model', 'gpt-5.4', 'gpt-6.2-sol']
+    const wrapper = mountSelector({ modelValue: selected })
+    const fill = wrapper.findAll('button').find(button => button.text() === 'admin.accounts.fillRelatedModels')!
+    await fill.trigger('click')
+
+    const models = wrapper.emitted('update:modelValue')![0][0] as string[]
+    expect(models.slice(0, 3)).toEqual(selected)
+    expect(models).toHaveLength(21)
+    expect(models.filter(model => model === 'gpt-6.2-sol')).toHaveLength(1)
+    expect(models.at(-1)).toBe('gpt-reserve')
+    expect(models).not.toContain('gpt-5.2')
+    expect(selected).toEqual(['custom-openai-model', 'gpt-5.4', 'gpt-6.2-sol'])
+  })
+
+  it('keeps the complete catalog when no platform is selected', async () => {
+    const wrapper = mountSelector({ platform: undefined })
+    await wrapper.get('div.cursor-pointer').trigger('click')
+
+    const ids = wrapper.findAll('[data-testid="select-model"]').map(button => button.text())
+    expect(ids).toEqual(allModels.map(model => model.value))
+    expect(ids).toContain('gpt-5.4')
+    expect(ids).toContain('gpt-5.2')
+    expect(ids).not.toContain('gpt-reserve')
+
+    await wrapper.setProps({ platforms: ['openai', 'grok'] })
+    const platformIds = wrapper.findAll('[data-testid="select-model"]').map(button => button.text())
+    expect(platformIds).toContain('gpt-reserve')
+    expect(platformIds).toContain('grok-4.6')
+    expect(platformIds).not.toContain('gpt-5.2')
   })
 })
 

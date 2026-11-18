@@ -24,6 +24,19 @@ const openaiModels = [
   'gpt-image-2.6-flare', 'gpt-image-2.6-sunburst'
 ]
 
+// OpenAI 渠道的默认模型选项独立维护，不裁剪上面的总目录来源。
+const openaiChannelModels = [
+  'codex-auto-review',
+  'gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra',
+  'gpt-6-astra', 'gpt-6-luna', 'gpt-6-sol',
+  'gpt-6.1-sol', 'gpt-6.1-terra',
+  'gpt-6.2-astra', 'gpt-6.2-sol',
+  'gpt-image-1', 'gpt-image-1.5', 'gpt-image-2',
+  'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst',
+  'gpt-image-2.6-flare', 'gpt-image-2.6-sunburst',
+  'gpt-reserve'
+]
+
 // Anthropic Claude
 export const claudeModels = [
   'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5',
@@ -524,7 +537,7 @@ export const commonErrorCodes = [
 // 按平台获取模型
 export function getModelsByPlatform(platform: string): string[] {
   switch (platform) {
-    case 'openai': return openaiModels
+    case 'openai': return openaiChannelModels
     case 'anthropic':
     case 'claude': return claudeModels
     case 'gemini': return geminiModels
