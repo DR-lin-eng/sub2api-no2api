@@ -81,7 +81,7 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	defer cancel()
 	stateCtx = withOAuth401CleanupAttemptState(stateCtx)
 	modelScope := firstRequestedModel(canonicalModel)
-	if statusCode == http.StatusUnauthorized && s.rateLimitService != nil && s.rateLimitService.tryAutoDeleteOAuthAccountOn401(stateCtx, account) {
+	if s.rateLimitService != nil && s.rateLimitService.tryAutoDeleteOAuthAccountOnAuthError(stateCtx, account, statusCode, responseBody) {
 		return true
 	}
 	if s != nil && s.rateLimitService != nil && s.rateLimitService.maybeAutoDisableOpenAIAccountOnFailure(stateCtx, account, statusCode, headers, responseBody) {

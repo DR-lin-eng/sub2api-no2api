@@ -38,23 +38,30 @@ func (b *teamLinkedBlocker) BlockAccountScheduling(account *Account, _ time.Time
 func (b *teamLinkedBlocker) ClearAccountSchedulingBlock(int64) {}
 
 func TestOpenAITeamLinkedErrorFansOutOncePerTeam(t *testing.T) {
-	repo := &teamLinkedErrorRepo{mockAccountRepoForPlatform: mockAccountRepoForPlatform{accounts: []Account{
-		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Credentials: map[string]any{"chatgpt_account_id": "team-1"}},
-		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Credentials: map[string]any{"chatgpt_account_id": "team-1"}},
-		{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Credentials: map[string]any{"chatgpt_account_id": "team-2"}},
-		{ID: 4, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, ParentAccountID: teamLinkedInt64Ptr(1), Credentials: map[string]any{"chatgpt_account_id": "team-1"}},
-	}}}
-	blocker := &teamLinkedBlocker{}
-	rateLimits := NewRateLimitService(repo, nil, nil, nil, nil)
-	rateLimits.SetAccountRuntimeBlocker(blocker)
+	for _, body := range []string{
+		`{"detail":{"code":"deactivated_workspace"}}`,
+		`{"error":{"code":"deactivated_workspace","message":"Payment Required"}}`,
+		`{"response":{"error":{"code":"deactivated_workspace"}}}`,
+	} {
+		t.Run(body, func(t *testing.T) {
+			repo := &teamLinkedErrorRepo{mockAccountRepoForPlatform: mockAccountRepoForPlatform{accounts: []Account{
+				{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Credentials: map[string]any{"chatgpt_account_id": "team-1"}},
+				{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Credentials: map[string]any{"chatgpt_account_id": "team-1"}},
+				{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Credentials: map[string]any{"chatgpt_account_id": "team-2"}},
+				{ID: 4, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, ParentAccountID: teamLinkedInt64Ptr(1), Credentials: map[string]any{"chatgpt_account_id": "team-1"}},
+			}}}
+			blocker := &teamLinkedBlocker{}
+			rateLimits := NewRateLimitService(repo, nil, nil, nil, nil)
+			rateLimits.SetAccountRuntimeBlocker(blocker)
 
-	trigger := &repo.accounts[0]
-	body := []byte(`{"detail":{"code":"deactivated_workspace"}}`)
-	rateLimits.maybeHandleOpenAITeamLinkedError(context.Background(), trigger, 402, body)
-	rateLimits.maybeHandleOpenAITeamLinkedError(context.Background(), trigger, 402, body)
+			trigger := &repo.accounts[0]
+			rateLimits.maybeHandleOpenAITeamLinkedError(context.Background(), trigger, 402, []byte(body))
+			rateLimits.maybeHandleOpenAITeamLinkedError(context.Background(), trigger, 402, []byte(body))
 
-	require.Contains(t, repo.setErrors, int64(2))
-	require.NotContains(t, repo.setErrors, int64(3))
-	require.NotContains(t, repo.setErrors, int64(4))
-	require.Equal(t, []int64{2}, blocker.blocked)
+			require.Contains(t, repo.setErrors, int64(2))
+			require.NotContains(t, repo.setErrors, int64(3))
+			require.NotContains(t, repo.setErrors, int64(4))
+			require.Equal(t, []int64{2}, blocker.blocked)
+		})
+	}
 }

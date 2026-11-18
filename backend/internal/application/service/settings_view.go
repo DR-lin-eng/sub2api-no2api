@@ -697,7 +697,8 @@ type RateLimit429CooldownSettings struct {
 }
 
 // OAuth401CleanupSettings controls deletion of direct OAuth credential
-// accounts after an upstream 401 observed by the model gateway.
+// accounts after an upstream 401 or OpenAI 402 workspace deactivation observed
+// by the model gateway.
 type OAuth401CleanupSettings struct {
 	Enabled bool `json:"enabled"`
 }

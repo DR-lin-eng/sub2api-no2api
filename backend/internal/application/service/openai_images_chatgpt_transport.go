@@ -209,11 +209,18 @@ func (s *chatGPTImageSession) request(ctx context.Context, method, path string, 
 		// Preserve the existing structured account error policy. Do not create a
 		// second generation after an ambiguous request or authentication failure.
 		if resp.StatusCode >= 400 {
-			if method == http.MethodPost && path == "/f/conversation" && (resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429) {
+			workspaceDeactivated := isOpenAIWorkspaceDeactivatedError(resp.StatusCode, data)
+			generationRejected := method == http.MethodPost && path == "/f/conversation" &&
+				(resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429)
+			if workspaceDeactivated || generationRejected {
 				message := sanitizeUpstreamErrorMessage(extractUpstreamErrorMessage(data))
 				if s.gateway.shouldFailoverOpenAIUpstreamResponse(resp.StatusCode, message, data) {
 					disabled := s.gateway.handleFailoverSideEffects(ctx, resp, s.account, data, s.model)
-					return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, data, message, !disabled && s.account.IsPoolMode() && s.account.IsPoolModeRetryableStatus(resp.StatusCode))
+					// Prepare/upload failures are safe to fail over. Once a turn
+					// was accepted, retain its output and settlement without replay.
+					if !s.generationAccepted {
+						return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, data, message, !disabled && s.account.IsPoolMode() && s.account.IsPoolModeRetryableStatus(resp.StatusCode))
+					}
 				}
 			}
 			return nil, openAIImagesUpstreamErrorFromHTTP(resp.StatusCode, resp.Header, data)
