@@ -1,0 +1,1030 @@
+[
+  {
+    "stage": "BASELINE",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-8B",
+        "expected": 4e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 4e-05,
+            "actual": 4e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-4B",
+        "expected": 2e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 2e-05,
+            "actual": 2e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-0.6B",
+        "expected": 1e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 1e-05,
+            "actual": 1e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "qwen3-embedding-0-6b",
+        "expected": 1e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 1e-05,
+            "actual": 1e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "qwen3-embedding-8billion",
+        "expected": 0,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.0,
+            "actual": 0.0,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "explicit-price-through-upgrade",
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 8e-05,
+            "actual": 8e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6-astra",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.09,
+            "actual": 0.09,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6-astra",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.09,
+            "actual": 0.09,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6.1-sol",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.018,
+            "actual": 0.018,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6.1-sol",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.018,
+            "actual": 0.018,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "cache-ttl-snapshots",
+        "stream": false,
+        "usage": [
+          {
+            "input": 10,
+            "output": 7,
+            "creation": 0,
+            "5m": 0,
+            "1h": 30,
+            "count": 0,
+            "total": 0.0245,
+            "actual": 0.0245,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "cache-ttl-snapshots",
+        "stream": true,
+        "usage": [
+          {
+            "input": 10,
+            "output": 7,
+            "creation": 0,
+            "5m": 20,
+            "1h": 30,
+            "count": 0,
+            "total": 0.0245,
+            "actual": 0.0245,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "raw-chat-regression",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "raw-chat-regression",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      }
+    ],
+    "migrations": 317,
+    "migration_checksums": "PASS",
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_equation": "PASS"
+  },
+  {
+    "stage": "CANDIDATE",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-8B",
+        "expected": 4e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 4e-05,
+            "actual": 4e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-4B",
+        "expected": 2e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 2e-05,
+            "actual": 2e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-0.6B",
+        "expected": 1e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 1e-05,
+            "actual": 1e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "qwen3-embedding-0-6b",
+        "expected": 1e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 1e-05,
+            "actual": 1e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "qwen3-embedding-8billion",
+        "expected": 0,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.0,
+            "actual": 0.0,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "explicit-price-through-upgrade",
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 8e-05,
+            "actual": 8e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6-astra",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.09,
+            "actual": 0.09,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6-astra",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.09,
+            "actual": 0.09,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6.1-sol",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.018,
+            "actual": 0.018,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6.1-sol",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.018,
+            "actual": 0.018,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "cache-ttl-snapshots",
+        "stream": false,
+        "usage": [
+          {
+            "input": 10,
+            "output": 7,
+            "creation": 30,
+            "5m": 0,
+            "1h": 30,
+            "count": 0,
+            "total": 0.1145,
+            "actual": 0.1145,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "cache-ttl-snapshots",
+        "stream": true,
+        "usage": [
+          {
+            "input": 10,
+            "output": 7,
+            "creation": 50,
+            "5m": 20,
+            "1h": 30,
+            "count": 0,
+            "total": 0.1745,
+            "actual": 0.1745,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "raw-chat-regression",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "raw-chat-regression",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      }
+    ],
+    "migrations": 317,
+    "migration_checksums": "PASS",
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_equation": "PASS"
+  },
+  {
+    "stage": "ROLLBACK",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-8B",
+        "expected": 4e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 4e-05,
+            "actual": 4e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-4B",
+        "expected": 2e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 2e-05,
+            "actual": 2e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-0.6B",
+        "expected": 1e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 1e-05,
+            "actual": 1e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "qwen3-embedding-0-6b",
+        "expected": 1e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 1e-05,
+            "actual": 1e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "qwen3-embedding-8billion",
+        "expected": 0,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.0,
+            "actual": 0.0,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "explicit-price-through-upgrade",
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 8e-05,
+            "actual": 8e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6-astra",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.09,
+            "actual": 0.09,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6-astra",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.09,
+            "actual": 0.09,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6.1-sol",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.018,
+            "actual": 0.018,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6.1-sol",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.018,
+            "actual": 0.018,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "cache-ttl-snapshots",
+        "stream": false,
+        "usage": [
+          {
+            "input": 10,
+            "output": 7,
+            "creation": 0,
+            "5m": 0,
+            "1h": 30,
+            "count": 0,
+            "total": 0.0245,
+            "actual": 0.0245,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "cache-ttl-snapshots",
+        "stream": true,
+        "usage": [
+          {
+            "input": 10,
+            "output": 7,
+            "creation": 0,
+            "5m": 20,
+            "1h": 30,
+            "count": 0,
+            "total": 0.0245,
+            "actual": 0.0245,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "raw-chat-regression",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "raw-chat-regression",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      }
+    ],
+    "migrations": 317,
+    "migration_checksums": "PASS",
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_equation": "PASS"
+  },
+  {
+    "stage": "RESTORED",
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-8B",
+        "expected": 4e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 4e-05,
+            "actual": 4e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-4B",
+        "expected": 2e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 2e-05,
+            "actual": 2e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "Qwen/Qwen3-Embedding-0.6B",
+        "expected": 1e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 1e-05,
+            "actual": 1e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "qwen3-embedding-0-6b",
+        "expected": 1e-05,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 1e-05,
+            "actual": 1e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "embedding-fallback",
+        "model": "qwen3-embedding-8billion",
+        "expected": 0,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.0,
+            "actual": 0.0,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "explicit-price-through-upgrade",
+        "usage": [
+          {
+            "input": 1000,
+            "output": 0,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 8e-05,
+            "actual": 8e-05,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6-astra",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.09,
+            "actual": 0.09,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6-astra",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.09,
+            "actual": 0.09,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6.1-sol",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.018,
+            "actual": 0.018,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "existing-ultrafast-6x",
+        "model": "gpt-6.1-sol",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.018,
+            "actual": 0.018,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "cache-ttl-snapshots",
+        "stream": false,
+        "usage": [
+          {
+            "input": 10,
+            "output": 7,
+            "creation": 30,
+            "5m": 0,
+            "1h": 30,
+            "count": 0,
+            "total": 0.1145,
+            "actual": 0.1145,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "cache-ttl-snapshots",
+        "stream": true,
+        "usage": [
+          {
+            "input": 10,
+            "output": 7,
+            "creation": 50,
+            "5m": 20,
+            "1h": 30,
+            "count": 0,
+            "total": 0.1745,
+            "actual": 0.1745,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "raw-chat-regression",
+        "stream": false,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      },
+      {
+        "case": "raw-chat-regression",
+        "stream": true,
+        "usage": [
+          {
+            "input": 1000,
+            "output": 100,
+            "creation": 0,
+            "5m": 0,
+            "1h": 0,
+            "count": 0,
+            "total": 0.003,
+            "actual": 0.003,
+            "mode": "token"
+          }
+        ]
+      }
+    ],
+    "migrations": 317,
+    "migration_checksums": "PASS",
+    "persistent_identity_key_subscription": "PASS",
+    "historical_usage_unchanged": "PASS",
+    "balance_equation": "PASS"
+  }
+]

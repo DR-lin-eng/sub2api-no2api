@@ -234,7 +234,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 		}
 		if isOpenAIGPT62Model(upstreamModel) {
 			view := newOpenAIRequestView(responsesBody)
-			patchGPT62ResponsesParameters(responsesBody, view.MarkPatchSet, view.MarkPatchDelete)
+			patchGPT62ResponsesParameters(responsesBody, upstreamModel, view.MarkPatchSet, view.MarkPatchDelete)
 			responsesBody, err = view.ApplyPatches()
 			if err != nil {
 				return nil, fmt.Errorf("normalize GPT-6.2 Responses parameters: %w", err)

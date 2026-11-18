@@ -273,14 +273,7 @@ func (s *OpenAIGatewayService) handleCCBufferedFromNativeAnthropic(
 		return nil, fmt.Errorf("upstream stream ended without response")
 	}
 
-	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
-		finalResp.Usage = apicompat.AnthropicUsage{
-			InputTokens:              usage.InputTokens,
-			OutputTokens:             usage.OutputTokens,
-			CacheCreationInputTokens: usage.CacheCreationInputTokens,
-			CacheReadInputTokens:     usage.CacheReadInputTokens,
-		}
-	}
+	normalizeAnthropicEventUsageForResponses(&apicompat.AnthropicStreamEvent{Message: finalResp}, usage)
 
 	if isClaude55SignedThinkingModel(upstreamModel) {
 		finalResp.Model = upstreamModel
@@ -451,6 +444,10 @@ func (s *OpenAIGatewayService) handleCCStreamingFromNativeAnthropic(
 		if clientDisconnected {
 			return false
 		}
+
+		normalizeAnthropicEventUsageForResponses(event, usage)
+
+		syncAnthropicResponsesUsage(anthState, usage)
 
 		responsesEvents := apicompat.AnthropicEventToResponsesEvents(event, anthState)
 		for _, resEvt := range responsesEvents {

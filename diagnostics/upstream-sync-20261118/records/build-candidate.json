@@ -1,0 +1,15 @@
+{
+  "command": [
+    "docker",
+    "build",
+    "--build-arg",
+    "COMMIT=sync-20261118",
+    "-t",
+    "sub2api:sync-candidate-20261118",
+    "."
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 54.348,
+  "utc": "2026-11-18T05:36:43.493313+00:00",
+  "output_sha256": "316bdce944ee1ee0ee020fc0aaa5e7a51c1318687d2f912efd731e0e39605491"
+}

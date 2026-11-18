@@ -226,15 +226,18 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 type OpenAIUsage struct {
 	SVGUsage *OpenAIImagesSVGUsage `json:"svg_usage,omitempty"`
 
-	ImageCacheReadTokens     int     `json:"image_cache_read_tokens,omitempty"`
-	ServiceTier              *string `json:"-"` // Actual upstream tier, when supplied alongside usage.
-	ReasoningTokens          *int    `json:"reasoning_tokens,omitempty"`
-	InputTokens              int     `json:"input_tokens"`
-	ImageInputTokens         int     `json:"image_input_tokens,omitempty"`
-	OutputTokens             int     `json:"output_tokens"`
-	CacheCreationInputTokens int     `json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     int     `json:"cache_read_input_tokens,omitempty"`
-	ImageOutputTokens        int     `json:"image_output_tokens,omitempty"`
+	ImageCacheReadTokens            int     `json:"image_cache_read_tokens,omitempty"`
+	ServiceTier                     *string `json:"-"` // Actual upstream tier, when supplied alongside usage.
+	ReasoningTokens                 *int    `json:"reasoning_tokens,omitempty"`
+	InputTokens                     int     `json:"input_tokens"`
+	ImageInputTokens                int     `json:"image_input_tokens,omitempty"`
+	OutputTokens                    int     `json:"output_tokens"`
+	CacheCreationInputTokens        int     `json:"cache_creation_input_tokens,omitempty"`
+	CacheCreation5mTokens           int     `json:"cache_creation_5m_tokens,omitempty"`
+	CacheCreation1hTokens           int     `json:"cache_creation_1h_tokens,omitempty"`
+	CacheReadInputTokens            int     `json:"cache_read_input_tokens,omitempty"`
+	ImageOutputTokens               int     `json:"image_output_tokens,omitempty"`
+	cacheCreationInputTokensPresent bool
 }
 
 // OpenAIForwardResult represents the result of forwarding

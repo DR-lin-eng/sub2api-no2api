@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261118/run_integration.py"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 433.667,
+  "utc": "2026-11-18T05:49:50.223798+00:00",
+  "output_sha256": "c876826a61be18c97964599379c810ce2a7c8237b5733b431344c7ed27328544"
+}

@@ -8,7 +8,10 @@ import (
 
 // Use the existing patch owner to preserve the conversation prefix, encrypted
 // reasoning and unrelated include values on native and compatibility paths.
-func patchGPT62ResponsesParameters(body []byte, set func(string, any), remove func(string)) {
+func patchGPT62ResponsesParameters(body []byte, model string, set func(string, any), remove func(string)) {
+	if !isOpenAIGPT62Model(model) {
+		return
+	}
 	for _, field := range []string{"temperature", "top_p", "top_logprobs"} {
 		if gjson.GetBytes(body, field).Exists() {
 			remove(field)

@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "diagnostics/upstream-sync-20261118/verify_sources.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.04,
+  "utc": "2026-11-18T06:05:14.256187+00:00",
+  "output_sha256": "fe44887c52cb416073583b4fa21e12655fb5187f91f09dff046b1f97d72a3603"
+}

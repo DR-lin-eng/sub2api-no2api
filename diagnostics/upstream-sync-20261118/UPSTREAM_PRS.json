@@ -1,0 +1,311 @@
+{
+  "schema_version": 1,
+  "baseline": "b22b8c95d0388dd94682d92bf8b8986fb90c4ab1",
+  "upstream_base": "15871f904056f548dd874a1d069ffc6cdf777b78",
+  "upstream_head": "2af3f1e15c98c893a89255a037f551046883b8c0",
+  "frozen_at_utc": "2026-11-18T05:07:58.593540+00:00",
+  "entries": [
+    {
+      "pr": 8906,
+      "merge_sha": "a4d3103cd5a075505da604a3d2d5243cbc51f4ea",
+      "title": "Merge pull request #8906 from lyy0709/codex/gpt62-astra-sol",
+      "diff_sha256": "146eaea850df80d133fcc6caa42bfd0d9a065e2710bbbd1bc117643300298c4e",
+      "files": [
+        "backend/internal/pkg/apicompat/anthropic_to_responses.go",
+        "backend/internal/pkg/openai/codex_gpt62_astra.json",
+        "backend/internal/pkg/openai/codex_gpt62_sol.json",
+        "backend/internal/pkg/openai/constants.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/billing_service_test.go",
+        "backend/internal/service/openai_codex_model_metadata.go",
+        "backend/internal/service/openai_codex_models_service.go",
+        "backend/internal/service/openai_codex_transform.go",
+        "backend/internal/service/openai_compat_model.go",
+        "backend/internal/service/openai_compat_prompt_cache_key.go",
+        "backend/internal/service/openai_gateway_messages_chat_fallback.go",
+        "backend/internal/service/openai_gateway_request_body.go",
+        "backend/internal/service/openai_gateway_responses_chat_fallback.go",
+        "backend/internal/service/openai_gateway_usage.go",
+        "backend/internal/service/openai_gpt62_test.go",
+        "backend/internal/service/openai_model_alias.go",
+        "backend/internal/service/pricing_service.go",
+        "backend/resources/model-pricing/model_prices_and_context_window.json",
+        "frontend/src/components/keys/UseKeyModal.vue",
+        "frontend/src/components/keys/__tests__/UseKeyModal.spec.ts",
+        "frontend/src/composables/__tests__/useModelWhitelist.spec.ts",
+        "frontend/src/composables/useModelWhitelist.ts",
+        "frontend/src/i18n/locales/en/admin/overview.ts",
+        "frontend/src/i18n/locales/zh/admin/overview.ts"
+      ],
+      "status": "covered-core-retain-model-policy",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/gpt62_models_test.go",
+        "backend/internal/application/service/openai_gpt62_request.go",
+        "backend/internal/application/service/billing_openai_ultrafast.go",
+        "backend/internal/modules/modelcatalog/fallbacks.json",
+        "docs/GPT6_MODELS.md"
+      ],
+      "decision": "GPT-6.2 Astra/Sol 的发现、别名、Responses 参数、最终档位计费与按请求时点优惠已由本项目 PR #219 实现并验证。保留当前模型目录投影优先级、基础指令和无效推理档位规范化；不复制另一套静态 Codex descriptor 或改变错误策略。当前主线 Forward 超过布局上限 1 行，将同一模型参数 helper 的 guard 移入 owner，两个调用面保持行为。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8906"
+    },
+    {
+      "pr": 8904,
+      "merge_sha": "45632495f593697393e6b52b3aabdab9eb1dd9ac",
+      "title": "Merge pull request #8904 from jianjianai/perf/openai-chat-reasoning-single-pass",
+      "diff_sha256": "5da9c5ec4ca4de24ccb84e091da977d88565531db61407ef04ba17cfa5c4c80b",
+      "files": [
+        "backend/internal/service/openai_gateway_ollama_cloud_cc_reasoning.go",
+        "backend/internal/service/openai_gateway_responses_chat_fallback.go",
+        "backend/internal/service/openai_json_object_field_edit.go",
+        "backend/internal/service/openai_json_object_field_edit_test.go"
+      ],
+      "status": "covered-deepseek-absent-ollama-normalizer",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/openai_deepseek_compat.go",
+        "backend/internal/application/service/openai_deepseek_compat_test.go",
+        "backend/internal/application/service/openai_request_set_patches.go"
+      ],
+      "decision": "DeepSeek 已在历史审查中改为局部消息改写后一次拼接，复用当前线性实现与 benchmark。上游专用 normalizeOllamaCloudChatCompletionsRequest 运行面不存在于本项目，不为性能补丁引入新的协议改写。不替换既有 JSON patch owner。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8904"
+    },
+    {
+      "pr": 8903,
+      "merge_sha": "69d2fae91318359e4e25c0171eaf70364dad3629",
+      "title": "Merge pull request #8903 from jianjianai/perf/openai-raw-chat-stream-flush",
+      "diff_sha256": "74836b004fa76fac9f8d9ecd081f172cd4c7bc4dcaf260b319d77ba77422aa90",
+      "files": [
+        "backend/internal/service/openai_gateway_cc_pipeline.go",
+        "backend/internal/service/openai_gateway_chat_completions_raw.go",
+        "backend/internal/service/openai_gateway_chat_completions_raw_test.go"
+      ],
+      "status": "ported-preserve-performance-switch",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/openai_stream_read_flush.go",
+        "backend/internal/application/service/openai_gateway_chat_completions_raw.go",
+        "backend/internal/application/service/openai_stream_read_flush_test.go"
+      ],
+      "decision": "仅在管理员已开启性能模式时，按上游 Read 合并 raw Chat SSE Flush；等待下一批数据前及 EOF 前刷出已有输出。普通模式继续逐行刷新。保留预输出有界缓冲、静默拒绝检测、断连后排水和 include_usage 契约，不新增 timer 或 goroutine。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8903"
+    },
+    {
+      "pr": 8598,
+      "merge_sha": "4e10912b4eeb2754bd078217388838f9172cce04",
+      "title": "Merge pull request #8598 from lkon2112/fix/billing-heap-test",
+      "diff_sha256": "94109e0e2c6764ed7f89277a7981a3a088ffabe172900f5c57972a04f23eac4e",
+      "files": [
+        "backend/internal/service/billing_inflight_reservation_test.go"
+      ],
+      "status": "not-applicable-unadopted-reservations",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/gateway_usage_billing.go",
+        "docs/UPSTREAM_DEFERRED_STATUS.md",
+        "diagnostics/upstream-deferred-20261115/RESOLUTIONS.json"
+      ],
+      "decision": "此补丁只修复上游 inflight reservation 的测试夹具与隔离堆测量；本项目未采用该预占系统，源文件和估算入口均不存在。沿用当前可靠后结算/独立视频冻结流程；不新增预占运行面或无关测试。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8598"
+    },
+    {
+      "pr": 8914,
+      "merge_sha": "9e9ca6fe95d3d20ca9d099b0c681e336e8d812c4",
+      "title": "Merge pull request #8914 from r266-tech/codex/channel-ultrafast-pricing",
+      "diff_sha256": "771538749f0cd18646999ef000550285e8d414a2133336ecdf980e77e1becd23",
+      "files": [
+        "backend/internal/handler/admin/channel_handler.go",
+        "backend/internal/handler/admin/channel_handler_test.go",
+        "backend/internal/repository/channel_repo_pricing.go",
+        "backend/internal/repository/channel_repo_pricing_reasoning_test.go",
+        "backend/internal/repository/channel_repo_pricing_time_test.go",
+        "backend/internal/repository/channel_ultrafast_pricing_integration_test.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/channel.go",
+        "backend/internal/service/channel_pricing_multipliers_test.go",
+        "backend/internal/service/channel_service.go",
+        "backend/internal/service/channel_ultrafast_pricing_test.go",
+        "backend/internal/service/model_pricing_resolver.go",
+        "backend/migrations/252_channel_pricing_ultrafast_multiplier.sql",
+        "frontend/src/api/admin/channels.ts",
+        "frontend/src/components/admin/channel/PricingEntryCard.vue",
+        "frontend/src/components/admin/channel/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts",
+        "frontend/src/components/admin/channel/__tests__/PricingEntryCard.timePricing.spec.ts",
+        "frontend/src/components/admin/channel/types.ts",
+        "frontend/src/i18n/locales/en/admin/channels.ts",
+        "frontend/src/i18n/locales/zh/admin/channels.ts",
+        "frontend/src/views/admin/ChannelsView.vue",
+        "frontend/src/views/admin/__tests__/ChannelsView.ultrafastPricing.spec.ts"
+      ],
+      "status": "retain-local-channel-billing-contract",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/channel.go",
+        "backend/internal/application/service/billing_openai_ultrafast.go",
+        "backend/internal/application/service/account_stats_pricing.go",
+        "backend/internal/infrastructure/repository/channel_repo_pricing.go",
+        "frontend/src/features/admin-channels/README.md"
+      ],
+      "decision": "本项目此前明确未采用渠道 Fast/Flex/推理独立倍率和额外 TTL 单价字段。此 PR 依赖该套持久计价契约，新增 ultrafast_multiplier、迁移及统计规则会扩大其范围。本轮保留现有分组/渠道显式单价与模型 Ultrafast 策略，不引入独立渠道 Ultra Fast 倍率；该能力未实现。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8914"
+    },
+    {
+      "pr": 8577,
+      "merge_sha": "19d4cb222a24cecde72ba20045f7eb24cf2cf9a5",
+      "title": "Merge pull request #8577 from WGeorgezzzz/fix/openai-stream-idle-timeout-failover",
+      "diff_sha256": "dc40b70699b807fb2e125b35848073e421eb0a83e9dfbdbf6ac06cb5fecab064",
+      "files": [
+        "backend/internal/service/openai_gateway_response_handling.go",
+        "backend/internal/service/openai_stream_idle_timeout_test.go"
+      ],
+      "status": "ported-idle-deadline",
+      "capability_complete": true,
+      "current_owners": [
+        "backend/internal/application/service/openai_gateway_response_handling.go",
+        "backend/internal/application/service/openai_stream_idle_timeout_test.go"
+      ],
+      "decision": "将原轮询 ticker 改为单次 timer，依据最近上游读取的实际剩余间隔重新定时。复用已有语义输出暂存与超时换号路径，已输出内容时不重放；不新增 timer 数量、扫描 worker 或调度查询。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8577"
+    },
+    {
+      "pr": 8174,
+      "merge_sha": "2354c78288d05ec817b4f31a1cf5ebe231e36ba2",
+      "title": "Merge pull request #8174 from wucm667/fix/issue-8172-anthropic-cache-ttl",
+      "diff_sha256": "6f8ba84c67a4c6ed6d78e946c6813821e4138ef365341379bec315c71e1f53c4",
+      "files": [
+        "backend/internal/pkg/apicompat/anthropic_cache_creation_usage_test.go",
+        "backend/internal/pkg/apicompat/anthropic_cache_read_usage_test.go",
+        "backend/internal/pkg/apicompat/anthropic_to_responses_response.go",
+        "backend/internal/pkg/apicompat/chatcompletions_anthropic_bridge.go",
+        "backend/internal/pkg/apicompat/chatcompletions_responses_bridge.go",
+        "backend/internal/pkg/apicompat/responses_anthropic_cache_creation_test.go",
+        "backend/internal/pkg/apicompat/responses_to_anthropic.go",
+        "backend/internal/pkg/apicompat/types.go",
+        "backend/internal/service/account_stats_pricing.go",
+        "backend/internal/service/account_stats_pricing_test.go",
+        "backend/internal/service/anthropic_chat_stream_usage_test.go",
+        "backend/internal/service/anthropic_prompt_total_test.go",
+        "backend/internal/service/antigravity_gateway_service_test.go",
+        "backend/internal/service/antigravity_gateway_upstream.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/billing_service_test.go",
+        "backend/internal/service/gateway_anthropic_apikey_passthrough_test.go",
+        "backend/internal/service/gateway_anthropic_passthrough.go",
+        "backend/internal/service/gateway_cache_compatibility_boundary_test.go",
+        "backend/internal/service/gateway_cache_creation_usage_test.go",
+        "backend/internal/service/gateway_cache_ttl_override_test.go",
+        "backend/internal/service/gateway_forward_as_chat_completions.go",
+        "backend/internal/service/gateway_forward_as_chat_completions_test.go",
+        "backend/internal/service/gateway_forward_as_responses.go",
+        "backend/internal/service/gateway_forward_as_responses_test.go",
+        "backend/internal/service/gateway_service.go",
+        "backend/internal/service/gateway_upstream_response.go",
+        "backend/internal/service/gateway_usage_billing.go",
+        "backend/internal/service/kimi_anthropic_usage_test.go",
+        "backend/internal/service/openai_cache_write_ttl_test.go",
+        "backend/internal/service/openai_gateway_chat_completions_anthropic_native.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_messages_anthropic_native.go",
+        "backend/internal/service/openai_gateway_native_cache_creation_test.go",
+        "backend/internal/service/openai_gateway_responses_anthropic_native.go",
+        "backend/internal/service/openai_gateway_service.go",
+        "backend/internal/service/openai_gateway_usage.go"
+      ],
+      "status": "ported-cache-usage-retain-local-boundaries",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/internal/application/service/gateway_anthropic_usage.go",
+        "backend/internal/application/service/gateway_usage_tokens.go",
+        "backend/internal/application/service/gateway_upstream_response.go",
+        "backend/internal/application/service/openai_gateway_usage.go",
+        "backend/internal/shared/apicompat/anthropic_usage.go",
+        "backend/internal/shared/apicompat/chatcompletions_responses_bridge.go"
+      ],
+      "decision": "在当前 application/shared owner 适配累计 5m/1h TTL 快照、缺失/null/显式零、缓存别名和 prompt 总量归一化；保留聚合优先、矛盾明细按比例限幅并将聚合余量按 5m 计费。统一客户计费与账号统计的互斥桶，保留现有可靠结算。raw 文本 delta 无 usage 时立即返回；usage 对象一次遍历，以值/presence 快照合并避免临时指针分配。复用已关闭 #6132 的 delta 零值不覆盖正明细契约，不采用零值清除，保留本地占位、缓冲 EOF 兼容及 include_usage 开关；不引入上游独立渠道 1h/12h/推理字段或 OpenAI 30m/12h 新计价契约。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8174"
+    },
+    {
+      "pr": 8920,
+      "merge_sha": "5af9afb588c4b014b3df9db7d4073af1f8ae01b6",
+      "title": "Merge pull request #8920 from Wei-Shaw/fix/openai-stream-idle-failover-budget",
+      "diff_sha256": "52e7d77855033c7d648c826d47a38a3cf1ef6b098f0f005ca7f4215c0d9e1e27",
+      "files": [
+        "backend/internal/service/openai_gateway_response_handling.go",
+        "backend/internal/service/openai_stream_idle_timeout_test.go"
+      ],
+      "status": "ported-bounded-idle-failover",
+      "capability_complete": true,
+      "current_owners": [
+        "backend/internal/application/service/openai_gateway_response_handling.go",
+        "backend/internal/transport/http/handler/openai_gateway_support.go",
+        "backend/internal/transport/http/handler/openai_gateway_first_output_timeout_test.go"
+      ],
+      "decision": "无语义输出的 idle timeout 标记 SafeToFailoverAfterWrite 并保留响应头，复用已有首输出请求级一次换号预算。keepalive 不算语义输出；部分输出、客户端断连、工具重放、账号槽位释放与失败排除继续执行原有门禁。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger.",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8920"
+    },
+    {
+      "pr": null,
+      "merge_sha": "2af3f1e15c98c893a89255a037f551046883b8c0",
+      "title": "chore: sync VERSION to 0.2.23 [skip ci]",
+      "diff_sha256": "79f10caba929f5538d94a4cc3be4c30086f3db9360da644d8b1ccfd3d5f3a35c",
+      "files": [
+        "backend/cmd/server/VERSION"
+      ],
+      "status": "retain-local-version",
+      "capability_complete": false,
+      "current_owners": [
+        "backend/cmd/server/VERSION",
+        "backend/scripts/resolve-version.sh"
+      ],
+      "decision": "上游 0.2.23 为其发行编号，保留 fork 版本，不创建发行标签。",
+      "diff_review_closed": true,
+      "reopen_when": "Changed frozen upstream semantics, a demonstrated current-owner regression, or an explicitly commissioned unimplemented capability. The same PR and net diff hash are not a reopen trigger."
+    }
+  ],
+  "inherited_ledgers": [
+    {
+      "path": "diagnostics/upstream-deferred-20261115/UPSTREAM_PRS.json",
+      "sha256": "bff83d0d7a14827b826185391fcf69116338ae9197a680686df7ee3c1fe5dd04"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116/UPSTREAM_PRS.json",
+      "sha256": "61da2564ce13d4364c32b5403e074b846da4a2d777599b8657747a89b006ec91"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116-followup/UPSTREAM_PRS.json",
+      "sha256": "f85d33399f87f8800a2ff27d6c91e770d545388bc6d82a4551c91889de53b2ab"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261117/UPSTREAM_PRS.json",
+      "sha256": "d755d12bf6306e473c3f8eb7f05d1f5cdb04368ca4e84e12d4b720edd7e2e207"
+    }
+  ],
+  "counts": {
+    "covered-core-retain-model-policy": 1,
+    "covered-deepseek-absent-ollama-normalizer": 1,
+    "not-applicable-unadopted-reservations": 1,
+    "ported-bounded-idle-failover": 1,
+    "ported-cache-usage-retain-local-boundaries": 1,
+    "ported-idle-deadline": 1,
+    "ported-preserve-performance-switch": 1,
+    "retain-local-channel-billing-contract": 1,
+    "retain-local-version": 1
+  },
+  "meaning": "Frozen diff closure records an explicit review decision, not feature parity. Four inherited ledgers remain byte-for-byte unchanged; unadopted capabilities stay false."
+}

@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "baseline": "b22b8c95d0388dd94682d92bf8b8986fb90c4ab1",
+  "upstream_base": "15871f904056f548dd874a1d069ffc6cdf777b78",
+  "upstream_head": "2af3f1e15c98c893a89255a037f551046883b8c0",
+  "frozen_at_utc": "2026-11-18T05:07:58.593540+00:00",
+  "entries": [
+    {
+      "pr": 8906,
+      "merge_sha": "a4d3103cd5a075505da604a3d2d5243cbc51f4ea",
+      "title": "Merge pull request #8906 from lyy0709/codex/gpt62-astra-sol",
+      "diff_sha256": "146eaea850df80d133fcc6caa42bfd0d9a065e2710bbbd1bc117643300298c4e",
+      "files": [
+        "backend/internal/pkg/apicompat/anthropic_to_responses.go",
+        "backend/internal/pkg/openai/codex_gpt62_astra.json",
+        "backend/internal/pkg/openai/codex_gpt62_sol.json",
+        "backend/internal/pkg/openai/constants.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/billing_service_test.go",
+        "backend/internal/service/openai_codex_model_metadata.go",
+        "backend/internal/service/openai_codex_models_service.go",
+        "backend/internal/service/openai_codex_transform.go",
+        "backend/internal/service/openai_compat_model.go",
+        "backend/internal/service/openai_compat_prompt_cache_key.go",
+        "backend/internal/service/openai_gateway_messages_chat_fallback.go",
+        "backend/internal/service/openai_gateway_request_body.go",
+        "backend/internal/service/openai_gateway_responses_chat_fallback.go",
+        "backend/internal/service/openai_gateway_usage.go",
+        "backend/internal/service/openai_gpt62_test.go",
+        "backend/internal/service/openai_model_alias.go",
+        "backend/internal/service/pricing_service.go",
+        "backend/resources/model-pricing/model_prices_and_context_window.json",
+        "frontend/src/components/keys/UseKeyModal.vue",
+        "frontend/src/components/keys/__tests__/UseKeyModal.spec.ts",
+        "frontend/src/composables/__tests__/useModelWhitelist.spec.ts",
+        "frontend/src/composables/useModelWhitelist.ts",
+        "frontend/src/i18n/locales/en/admin/overview.ts",
+        "frontend/src/i18n/locales/zh/admin/overview.ts"
+      ]
+    },
+    {
+      "pr": 8904,
+      "merge_sha": "45632495f593697393e6b52b3aabdab9eb1dd9ac",
+      "title": "Merge pull request #8904 from jianjianai/perf/openai-chat-reasoning-single-pass",
+      "diff_sha256": "5da9c5ec4ca4de24ccb84e091da977d88565531db61407ef04ba17cfa5c4c80b",
+      "files": [
+        "backend/internal/service/openai_gateway_ollama_cloud_cc_reasoning.go",
+        "backend/internal/service/openai_gateway_responses_chat_fallback.go",
+        "backend/internal/service/openai_json_object_field_edit.go",
+        "backend/internal/service/openai_json_object_field_edit_test.go"
+      ]
+    },
+    {
+      "pr": 8903,
+      "merge_sha": "69d2fae91318359e4e25c0171eaf70364dad3629",
+      "title": "Merge pull request #8903 from jianjianai/perf/openai-raw-chat-stream-flush",
+      "diff_sha256": "74836b004fa76fac9f8d9ecd081f172cd4c7bc4dcaf260b319d77ba77422aa90",
+      "files": [
+        "backend/internal/service/openai_gateway_cc_pipeline.go",
+        "backend/internal/service/openai_gateway_chat_completions_raw.go",
+        "backend/internal/service/openai_gateway_chat_completions_raw_test.go"
+      ]
+    },
+    {
+      "pr": 8598,
+      "merge_sha": "4e10912b4eeb2754bd078217388838f9172cce04",
+      "title": "Merge pull request #8598 from lkon2112/fix/billing-heap-test",
+      "diff_sha256": "94109e0e2c6764ed7f89277a7981a3a088ffabe172900f5c57972a04f23eac4e",
+      "files": [
+        "backend/internal/service/billing_inflight_reservation_test.go"
+      ]
+    },
+    {
+      "pr": 8914,
+      "merge_sha": "9e9ca6fe95d3d20ca9d099b0c681e336e8d812c4",
+      "title": "Merge pull request #8914 from r266-tech/codex/channel-ultrafast-pricing",
+      "diff_sha256": "771538749f0cd18646999ef000550285e8d414a2133336ecdf980e77e1becd23",
+      "files": [
+        "backend/internal/handler/admin/channel_handler.go",
+        "backend/internal/handler/admin/channel_handler_test.go",
+        "backend/internal/repository/channel_repo_pricing.go",
+        "backend/internal/repository/channel_repo_pricing_reasoning_test.go",
+        "backend/internal/repository/channel_repo_pricing_time_test.go",
+        "backend/internal/repository/channel_ultrafast_pricing_integration_test.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/channel.go",
+        "backend/internal/service/channel_pricing_multipliers_test.go",
+        "backend/internal/service/channel_service.go",
+        "backend/internal/service/channel_ultrafast_pricing_test.go",
+        "backend/internal/service/model_pricing_resolver.go",
+        "backend/migrations/252_channel_pricing_ultrafast_multiplier.sql",
+        "frontend/src/api/admin/channels.ts",
+        "frontend/src/components/admin/channel/PricingEntryCard.vue",
+        "frontend/src/components/admin/channel/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts",
+        "frontend/src/components/admin/channel/__tests__/PricingEntryCard.timePricing.spec.ts",
+        "frontend/src/components/admin/channel/types.ts",
+        "frontend/src/i18n/locales/en/admin/channels.ts",
+        "frontend/src/i18n/locales/zh/admin/channels.ts",
+        "frontend/src/views/admin/ChannelsView.vue",
+        "frontend/src/views/admin/__tests__/ChannelsView.ultrafastPricing.spec.ts"
+      ]
+    },
+    {
+      "pr": 8577,
+      "merge_sha": "19d4cb222a24cecde72ba20045f7eb24cf2cf9a5",
+      "title": "Merge pull request #8577 from WGeorgezzzz/fix/openai-stream-idle-timeout-failover",
+      "diff_sha256": "dc40b70699b807fb2e125b35848073e421eb0a83e9dfbdbf6ac06cb5fecab064",
+      "files": [
+        "backend/internal/service/openai_gateway_response_handling.go",
+        "backend/internal/service/openai_stream_idle_timeout_test.go"
+      ]
+    },
+    {
+      "pr": 8174,
+      "merge_sha": "2354c78288d05ec817b4f31a1cf5ebe231e36ba2",
+      "title": "Merge pull request #8174 from wucm667/fix/issue-8172-anthropic-cache-ttl",
+      "diff_sha256": "6f8ba84c67a4c6ed6d78e946c6813821e4138ef365341379bec315c71e1f53c4",
+      "files": [
+        "backend/internal/pkg/apicompat/anthropic_cache_creation_usage_test.go",
+        "backend/internal/pkg/apicompat/anthropic_cache_read_usage_test.go",
+        "backend/internal/pkg/apicompat/anthropic_to_responses_response.go",
+        "backend/internal/pkg/apicompat/chatcompletions_anthropic_bridge.go",
+        "backend/internal/pkg/apicompat/chatcompletions_responses_bridge.go",
+        "backend/internal/pkg/apicompat/responses_anthropic_cache_creation_test.go",
+        "backend/internal/pkg/apicompat/responses_to_anthropic.go",
+        "backend/internal/pkg/apicompat/types.go",
+        "backend/internal/service/account_stats_pricing.go",
+        "backend/internal/service/account_stats_pricing_test.go",
+        "backend/internal/service/anthropic_chat_stream_usage_test.go",
+        "backend/internal/service/anthropic_prompt_total_test.go",
+        "backend/internal/service/antigravity_gateway_service_test.go",
+        "backend/internal/service/antigravity_gateway_upstream.go",
+        "backend/internal/service/billing_service.go",
+        "backend/internal/service/billing_service_test.go",
+        "backend/internal/service/gateway_anthropic_apikey_passthrough_test.go",
+        "backend/internal/service/gateway_anthropic_passthrough.go",
+        "backend/internal/service/gateway_cache_compatibility_boundary_test.go",
+        "backend/internal/service/gateway_cache_creation_usage_test.go",
+        "backend/internal/service/gateway_cache_ttl_override_test.go",
+        "backend/internal/service/gateway_forward_as_chat_completions.go",
+        "backend/internal/service/gateway_forward_as_chat_completions_test.go",
+        "backend/internal/service/gateway_forward_as_responses.go",
+        "backend/internal/service/gateway_forward_as_responses_test.go",
+        "backend/internal/service/gateway_service.go",
+        "backend/internal/service/gateway_upstream_response.go",
+        "backend/internal/service/gateway_usage_billing.go",
+        "backend/internal/service/kimi_anthropic_usage_test.go",
+        "backend/internal/service/openai_cache_write_ttl_test.go",
+        "backend/internal/service/openai_gateway_chat_completions_anthropic_native.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_messages_anthropic_native.go",
+        "backend/internal/service/openai_gateway_native_cache_creation_test.go",
+        "backend/internal/service/openai_gateway_responses_anthropic_native.go",
+        "backend/internal/service/openai_gateway_service.go",
+        "backend/internal/service/openai_gateway_usage.go"
+      ]
+    },
+    {
+      "pr": 8920,
+      "merge_sha": "5af9afb588c4b014b3df9db7d4073af1f8ae01b6",
+      "title": "Merge pull request #8920 from Wei-Shaw/fix/openai-stream-idle-failover-budget",
+      "diff_sha256": "52e7d77855033c7d648c826d47a38a3cf1ef6b098f0f005ca7f4215c0d9e1e27",
+      "files": [
+        "backend/internal/service/openai_gateway_response_handling.go",
+        "backend/internal/service/openai_stream_idle_timeout_test.go"
+      ]
+    },
+    {
+      "pr": null,
+      "merge_sha": "2af3f1e15c98c893a89255a037f551046883b8c0",
+      "title": "chore: sync VERSION to 0.2.23 [skip ci]",
+      "diff_sha256": "79f10caba929f5538d94a4cc3be4c30086f3db9360da644d8b1ccfd3d5f3a35c",
+      "files": [
+        "backend/cmd/server/VERSION"
+      ]
+    }
+  ]
+}

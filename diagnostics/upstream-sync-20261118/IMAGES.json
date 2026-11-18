@@ -1,0 +1,46 @@
+[
+  {
+    "Id": "sha256:b1f94ac7aaaee582e017d188095a2ca571e3cce333049ea5e7f3121cc04e245e",
+    "RepoTags": [
+      "sub2api:sync-baseline-20261118"
+    ],
+    "RepoDigests": [
+      "sub2api@sha256:b1f94ac7aaaee582e017d188095a2ca571e3cce333049ea5e7f3121cc04e245e"
+    ],
+    "Architecture": "arm64",
+    "Os": "linux"
+  },
+  {
+    "Id": "sha256:b090d64ad9322f51bfbe9a1f1dfc6a7e5519cd26cdf25d444280e6a9412aa323",
+    "RepoTags": [
+      "sub2api:sync-candidate-20261118"
+    ],
+    "RepoDigests": [
+      "sub2api@sha256:b090d64ad9322f51bfbe9a1f1dfc6a7e5519cd26cdf25d444280e6a9412aa323"
+    ],
+    "Architecture": "arm64",
+    "Os": "linux"
+  },
+  {
+    "Id": "sha256:ae52b5bc6ed045a9ed26ab03dc19327a802a9cc9aa8b27ed57f5c6b60579b0bb",
+    "RepoTags": [
+      "golang:1.26.11-alpine"
+    ],
+    "RepoDigests": [
+      "golang@sha256:ae52b5bc6ed045a9ed26ab03dc19327a802a9cc9aa8b27ed57f5c6b60579b0bb"
+    ],
+    "Architecture": "arm64",
+    "Os": "linux"
+  },
+  {
+    "Id": "sha256:29abad441429495c463f3809a8bca54bb5d1eb48dd92ce6dfdc4126ea29a1394",
+    "RepoTags": [
+      "sub2api:png-gif-go12611-lint"
+    ],
+    "RepoDigests": [
+      "sub2api@sha256:29abad441429495c463f3809a8bca54bb5d1eb48dd92ce6dfdc4126ea29a1394"
+    ],
+    "Architecture": "arm64",
+    "Os": "linux"
+  }
+]
