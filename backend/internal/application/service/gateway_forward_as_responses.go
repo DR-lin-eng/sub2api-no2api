@@ -323,24 +323,6 @@ func ExtractResponsesReasoningEffortFromBody(body []byte, modelCandidates ...str
 	return &normalized
 }
 
-func mergeAnthropicUsage(dst *ClaudeUsage, src apicompat.AnthropicUsage) {
-	if dst == nil {
-		return
-	}
-	if src.InputTokens > 0 {
-		dst.InputTokens = src.InputTokens
-	}
-	if src.OutputTokens > 0 {
-		dst.OutputTokens = src.OutputTokens
-	}
-	if src.CacheReadInputTokens > 0 {
-		dst.CacheReadInputTokens = src.CacheReadInputTokens
-	}
-	if src.CacheCreationInputTokens > 0 {
-		dst.CacheCreationInputTokens = src.CacheCreationInputTokens
-	}
-}
-
 // handleResponsesBufferedStreamingResponse reads all Anthropic SSE events from
 // the upstream streaming response, assembles them into a complete Anthropic
 // response, converts to Responses API JSON format, and writes it to the client.
@@ -454,14 +436,7 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 	}
 
 	// Update usage from accumulated delta
-	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
-		finalResp.Usage = apicompat.AnthropicUsage{
-			InputTokens:              usage.InputTokens,
-			OutputTokens:             usage.OutputTokens,
-			CacheCreationInputTokens: usage.CacheCreationInputTokens,
-			CacheReadInputTokens:     usage.CacheReadInputTokens,
-		}
-	}
+	normalizeAnthropicEventUsageForResponses(&apicompat.AnthropicStreamEvent{Message: finalResp}, usage)
 
 	// Convert to Responses format
 	if isClaude55SignedThinkingModel(mappedModel) {
@@ -638,6 +613,8 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 		}
 
 		// Convert to Responses events
+		normalizeAnthropicEventUsageForResponses(event, usage)
+		syncAnthropicResponsesUsage(state, usage)
 		events := apicompat.AnthropicEventToResponsesEvents(event, state)
 		for _, evt := range events {
 			if writeEvent(evt) {

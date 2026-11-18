@@ -627,6 +627,11 @@ handler success/usage
 - 缓存回填使用版本/新旧保护，避免旧数据库快照覆盖更晚的扣费结果。
 - 修改计费时同时验证余额模式、订阅模式、重复提交、并发提交和故障恢复。
 
+Anthropic/兼容上游的 5m/1h 累计快照由 `gateway_anthropic_usage.go` 合并，再经
+`gateway_usage_tokens.go` 生成互斥计费桶。聚合优先于矛盾明细，未分类余量按 5m 计价；
+缓存别名和 `prompt_tokens` 总量不会再次算入普通输入。delta 零占位、原渠道单价及升级期间的
+流量/worker 隔离限制见 [2026-11-18 同步](UPSTREAM_SYNC_20261118.md)。
+
 ### 价格目录与官方费率
 
 `PricingService` 在启动时加载缓存，并按配置检查远端目录；渠道和分组自定义定价仍优先于模型目录。默认远端跟踪独立的 `model-price-repo/main` 数据源，内置文件补充缺失模型，两个 service 的静态价格承担最后兜底。

@@ -1,0 +1,185 @@
+{
+  "final_gates": "PASS",
+  "successful_gates": [
+    "backend-unit-release",
+    "backend-lint",
+    "backend-lint-final",
+    "integration-final",
+    "build-baseline",
+    "build-final",
+    "runtime-final",
+    "performance-optimized",
+    "docs",
+    "source-layout",
+    "source-hashes",
+    "ledger",
+    "ledger-ancestry"
+  ],
+  "records": {
+    "integration-final": {
+      "exit_code": 0,
+      "elapsed_seconds": 409.287,
+      "record": "records/integration-final.json"
+    },
+    "backend-unit": {
+      "exit_code": 1,
+      "elapsed_seconds": 586.203,
+      "record": "records/backend-unit.json"
+    },
+    "focused-adapted": {
+      "exit_code": 1,
+      "elapsed_seconds": 95.342,
+      "record": "records/focused-adapted.json"
+    },
+    "runtime-final": {
+      "exit_code": 0,
+      "elapsed_seconds": 34.242,
+      "record": "records/runtime-final.json"
+    },
+    "runtime": {
+      "exit_code": 1,
+      "elapsed_seconds": 11.793,
+      "record": "records/runtime.json"
+    },
+    "build-optimized": {
+      "exit_code": 0,
+      "elapsed_seconds": 27.851,
+      "record": "records/build-optimized.json"
+    },
+    "source-hashes": {
+      "exit_code": 0,
+      "elapsed_seconds": 0.04,
+      "record": "records/source-hashes.json"
+    },
+    "focused-cache-stream": {
+      "exit_code": 1,
+      "elapsed_seconds": 98.926,
+      "record": "records/focused-cache-stream.json"
+    },
+    "docs": {
+      "exit_code": 0,
+      "elapsed_seconds": 0.69,
+      "record": "records/docs.json"
+    },
+    "backend-unit-release": {
+      "exit_code": 0,
+      "elapsed_seconds": 350.077,
+      "record": "records/backend-unit-release.json"
+    },
+    "focused-contracts": {
+      "exit_code": 1,
+      "elapsed_seconds": 3.233,
+      "record": "records/focused-contracts.json"
+    },
+    "build-baseline": {
+      "exit_code": 0,
+      "elapsed_seconds": 74.868,
+      "record": "records/build-baseline.json"
+    },
+    "build-candidate": {
+      "exit_code": 0,
+      "elapsed_seconds": 54.348,
+      "record": "records/build-candidate.json"
+    },
+    "backend-lint": {
+      "exit_code": 0,
+      "elapsed_seconds": 553.733,
+      "record": "records/backend-lint.json"
+    },
+    "runtime-baseline-corrected": {
+      "exit_code": 1,
+      "elapsed_seconds": 10.236,
+      "record": "records/runtime-baseline-corrected.json"
+    },
+    "focused-compatible": {
+      "exit_code": 1,
+      "elapsed_seconds": 7.183,
+      "record": "records/focused-compatible.json"
+    },
+    "focused-initial": {
+      "exit_code": 1,
+      "elapsed_seconds": 7.001,
+      "record": "records/focused-initial.json"
+    },
+    "runtime-query-fixture": {
+      "exit_code": 1,
+      "elapsed_seconds": 11.185,
+      "record": "records/runtime-query-fixture.json"
+    },
+    "build-final": {
+      "exit_code": 0,
+      "elapsed_seconds": 32.173,
+      "record": "records/build-final.json"
+    },
+    "performance": {
+      "exit_code": 1,
+      "elapsed_seconds": 83.009,
+      "record": "records/performance.json"
+    },
+    "performance-final": {
+      "exit_code": 0,
+      "elapsed_seconds": 119.391,
+      "record": "records/performance-final.json"
+    },
+    "backend-unit-final": {
+      "exit_code": 1,
+      "elapsed_seconds": 550.526,
+      "record": "records/backend-unit-final.json"
+    },
+    "performance-optimized": {
+      "exit_code": 0,
+      "elapsed_seconds": 139.809,
+      "record": "records/performance-optimized.json"
+    },
+    "focused-final-check": {
+      "exit_code": 0,
+      "elapsed_seconds": 99.319,
+      "record": "records/focused-final-check.json"
+    },
+    "integration": {
+      "exit_code": 1,
+      "elapsed_seconds": 433.667,
+      "record": "records/integration.json"
+    },
+    "cache-compile-initial": {
+      "exit_code": 1,
+      "elapsed_seconds": 9.525,
+      "record": "records/cache-compile-initial.json"
+    },
+    "source-layout": {
+      "exit_code": 0,
+      "elapsed_seconds": 0.255,
+      "record": "records/source-layout.json"
+    },
+    "focused-optimized": {
+      "exit_code": 0,
+      "elapsed_seconds": 138.609,
+      "record": "records/focused-optimized.json"
+    },
+    "ledger": {
+      "exit_code": 0,
+      "elapsed_seconds": 0.286,
+      "record": "records/ledger.json"
+    },
+    "backend-lint-final": {
+      "exit_code": 0,
+      "elapsed_seconds": 353.812,
+      "record": "records/backend-lint-final.json"
+    },
+    "focused-refined": {
+      "exit_code": 1,
+      "elapsed_seconds": 7.293,
+      "record": "records/focused-refined.json"
+    },
+    "ledger-ancestry": {
+      "exit_code": 0,
+      "elapsed_seconds": 0.268,
+      "record": "records/ledger-ancestry.json"
+    }
+  },
+  "source_hashes": "PASS",
+  "fixture_http_cases": 56,
+  "runtime_stages": 4,
+  "migration_count": 317,
+  "unit_test_entries_including_subtests": 24926
+}

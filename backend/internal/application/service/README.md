@@ -167,3 +167,9 @@ Hydrogen 价卡在既有 Gemini fallback owner；模型发现与前端选择器�
 已关闭的分组强制档位边界和混合版本价格顺序见 [2026-11-17 审查](../../../../docs/UPSTREAM_SYNC_20261117.md)。
 
 `openai_gpt62_request.go` 在原生 Responses 和 Chat 兼容入口复用局部参数补丁；GPT-6.2 的目录、价卡和 Ultrafast 优惠时间边界见 [模型说明](../../../../docs/GPT6_MODELS.md)。兼容转换在终止事件保留实际 service tier，交给既有可靠结算。
+
+`gateway_anthropic_usage.go` 合并累计缓存 TTL、provider prompt 总量与读取别名；
+`gateway_usage_tokens.go` 将其投影为客户计费和账号统计共用的互斥 token 桶。
+`openai_stream_read_flush.go` 仅在原性能模式下按上游 Read 合并 raw Chat 刷新；
+idle timeout 沿用现有首输出安全重放与一次换号预算。范围、保留契约与升级顺序见
+[2026-11-18 审查](../../../../docs/UPSTREAM_SYNC_20261118.md)。

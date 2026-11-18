@@ -408,7 +408,7 @@ func TestStreamRawChatCompletionsBoundsSilentPreOutput(t *testing.T) {
 	require.GreaterOrEqual(t, rec.Body.Len(), openAIStreamPreOutputBufferLimit)
 }
 
-func TestStreamRawChatCompletionsPerformanceModeFlushesAtEventBoundaries(t *testing.T) {
+func TestStreamRawChatCompletionsPerformanceModeFlushesAtReadBoundaries(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstreamBody := strings.Join([]string{
 		`data: {"id":"chatcmpl_1","choices":[{"delta":{"content":"hello"}}]}`,
@@ -454,7 +454,7 @@ func TestStreamRawChatCompletionsPerformanceModeFlushesAtEventBoundaries(t *test
 	optimizedRecorder, optimizedWriter := run(true)
 	require.Equal(t, legacyRecorder.Body.String(), optimizedRecorder.Body.String())
 	require.Equal(t, 4, len(legacyWriter.flushBodyLengths))
-	require.Equal(t, 2, len(optimizedWriter.flushBodyLengths))
+	require.Equal(t, 1, len(optimizedWriter.flushBodyLengths))
 }
 
 func TestHandleChatStreamingResponseBoundsSilentPreOutput(t *testing.T) {
