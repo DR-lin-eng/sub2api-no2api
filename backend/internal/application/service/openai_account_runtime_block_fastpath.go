@@ -81,6 +81,10 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	defer cancel()
 	stateCtx = withOAuth401CleanupAttemptState(stateCtx)
 	modelScope := firstRequestedModel(canonicalModel)
+	if s.rateLimitService != nil {
+		// Revoke workspace peers before optional cleanup removes the trigger.
+		s.rateLimitService.maybeHandleOpenAITeamLinkedError(stateCtx, account, statusCode, responseBody)
+	}
 	if s.rateLimitService != nil && s.rateLimitService.tryAutoDeleteOAuthAccountOnAuthError(stateCtx, account, statusCode, responseBody) {
 		return true
 	}
@@ -111,11 +115,6 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 
 	if s == nil || account == nil {
 		return false
-	}
-	if s.rateLimitService != nil {
-		// Run before model-scoped early returns so a deactivated Team cannot leave
-		// sibling accounts serving traffic after the first 402 response.
-		s.rateLimitService.maybeHandleOpenAITeamLinkedError(stateCtx, account, statusCode, responseBody)
 	}
 	if s.rateLimitService != nil && len(canonicalModel) > 0 && s.rateLimitService.HandleUpstreamModelNotFound(stateCtx, account, canonicalModel[0], statusCode, responseBody) {
 		return true

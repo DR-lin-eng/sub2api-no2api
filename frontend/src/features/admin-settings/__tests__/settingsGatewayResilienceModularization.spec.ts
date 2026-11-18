@@ -48,7 +48,7 @@ const cards = [
     marker: 'OAuth 401 Cleanup Settings',
     component: 'SettingsOAuth401CleanupCard',
     file: 'SettingsOAuth401CleanupCard.vue',
-    templateHash: '5ffe4ea1d4cb5e8fb4425c107f93ddbd840db04fee6981df45867e7f2a36cdad',
+    templateHash: 'a521292caa185ecefbd1c479195a987cc29b89b9b8efab864c07044e5eaf76ee',
   },
   {
     marker: 'Stream Timeout Settings',

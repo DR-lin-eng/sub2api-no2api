@@ -1648,7 +1648,29 @@ describe("admin SettingsView payment visible method controls", () => {
     await flushPromises();
 
     expect(confirm).toHaveBeenCalledWith("admin.settings.oauth401Cleanup.confirmEnable");
-    expect(updateOAuth401CleanupSettings).toHaveBeenCalledWith({ enabled: true });
+    expect(updateOAuth401CleanupSettings).toHaveBeenCalledWith({ enabled: true, revoke_same_workspace: false });
+    confirm.mockRestore();
+  });
+
+  it("saves same-workspace revocation independently of OAuth account deletion", async () => {
+    getOAuth401CleanupSettings.mockResolvedValueOnce({ enabled: false, revoke_same_workspace: true });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const card = wrapper.findAll(".card").find((node) => node.text().includes("admin.settings.oauth401Cleanup.title"));
+    expect(card).toBeDefined();
+    const toggle = card!.get('[data-testid="workspace-revocation-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+    await toggle.setValue(false);
+    await card!.findAll("button").find((node) => node.text().includes("common.save"))?.trigger("click");
+    await flushPromises();
+    expect(updateOAuth401CleanupSettings).toHaveBeenCalledWith({ enabled: false, revoke_same_workspace: false });
+    await toggle.setValue(true);
+    await card!.findAll("button").find((node) => node.text().includes("common.save"))?.trigger("click");
+    await flushPromises();
+    expect(updateOAuth401CleanupSettings).toHaveBeenLastCalledWith({ enabled: false, revoke_same_workspace: true });
+    expect(confirm).not.toHaveBeenCalled();
     confirm.mockRestore();
   });
 

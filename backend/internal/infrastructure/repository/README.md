@@ -7,6 +7,7 @@
 `gateway_cache_integrity.go` 保存第一方 OAuth integrity 状态的共享读取与 Lua 原子 expected-state CAS。
 `account_repo_lenovo_attribution.go` 保存账号归因安装身份、请求租约和结果的凭据/状态 CAS；普通编辑与通用 Extra 补丁保留其当前状态。
 `account_repo_location.go` 原子固定账号首次位置偏移；`gateway_cache_location.go` 按固定 TTL 共享按请求生成的坐标和精度。
+`account_repo_workspace_revocation.go` 按当前 OpenAI 工作区锁定 OAuth 凭据 owner，原子停用 owner/影子账号并写调度 outbox；返回实际变更的 ID，避免应用层旧列表误伤已切换工作区的账号。
 `gateway_cache_codex_session.go` 原子创建并续期 Codex 虚拟会话身份，保持 UUIDv7 的首次生成时间和跨实例缓存亲和性。
 
 | 前缀 | 职责 |

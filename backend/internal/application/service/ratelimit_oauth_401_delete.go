@@ -11,8 +11,9 @@ import (
 const oauth401PostDeleteCleanupTimeout = 2 * time.Second
 
 type cachedOAuth401CleanupPolicy struct {
-	enabled   bool
-	expiresAt int64
+	enabled             bool
+	revokeSameWorkspace bool
+	expiresAt           int64
 }
 
 type oauth401CleanupAttemptContextKey struct{}
@@ -103,32 +104,36 @@ func (s *RateLimitService) tryAutoDeleteOAuthAccountOnAuthError(ctx context.Cont
 }
 
 func (s *RateLimitService) oauth401CleanupEnabled(ctx context.Context) bool {
+	return s.loadOAuth401CleanupPolicy(ctx).enabled
+}
+
+func (s *RateLimitService) loadOAuth401CleanupPolicy(ctx context.Context) *cachedOAuth401CleanupPolicy {
 	if s == nil || s.settingService == nil {
-		return false
+		return &cachedOAuth401CleanupPolicy{}
 	}
 	now := time.Now().UnixNano()
 	if cached, ok := s.oauth401CleanupPolicyCache.Load().(*cachedOAuth401CleanupPolicy); ok &&
 		cached != nil && now < cached.expiresAt {
-		return cached.enabled
+		return cached
 	}
 	value, _, _ := s.oauth401CleanupPolicySF.Do("oauth_401_cleanup", func() (any, error) {
 		checkNow := time.Now().UnixNano()
 		if cached, ok := s.oauth401CleanupPolicyCache.Load().(*cachedOAuth401CleanupPolicy); ok &&
 			cached != nil && checkNow < cached.expiresAt {
-			return cached.enabled, nil
+			return cached, nil
 		}
-		enabled := false
+		policy := &cachedOAuth401CleanupPolicy{expiresAt: time.Now().Add(openAIFailurePolicyCacheTTL).UnixNano()}
 		if settings, err := s.settingService.GetOAuth401CleanupSettings(ctx); err == nil && settings != nil {
-			enabled = settings.Enabled
+			policy.enabled = settings.Enabled
+			policy.revokeSameWorkspace = settings.RevokeSameWorkspace
 		} else if err != nil {
 			slog.Warn("oauth_401_cleanup_settings_load_failed", "error", err)
 		}
-		s.oauth401CleanupPolicyCache.Store(&cachedOAuth401CleanupPolicy{
-			enabled:   enabled,
-			expiresAt: time.Now().Add(openAIFailurePolicyCacheTTL).UnixNano(),
-		})
-		return enabled, nil
+		s.oauth401CleanupPolicyCache.Store(policy)
+		return policy, nil
 	})
-	enabled, _ := value.(bool)
-	return enabled
+	if policy, ok := value.(*cachedOAuth401CleanupPolicy); ok && policy != nil {
+		return policy
+	}
+	return &cachedOAuth401CleanupPolicy{}
 }

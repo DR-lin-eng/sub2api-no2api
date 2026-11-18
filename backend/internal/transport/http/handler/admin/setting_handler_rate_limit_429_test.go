@@ -51,8 +51,29 @@ func TestUpdateOAuth401CleanupSettings(t *testing.T) {
 	handler.UpdateOAuth401CleanupSettings(c)
 
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
-	require.JSONEq(t, `{"enabled":true}`, repo.values[service.SettingKeyOAuth401CleanupSettings])
+	require.JSONEq(t, `{"enabled":true,"revoke_same_workspace":false}`, repo.values[service.SettingKeyOAuth401CleanupSettings])
 	require.Contains(t, recorder.Body.String(), `"enabled":true`)
+}
+
+func TestUpdateOAuth401CleanupSettingsPreservesIndependentSwitches(t *testing.T) {
+	for _, tt := range []struct{ name, before, request, want string }{
+		{"workspace_only", `{"enabled":true}`, `{"revoke_same_workspace":true}`, `{"enabled":true,"revoke_same_workspace":true}`},
+		{"legacy_client", `{"enabled":false,"revoke_same_workspace":true}`, `{"enabled":true}`, `{"enabled":true,"revoke_same_workspace":true}`},
+		{"disable_workspace", `{"enabled":true,"revoke_same_workspace":true}`, `{"revoke_same_workspace":false}`, `{"enabled":true,"revoke_same_workspace":false}`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, repo := newPanelSettingHandlerTest()
+			repo.values = map[string]string{service.SettingKeyOAuth401CleanupSettings: tt.before}
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings/oauth-401-cleanup", bytes.NewBufferString(tt.request))
+			c.Request.Header.Set("Content-Type", "application/json")
+			handler.UpdateOAuth401CleanupSettings(c)
+			require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+			require.JSONEq(t, tt.want, repo.values[service.SettingKeyOAuth401CleanupSettings])
+			require.Contains(t, recorder.Body.String(), `"revoke_same_workspace":`)
+		})
+	}
 }
 
 func TestUpdateRateLimit429CooldownSettingsUpdatesQuotaCheckSwitch(t *testing.T) {
