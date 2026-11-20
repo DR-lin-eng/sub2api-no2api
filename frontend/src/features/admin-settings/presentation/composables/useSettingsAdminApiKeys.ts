@@ -1,3 +1,4 @@
+import { isStepUpCancelled, type StepUpController } from '@/common/composables/useStepUp'
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -21,6 +22,7 @@ import { useAppStore } from '@/core/stores/appStore'
 
 export function useSettingsAdminApiKeys(
   copyToClipboard: (text: string, successMessage?: string) => Promise<boolean>,
+  stepUp: Pick<StepUpController, "run">,
 ) {
   const { t } = useI18n()
   const appStore = useAppStore()
@@ -45,6 +47,10 @@ export function useSettingsAdminApiKeys(
   const adminApiKeyScopeOptions: Array<{ value: AdminApiKeyScope; label: string }> = [
     { value: "admin.read", label: "全部只读" },
     { value: "admin.write", label: "全部写入" },
+    { value: "admin.migration.users.export", label: t("admin.settings.adminApiKey.migrationUsersExportScope") },
+    { value: "admin.migration.users.import", label: t("admin.settings.adminApiKey.migrationUsersImportScope") },
+    { value: "admin.migration.export", label: t("admin.settings.adminApiKey.migrationExportScope") },
+    { value: "admin.migration.import", label: t("admin.settings.adminApiKey.migrationImportScope") },
     { value: "admin.redeem.secrets", label: t("admin.settings.adminApiKey.redeemSecretsScope") },
     { value: "admin.users.read", label: "用户读取" },
     { value: "admin.users.write", label: "用户修改" },
@@ -94,10 +100,11 @@ export function useSettingsAdminApiKeys(
         expires_at: adminApiKeyExpiryPayload(),
       };
       if (editingAdminApiKeyId.value) {
-        await updateAdminApiKey(editingAdminApiKeyId.value, request);
+        const id = editingAdminApiKeyId.value;
+        await stepUp.run(() => updateAdminApiKey(id, request));
         editingAdminApiKeyId.value = null;
       } else {
-        const result = await createAdminApiKeyAction(request);
+        const result = await stepUp.run(() => createAdminApiKeyAction(request));
         adminApiKeyPanelSecret.value = result.key;
       }
       adminApiKeyForm.name = "";
@@ -106,6 +113,7 @@ export function useSettingsAdminApiKeys(
       await loadScopedAdminApiKeys();
       appStore.showSuccess(t("admin.settings.adminApiKey.keyGenerated"));
     } catch (error: unknown) {
+      if (isStepUpCancelled(error)) return;
       appStore.showError(extractApiErrorMessage(error, t("common.error")));
     } finally {
       adminApiKeyPanelOperating.value = false;
@@ -131,10 +139,11 @@ export function useSettingsAdminApiKeys(
     if (!confirm(t("admin.settings.adminApiKey.regenerateConfirm"))) return;
     adminApiKeyPanelOperating.value = true;
     try {
-      const result = await rotateAdminApiKey(id);
+      const result = await stepUp.run(() => rotateAdminApiKey(id));
       adminApiKeyPanelSecret.value = result.key;
       await loadScopedAdminApiKeys();
     } catch (error: unknown) {
+      if (isStepUpCancelled(error)) return;
       appStore.showError(extractApiErrorMessage(error, t("common.error")));
     } finally {
       adminApiKeyPanelOperating.value = false;

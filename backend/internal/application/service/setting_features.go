@@ -250,11 +250,17 @@ func (s *SettingService) IsSessionBindingEnabled(ctx context.Context) bool {
 // 开启时账号/代理导出、备份创建/下载、S3 配置修改、提升管理员等操作
 // 要求当前会话在有效期内完成过 TOTP step-up 验证。
 func (s *SettingService) IsStepUpEnabled(ctx context.Context) bool {
+	enabled, _ := s.ReadStepUpEnabled(ctx)
+	return enabled
+}
+
+// ReadStepUpEnabled distinguishes first installation from an unavailable policy store.
+func (s *SettingService) ReadStepUpEnabled(ctx context.Context) (bool, error) {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyStepUpEnabled)
-	if err != nil {
-		return false // 默认关闭
+	if errors.Is(err, ErrSettingNotFound) {
+		return false, nil
 	}
-	return value == "true"
+	return value == "true", err
 }
 
 // defaultAuditLogRetentionDays 审计日志默认保留天数。

@@ -138,6 +138,7 @@ deploy/docker-compose.override.yml
 .gocache/
 vite.config.js
 docs/*
+!docs/SITE_MIGRATION.md
 !docs/UPSTREAM_SYNC_20261116.md
 !docs/UPSTREAM_SYNC_20261116_FOLLOWUP.md
 !docs/UPSTREAM_SYNC_20261117.md

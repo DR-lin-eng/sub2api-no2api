@@ -946,6 +946,10 @@ export default {
         metricsIntervalHint: 'How often to collect system/request metrics (60-3600 seconds)'
       },
       adminApiKey: {
+        migrationUsersExportScope: 'Export regular user logins and optional quotas only',
+        migrationUsersImportScope: 'Import regular user logins and optional quotas only',
+        migrationExportScope: 'Export site data, including user credentials and site keys',
+        migrationImportScope: 'Import site data, including site keys in clone mode',
         redeemSecretsScope: 'Read and export voucher secrets',
         title: 'Admin API Key',
         description: 'Manage resource, read/write and voucher permissions. Existing keys, including the legacy key, can be edited without changing their value; legacy keys default to read-only.',

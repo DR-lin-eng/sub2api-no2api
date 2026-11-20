@@ -56,6 +56,13 @@ func main() {
 	logger.InitBootstrap()
 	defer logger.Sync()
 
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if err := migrate(os.Args[2:]); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
 	// Parse command line flags
 	setupMode := flag.Bool("setup", false, "Run setup wizard in CLI mode")
 	showVersion := flag.Bool("version", false, "Show version information")

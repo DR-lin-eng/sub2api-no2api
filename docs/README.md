@@ -132,6 +132,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [双站迁移](SITE_MIGRATION.md) | 加密推拉、选择性用户同步、两站合并、冲突 CSV 与整站切换 |
 | [部署索引](../deploy/README.md) | 部署方式和配置入口 |
 | [Docker 部署](../deploy/DOCKER.md) | Compose 部署与升级 |
 | [多实例部署](../deploy/MULTI_INSTANCE.md) | 多实例拓扑、共享依赖与管理页指标速查 |

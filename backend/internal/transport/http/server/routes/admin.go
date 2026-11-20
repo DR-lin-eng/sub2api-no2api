@@ -18,6 +18,7 @@ func RegisterAdminRoutes(
 	stepUpAuth middleware.StepUpAuthMiddleware,
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
+	migration ...gin.HandlerFunc,
 ) {
 	admin := v1.Group("/admin")
 	admin.Use(gin.HandlerFunc(adminAuth))
@@ -27,6 +28,10 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
 	{
+		if len(migration) == 1 {
+			admin.POST("/site-migration/:mode/:action", migration[0])
+		}
+
 		// 部署与运营合规确认
 		registerAdminComplianceRoutes(admin, h)
 

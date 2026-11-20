@@ -394,3 +394,5 @@ curl -X DELETE "${BASE}/api/v1/admin/settings/admin-api-keys/<key-id>" \
 ## 机器密钥的面板限流
 
 启用面板限流时，Admin API Key 按 Key ID 独立计算普通和重查询请求额度；机器密钥不继承“管理员豁免”。管理员 JWT 仍沿用现有豁免设置，Redis 失败处理保持原策略。资源级账户操作/IP 范围授权尚未随上游 #8319 整体导入，具体状态见 [同步审查](UPSTREAM_SYNC_20261026.md)。
+
+站点迁移使用独立的迁入、迁出权限，可进一步限制为用户资料。签发方式、方向和操作步骤见[双站迁移](SITE_MIGRATION.md)。

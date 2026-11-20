@@ -166,3 +166,33 @@ func TestSecurityH2S3TestRoutesRequireStepUp(t *testing.T) {
 		})
 	}
 }
+
+func TestSiteMigrationAdminKeyGrantsHonorStepUp(t *testing.T) {
+	settings := service.NewSettingService(&securitySettings{values: map[string]string{service.SettingKeyStepUpEnabled: "true"}}, nil)
+	key, _, err := settings.CreateAdminAPIKey(t.Context(), service.AdminAPIKeyCreateInput{Name: "synthetic"}, 1)
+	require.NoError(t, err)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUserRole), service.RoleAdmin)
+		c.Set("auth_method", service.AuditAuthMethodJWT)
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1})
+	})
+	registerSettingsRoutes(r.Group("/api/v1/admin"), &handler.Handlers{Admin: &handler.AdminHandlers{Setting: adminhandler.NewSettingHandler(settings, nil, nil, nil, nil, nil, nil)}})
+	for _, test := range []struct {
+		method, suffix, body string
+		status               int
+	}{
+		{"POST", "", `{"name":"limited","scopes":["admin.migration.users.export"]}`, 503},
+		{"PUT", "/" + key.ID, `{"scopes":["admin.migration.import"]}`, 503},
+		{"PUT", "/" + key.ID, `{"expires_at":null}`, 503},
+		{"POST", "/" + key.ID + "/rotate", "", 503},
+		{"POST", "", `{"name":"reader","scopes":["admin.read"]}`, 201},
+		{"DELETE", "/" + key.ID, "", 200},
+	} {
+		req := httptest.NewRequest(test.method, "/api/v1/admin/settings/admin-api-keys"+test.suffix, strings.NewReader(test.body))
+		req.Header.Set("Content-Type", "application/json")
+		out := httptest.NewRecorder()
+		r.ServeHTTP(out, req)
+		require.Equal(t, test.status, out.Code)
+	}
+}
