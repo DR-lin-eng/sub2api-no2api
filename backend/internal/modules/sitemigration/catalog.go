@@ -83,7 +83,7 @@ func readCatalog(ctx context.Context, tx *sql.Tx, profile string) (catalog, erro
 	if err != nil {
 		return c, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	h := sha256.New()
 	for rows.Next() {
 		var name, col, typ string
@@ -107,8 +107,10 @@ func readCatalog(ctx context.Context, tx *sql.Tx, profile string) (catalog, erro
 	if err = rows.Err(); err != nil {
 		return c, err
 	}
-	rows.Close()
-	rows, err = tx.QueryContext(ctx, `SELECT t.relname,a.attname,p.relname,b.attname FROM pg_constraint f
+	if err = rows.Close(); err != nil {
+		return c, err
+	}
+	foreignKeys, err := tx.QueryContext(ctx, `SELECT t.relname,a.attname,p.relname,b.attname FROM pg_constraint f
       JOIN pg_class t ON t.oid=f.conrelid JOIN pg_class p ON p.oid=f.confrelid
       JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=f.conkey[1]
       JOIN pg_attribute b ON b.attrelid=p.oid AND b.attnum=f.confkey[1]
@@ -116,11 +118,11 @@ func readCatalog(ctx context.Context, tx *sql.Tx, profile string) (catalog, erro
 	if err != nil {
 		return c, err
 	}
-	defer rows.Close()
-	for rows.Next() {
+	defer func() { _ = foreignKeys.Close() }()
+	for foreignKeys.Next() {
 		var n string
 		var r ref
-		if err = rows.Scan(&n, &r.col, &r.parent, &r.key); err != nil {
+		if err = foreignKeys.Scan(&n, &r.col, &r.parent, &r.key); err != nil {
 			return c, err
 		}
 		t := c.tables[n]
@@ -129,7 +131,7 @@ func readCatalog(ctx context.Context, tx *sql.Tx, profile string) (catalog, erro
 			fmt.Fprintln(h, n, r)
 		}
 	}
-	if err = rows.Err(); err != nil {
+	if err = foreignKeys.Err(); err != nil {
 		return c, err
 	}
 	for _, entry := range strings.Fields(extraRefs) {

@@ -64,7 +64,7 @@ func migrate(args []string) error {
 	if err != nil {
 		return errors.New("could not open local database")
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	db.SetMaxOpenConns(4)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()

@@ -131,14 +131,17 @@ func redactSettingReason(key string) string {
 }
 
 func recordPolicySkip(ctx context.Context, tx *sql.Tx, j *session, t *table, rec record) error {
-	if j.Profile != "all" && !(j.Profile == "login-quota" && t.name == "users") {
+	quotaUser := j.Profile == "login-quota" && t.name == "users"
+	if j.Profile != "all" && !quotaUser {
 		return ErrInvalid
 	}
 	if t.name != "settings" && t.name != "users" && t.name != "auth_identity_channels" && !slices.Contains(t.cols, "user_id") {
 		return ErrInvalid
 	}
 	for k := range rec.Row {
-		if k != "id" && !(t.name == "users" && k == "email") && !(t.name == "settings" && k == "key") {
+		userEmail := t.name == "users" && k == "email"
+		settingKey := t.name == "settings" && k == "key"
+		if k != "id" && !userEmail && !settingKey {
 			return ErrInvalid
 		}
 	}

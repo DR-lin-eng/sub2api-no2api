@@ -94,15 +94,17 @@ func dumpClone(ctx context.Context, tx *sql.Tx, dataDir string, w io.Writer) err
 				}
 			}
 			if e != nil {
-				rows.Close()
+				_ = rows.Close()
 				return e
 			}
 		}
 		if e = rows.Err(); e != nil {
-			rows.Close()
+			_ = rows.Close()
 			return e
 		}
-		rows.Close()
+		if err = rows.Close(); err != nil {
+			return err
+		}
 		if t.serial {
 			seq, e := sequenceName(ctx, tx, name)
 			if e != nil {
@@ -153,12 +155,12 @@ func (s Store) restoreClone(ctx context.Context, live *sql.Tx, id string, input 
 	if err != nil {
 		return 0, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var done bool
 	var count int64
 	if err = tx.QueryRowContext(ctx, "SELECT finished,inserted FROM private_clone_receipt WHERE job=$1 FOR UPDATE", id).Scan(&done, &count); err != nil {

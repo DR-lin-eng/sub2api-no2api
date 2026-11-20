@@ -34,7 +34,7 @@ func syncPageDir(root *os.Root, name string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return f.Sync()
 }
 
@@ -65,7 +65,7 @@ func pageSubdir(parent *os.Root, name string, create bool) (*os.Root, error) {
 	}
 	opened, err := child.Stat(".")
 	if err != nil || !os.SameFile(info, opened) {
-		child.Close()
+		_ = child.Close()
 		return nil, errors.New("page directory changed")
 	}
 	return child, nil
@@ -84,7 +84,7 @@ func pageFile(root *os.Root, name string) (*os.File, error) {
 	}
 	opened, err := f.Stat()
 	if err != nil || !os.SameFile(info, opened) {
-		f.Close()
+		_ = f.Close()
 		return nil, errors.New("page file changed")
 	}
 	return f, nil
@@ -94,7 +94,7 @@ func exportPages(dataDir string, enc *json.Encoder) error {
 	if err != nil {
 		return err
 	}
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 	root, err := pageSubdir(base, "pages", false)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -102,7 +102,7 @@ func exportPages(dataDir string, enc *json.Encoder) error {
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	buf := make([]byte, pageChunkSize)
 	return fs.WalkDir(root.FS(), ".", func(n string, d fs.DirEntry, e error) error {
 		if e != nil {
@@ -124,7 +124,7 @@ func exportPages(dataDir string, enc *json.Encoder) error {
 		if e != nil {
 			return e
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		var off int64
 		for {
 			got, e := io.ReadFull(f, buf)
@@ -159,12 +159,12 @@ func pageJobRoot(data, id string, create bool) (*os.Root, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 	clones, err := pageSubdir(base, "site-migration-clones", create)
 	if err != nil {
 		return nil, err
 	}
-	defer clones.Close()
+	defer func() { _ = clones.Close() }()
 	return pageSubdir(clones, id, create)
 }
 func newPageRestore(data, id string) (*pageRestore, error) {
@@ -174,26 +174,26 @@ func newPageRestore(data, id string) (*pageRestore, error) {
 	}
 	stage := ".pages-" + uuid.NewString()
 	if err = job.Mkdir(stage, 0700); err != nil {
-		job.Close()
+		_ = job.Close()
 		return nil, err
 	}
 	root, err := pageSubdir(job, stage, false)
 	if err != nil {
-		job.RemoveAll(stage)
-		job.Close()
+		_ = job.RemoveAll(stage)
+		_ = job.Close()
 		return nil, err
 	}
 	return &pageRestore{job: job, root: root, id: id, stage: stage}, nil
 }
 func (p *pageRestore) close() {
 	if p.f != nil {
-		p.f.Close()
+		_ = p.f.Close()
 	}
-	p.root.Close()
+	_ = p.root.Close()
 	if p.stage != "" {
 		_ = p.job.RemoveAll(p.stage)
 	}
-	p.job.Close()
+	_ = p.job.Close()
 }
 func (p *pageRestore) write(part pagePart) error {
 	if !safePageName(part.Name) {
@@ -266,13 +266,13 @@ func pageTreeDigest(root *os.Root, id string, syncDirs bool) (string, error) {
 		if e != nil {
 			return e
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		h := sha256.New()
 		if _, e = io.Copy(h, f); e != nil {
 			return e
 		}
 		fmt.Fprintf(sum, "F%d:%s", len(name), name)
-		sum.Write(h.Sum(nil))
+		_, _ = sum.Write(h.Sum(nil)) // hash.Hash.Write never returns an error.
 		return nil
 	})
 	return hex.EncodeToString(sum.Sum(nil)), err
@@ -282,7 +282,7 @@ func readPageReceipt(job *os.Root) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b, err := io.ReadAll(io.LimitReader(f, sha256.Size*2+1))
 	if err != nil {
 		return "", err
@@ -302,7 +302,7 @@ func (p *pageRestore) writeReceipt(digest string) error {
 	if err != nil {
 		return err
 	}
-	defer p.job.Remove(tmp)
+	defer func() { _ = p.job.Remove(tmp) }()
 	if _, err = f.WriteString(digest); err == nil {
 		err = f.Sync()
 	}
@@ -323,7 +323,7 @@ func verifyPageTree(job *os.Root, id, expected string) error {
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer func() { _ = dst.Close() }()
 	got, err := pageTreeDigest(dst, id, false)
 	if err != nil {
 		return err
@@ -338,7 +338,7 @@ func verifyPublishedPages(data, id string) error {
 	if err != nil {
 		return err
 	}
-	defer job.Close()
+	defer func() { _ = job.Close() }()
 	digest, err := readPageReceipt(job)
 	if err != nil {
 		return err

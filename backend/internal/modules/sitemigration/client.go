@@ -63,7 +63,9 @@ func (c *client) request(ctx context.Context, action string, n int, payload []by
 			continue
 		}
 		b, e := io.ReadAll(io.LimitReader(res.Body, BlockSize+65))
-		res.Body.Close()
+		if closeErr := res.Body.Close(); e == nil {
+			e = closeErr
+		}
 		if e != nil {
 			last = e
 			continue
@@ -303,7 +305,7 @@ func writeReport(path string, write func(io.Writer) error) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 	err = write(f)
 	if err == nil {
 		err = f.Sync()
@@ -323,6 +325,6 @@ func writeReport(path string, write func(io.Writer) error) error {
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
+	defer func() { _ = dir.Close() }()
 	return dir.Sync()
 }

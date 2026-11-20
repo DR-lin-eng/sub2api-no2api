@@ -25,7 +25,7 @@ func TestMigrationTransportSnapshotSingleConnection(t *testing.T) {
 	}
 	db, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	db.SetMaxOpenConns(1)
 	s := Store{DB: db}
 	a := Auth{Owner: "single-pool-test", Key: "synthetic only"}

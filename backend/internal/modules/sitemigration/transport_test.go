@@ -21,7 +21,7 @@ import (
 func TestMigrationTransportHandshakeAndReportPages(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	id := uuid.NewString()
 	source, err := ecdh.X25519().GenerateKey(rand.Reader)
 	require.NoError(t, err)

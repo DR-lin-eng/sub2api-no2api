@@ -88,15 +88,17 @@ func (s Store) exportSnapshot(ctx context.Context, tx *sql.Tx, profile string, o
 				err = enc.Encode(record{Table: name, Row: r, Omitted: omitted})
 			}
 			if err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return fmt.Errorf("cannot export %s: %w", name, err)
 			}
 		}
 		if err = rows.Err(); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
-		rows.Close()
+		if err = rows.Close(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

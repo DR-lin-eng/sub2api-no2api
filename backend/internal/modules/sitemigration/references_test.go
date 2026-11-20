@@ -57,12 +57,12 @@ func TestMergeForwardReferencesAndSourceConflictCSV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	_, err = tx.ExecContext(ctx, `CREATE TEMP TABLE migration_rows(n bigint GENERATED ALWAYS AS IDENTITY, t text, data jsonb) ON COMMIT DROP;
         CREATE TEMP TABLE migration_map(t text,k text,src text,dst text, PRIMARY KEY(t,k,src)) ON COMMIT DROP`)
 	if err != nil {

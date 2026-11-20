@@ -101,7 +101,7 @@ func (s Store) Open(ctx context.Context, a Auth, id, mode, profile string, peer 
 	if err != nil {
 		return State{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(162884213,1)"); err != nil {
 		return State{}, err
 	}
@@ -203,7 +203,7 @@ func (s Store) jobTx(ctx context.Context, a Auth, id, mode string, opts *sql.TxO
 	if err != nil {
 		return State{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	j, err := loadJob(ctx, tx, a, id, mode)
 	if err != nil {
 		return State{}, err
@@ -293,7 +293,7 @@ func (s Store) Prepare(ctx context.Context, a Auth, id string) (State, error) {
 		if err != nil {
 			return err
 		}
-		defer spool.Close()
+		defer func() { _ = spool.Close() }()
 		if err = os.Remove(spool.Name()); err != nil {
 			return err
 		}
@@ -339,7 +339,9 @@ func (s Store) Prepare(ctx context.Context, a Auth, id string) (State, error) {
 }
 func (s Store) Block(ctx context.Context, a Auth, id, mode string, kind, n int) (data []byte, err error) {
 	_, err = s.withJob(ctx, a, id, mode, func(tx *sql.Tx, j *session) error {
-		if n < 0 || !((kind == 0 && mode == "export" && j.Sealed && n < j.Blocks) || (kind == 1 && mode == "import" && j.Applied && n < j.Errors)) {
+		dataBlock := kind == 0 && mode == "export" && j.Sealed && n < j.Blocks
+		reportBlock := kind == 1 && mode == "import" && j.Applied && n < j.Errors
+		if n < 0 || (!dataBlock && !reportBlock) {
 			return ErrInvalid
 		}
 		var err error
@@ -459,7 +461,7 @@ func (s Store) ReportPage(ctx context.Context, a Auth, id string, first int) ([]
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var n int
 			var b []byte

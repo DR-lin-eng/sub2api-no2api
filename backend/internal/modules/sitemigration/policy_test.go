@@ -67,14 +67,14 @@ func TestSnapshotProjectionPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	token := uuid.NewString()
 	addUser := func(role, balance string) int64 {
 		var id int64
@@ -105,7 +105,7 @@ func TestSnapshotProjectionPostgres(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var b []byte
 			var r row

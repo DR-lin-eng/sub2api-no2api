@@ -30,7 +30,7 @@ func provisionMigrationDatabase(ctx context.Context, configDB config.DatabaseCon
 	if err != nil {
 		return nil, err
 	}
-	defer control.Close()
+	defer func() { _ = control.Close() }()
 	control.SetMaxOpenConns(1)
 	// The outer transfer already serializes apply operations. Commit this
 	// reservation independently so a lost connection after CREATE is recoverable.
@@ -66,7 +66,7 @@ func provisionMigrationDatabase(ctx context.Context, configDB config.DatabaseCon
 		err = ApplyMigrations(ctx, target)
 	}
 	if err != nil {
-		target.Close()
+		_ = target.Close()
 		return nil, err
 	}
 	return target, nil
@@ -76,7 +76,7 @@ func bindMigrationDatabase(ctx context.Context, db *sql.DB, id, name, marker str
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var owner, receipt bool
 	if err = tx.QueryRowContext(ctx, `SELECT d.datdba=(SELECT oid FROM pg_roles WHERE rolname=current_user),to_regclass('public.private_clone_receipt') IS NOT NULL FROM pg_database d WHERE d.datname=current_database()`).Scan(&owner, &receipt); err != nil {
 		return err

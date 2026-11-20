@@ -167,7 +167,7 @@ func (im *importer) mergePass(t *table, self, deferParents bool) (int, int, erro
 				err = json.Unmarshal(b, &r)
 			}
 			if err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return 0, 0, err
 			}
 			page = append(page, stagedRow{cursor, r})
@@ -177,10 +177,12 @@ func (im *importer) mergePass(t *table, self, deferParents bool) (int, int, erro
 			}
 		}
 		if err = rows.Err(); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return 0, 0, err
 		}
-		rows.Close()
+		if err = rows.Close(); err != nil {
+			return 0, 0, err
+		}
 		if len(page) == 0 {
 			return processed, waiting, nil
 		}
@@ -459,16 +461,18 @@ func (im *importer) protectAccountBindings() error {
 		for rows.Next() {
 			var id string
 			if err = rows.Scan(&id); err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return err
 			}
 			ids = append(ids, id)
 		}
 		if err = rows.Err(); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
-		rows.Close()
+		if err = rows.Close(); err != nil {
+			return err
+		}
 		if len(ids) == 0 {
 			return nil
 		}
