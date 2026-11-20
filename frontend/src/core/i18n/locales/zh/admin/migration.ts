@@ -2,6 +2,7 @@ export default {
   title: '站点迁移', description: '在两个站点之间迁移用户或业务数据，并在此查看结果。',
   newTask: '新建迁移', direction: '传输方向', push: '从本站推送', pull: '拉取到本站',
   peer: '对方站点 IP 或域名', key: '对方管理员 Key', keyPlaceholder: '输入对方站点签发的迁移 Key',
+  requireTLS: '强制对端使用 TLS（HTTPS）', optionalTLS: '如对方只有 HTTP，请填写完整的 http:// 地址，并使用对方升级后新建或轮换的迁移 Key。管理员 Key 和迁移数据仍会加密。', httpBlocked: '当前要求 HTTPS。要连接这个 HTTP 地址，请先关闭上方开关。',
   scope: '迁移范围', permission: '对方 Key 所需权限', keyPrivacy: 'Key 仅用于本次运行。', review: '核对迁移',
   scopes: { all: '合并两站业务数据', login: '仅用户登录资料', 'login-quota': '用户登录资料和额度', 'login-quota-keys': '普通用户登录、余额与 API Key', clone: '克隆业务到独立数据库' },
   hints: { all: '仅导入无冲突的业务记录，接收站已有账号会保留。', login: '迁移普通用户的密码哈希、第三方登录、Passkey 和双因素凭据。', 'login-quota': '除登录资料外，还包括余额、累计充值、并发和分平台额度。', 'login-quota-keys': '保留余额、原 Key 值、用量和限制。迁入的 Key 保存为停用，用户在新站选组并启用后即可继续使用原 Key。', clone: '保留业务记录和普通用户 ID。源站管理员及管理凭据全部排除，新管理员在接收站本地创建。' },
@@ -13,6 +14,6 @@ export default {
   blocks: '已确认 {done} / {total} 块', counts: '已导入 {inserted} 条，冲突或需处理 {issues} 条。',
   cloneReady: '切换前在接收站为数据库 {database} 运行 migrate init-admin 创建新管理员，使用独立 Redis 并挂载页面目录 {directory}。',
   phases: { connecting: '连接对方', preparing: '生成快照', transferring: '传输中', applying: '正在导入', reporting: '生成报告', completed: '已完成', failed: '需要处理', interrupted: '已中断' },
-  errors: { clonePolicy: '两站都需要升级到支持排除管理员的克隆版本。', billingPending: '源站仍有待结算账单，请完成结算或处理失败扣款后重试。', peer_auth: '对方拒绝授权。请核对 Key、有效期、迁移方向和权限范围。', peer_missing: '对方未提供迁移接口，或原任务已过期。', peer_locked: '对方管理员需先完成后台的部署声明确认。', peer_error: '对方未完成请求。请核对站点版本、数据库权限和服务状态。', limit: '任务数量、数据大小或访问频率达到限制。', address: '请输入受信任的 HTTPS 站点地址。私网站点需在发起站配置允许的地址。', connection: '无法建立连接，请检查域名、证书和网络后续传。', checkpoint: '原任务已过期或 Key 与创建时不同。', conflict: '任务状态有变化，请刷新后查看。', interrupted: '任务已中断，可使用原 Key 继续。', transfer: '迁移未完成，请检查站点配置、数据库状态与可用空间，再尝试续传。' },
+  errors: { httpPeer: '未能验证 HTTP 对端。请确认两站已升级、使用该站新签发的迁移 Key，并检查两站时钟。', httpKey: '请在升级后的对方站点新建或轮换带迁移权限的管理员 Key，再连接 HTTP 地址。', clonePolicy: '两站都需要升级到支持排除管理员的克隆版本。', billingPending: '源站仍有待结算账单，请完成结算或处理失败扣款后重试。', peer_auth: '对方拒绝授权。请核对 Key、有效期、迁移方向和权限范围。', peer_missing: '对方未提供迁移接口，或原任务已过期。', peer_locked: '对方管理员需先完成后台的部署声明确认。', peer_error: '对方未完成请求。请核对站点版本、数据库权限和服务状态。', limit: '任务数量、数据大小或访问频率达到限制。', address: '请核对地址、协议和 TLS 开关。私网站点需在发起站明确允许该来源。', connection: '无法建立连接，请检查域名、证书和网络后续传。', checkpoint: '原任务已过期或 Key 与创建时不同。', conflict: '任务状态有变化，请刷新后查看。', interrupted: '任务已中断，可使用原 Key 继续。', transfer: '迁移未完成，请检查站点配置、数据库状态与可用空间，再尝试续传。' },
   https: '请使用 HTTPS 打开后台，并核对反向代理配置。', requestError: '请求未完成，请刷新任务并核对权限后重试。',
 }

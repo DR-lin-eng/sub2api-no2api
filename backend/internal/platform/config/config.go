@@ -71,6 +71,8 @@ const DefaultUpstreamResponseReadMaxBytes int64 = 128 * 1024 * 1024
 const DefaultModelsListReadMaxBytes int64 = 8 * 1024 * 1024
 
 type Config struct {
+	// MigrationHTTPRoot is provisioned by PostgreSQL at bootstrap and is never a config or API field.
+	MigrationHTTPRoot       []byte                        `mapstructure:"-" yaml:"-" json:"-"`
 	MCP                     MCPConfig                     `mapstructure:"mcp"`
 	Deployment              DeploymentConfig              `mapstructure:"deployment"`
 	Server                  ServerConfig                  `mapstructure:"server"`

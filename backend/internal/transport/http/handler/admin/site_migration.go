@@ -26,7 +26,8 @@ func SiteMigration(store sitemigration.Store) gin.HandlerFunc {
 		owner := c.GetString("admin_api_key_id")
 		c.Header("Cache-Control", "no-store")
 		c.Header(sitemigration.ClonePolicyHeader, sitemigration.ClonePolicyVersion)
-		if !middleware.RequestIsHTTPS(c) {
+		peerKey, sealed := middleware.MigrationPeerKey(c)
+		if !sealed && !middleware.RequestIsHTTPS(c) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
@@ -36,7 +37,7 @@ func SiteMigration(store sitemigration.Store) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
-		a := sitemigration.Auth{Owner: "remote/" + owner, Key: c.GetHeader("x-api-key"), UsersOnly: !full, UserKeys: userKeys}
+		a := sitemigration.Auth{Owner: "remote/" + owner, Key: peerKey, UsersOnly: !full, UserKeys: userKeys}
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Minute)
 		defer cancel()
 		var state sitemigration.State

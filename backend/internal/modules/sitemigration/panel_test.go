@@ -25,9 +25,34 @@ func TestPanelPeerTrust(t *testing.T) {
 	}
 	require.True(t, p.allowedIP("https://peer.example", netip.MustParseAddr("8.8.8.8")))
 	for _, s := range []string{"http://site.example", "https://127.0.0.1", "https://user@site.example", "https://site.example/?key=x", "https://site.example/api", "localhost", "https://[::1]"} {
-		_, e := p.peerOrigin(s)
+		_, e := p.peerOrigin(s, false)
 		require.ErrorIs(t, e, ErrPeerAddress)
 	}
+}
+
+func TestPanelHTTPRequiresExplicitOptIn(t *testing.T) {
+	p := NewPanel(Store{}, []string{"http://lan.example:18080"})
+	defer p.Stop()
+	for _, tt := range []struct {
+		input string
+		allow bool
+		want  string
+	}{
+		{"http://203.1.1.25:18080", false, ""}, {"http://203.1.1.25:18080", true, "http://203.1.1.25:18080"},
+		{"https://203.1.1.25:18080", true, "https://203.1.1.25:18080"}, {"example.com:18080", true, "https://example.com:18080"},
+		{"http://example.com:80", true, "http://example.com"}, {"http://example.com:443", true, "http://example.com:443"},
+		{"http://127.0.0.1", true, ""}, {"http://169.254.169.254", true, ""}, {"http://example.com/path", true, ""}, {"http://name@peer.example", true, ""},
+	} {
+		o, err := p.peerOrigin(tt.input, tt.allow)
+		if tt.want == "" {
+			require.Error(t, err)
+			continue
+		}
+		require.NoError(t, err)
+		require.Equal(t, tt.want, o)
+	}
+	require.True(t, p.allowedIP("http://lan.example:18080", netip.MustParseAddr("10.0.0.7")))
+	require.False(t, p.allowedIP("https://lan.example:18080", netip.MustParseAddr("10.0.0.7")))
 }
 
 // Uses an isolated application DB. An incomplete report, a stale worker and

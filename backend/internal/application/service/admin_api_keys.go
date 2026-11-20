@@ -207,7 +207,7 @@ func (s *SettingService) CreateAdminAPIKey(ctx context.Context, input AdminAPIKe
 	if input.ExpiresAt != nil && !input.ExpiresAt.After(time.Now()) {
 		return AdminAPIKey{}, "", errors.New("expires_at must be in the future")
 	}
-	secret, err := generateAdminAPIKeySecret()
+	secret, err := s.generateScopedKey(scopes)
 	if err != nil {
 		return AdminAPIKey{}, "", fmt.Errorf("generate admin API key: %w", err)
 	}
@@ -281,7 +281,7 @@ func (s *SettingService) RotateAdminAPIKey(ctx context.Context, id string) (Admi
 		if store.Keys[i].ID != id {
 			continue
 		}
-		secret, generateErr := generateAdminAPIKeySecret()
+		secret, generateErr := s.generateScopedKey(store.Keys[i].Scopes)
 		if generateErr != nil {
 			return AdminAPIKey{}, "", generateErr
 		}

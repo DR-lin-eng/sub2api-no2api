@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/migrationhttp"
 	"github.com/google/uuid"
 )
 
@@ -25,16 +26,27 @@ type client struct {
 	http                         *http.Client
 }
 
-func peerOrigin(raw string) (string, error) {
+func peerOrigin(raw string) (string, error) { return parsePeerOrigin(raw, false) }
+func parsePeerOrigin(raw string, allowHTTP bool) (string, error) {
 	if !strings.Contains(raw, "://") {
 		raw = "https://" + raw
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawFragment != "" || (u.Path != "" && u.Path != "/") || u.Opaque != "" {
-		return "", errors.New("peer must be an HTTPS IP or domain, optionally with a port")
+	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || strings.Contains(raw, "#") || (u.Path != "" && u.Path != "/") || u.Opaque != "" {
+		return "", errors.New("peer must be an IP or domain, optionally with a port")
 	}
-	return "https://" + u.Host, nil
+	switch u.Scheme {
+	case "https":
+	case "http":
+		if !allowHTTP {
+			return "", errors.New("HTTP peer requires explicit opt-in")
+		}
+	default:
+		return "", errors.New("unsupported migration peer protocol")
+	}
+	return u.Scheme + "://" + u.Host, nil
 }
+
 func (c *client) request(ctx context.Context, action string, n int, payload []byte) ([]byte, error) {
 	u := c.base + "/api/v1/admin/site-migration/" + c.mode + "/" + action + "?id=" + c.id + "&n=" + strconv.Itoa(n)
 	if action == "probe" {
@@ -58,20 +70,44 @@ func (c *client) request(ctx context.Context, action string, n int, payload []by
 		if c.profile == "clone" {
 			req.Header.Set(ClonePolicyHeader, ClonePolicyVersion)
 		}
-		req.Header.Set("x-api-key", c.key)
+		sealed := strings.HasPrefix(c.base, "http://")
+		var responseKey migrationhttp.Reply
+		if sealed {
+			var frame []byte
+			frame, responseKey, err = migrationhttp.SealRequest(req, c.key, payload, time.Now())
+			if err != nil {
+				return nil, err
+			}
+			req.Body = io.NopCloser(bytes.NewReader(frame))
+			req.ContentLength = int64(len(frame))
+			req.GetBody = nil
+			req.Header.Set(migrationhttp.Header, migrationhttp.Version)
+		} else {
+			req.Header.Set("x-api-key", c.key)
+		}
 		req.Header.Set("Content-Type", "application/octet-stream")
 		res, err := c.http.Do(req)
 		if err != nil {
 			last = err
 			continue
 		}
-		b, e := io.ReadAll(io.LimitReader(res.Body, BlockSize+65))
+		b, e := io.ReadAll(io.LimitReader(res.Body, migrationhttp.MaxFrame+1))
 		if closeErr := res.Body.Close(); e == nil {
 			e = closeErr
 		}
 		if e != nil {
 			last = e
 			continue
+		}
+		retryable := res.StatusCode == 429 || res.StatusCode == 502 || res.StatusCode == 503 || res.StatusCode == 504
+		if sealed && res.Header.Get(migrationhttp.Header) == migrationhttp.Version {
+			b, e = responseKey.Open(res.StatusCode, b, res.Header.Get(ClonePolicyHeader))
+			if e != nil {
+				return nil, e
+			}
+		} else if sealed && !retryable {
+			// A proxy can request a retry, but only the pinned peer can report an outcome.
+			return nil, migrationhttp.ErrEnvelope
 		}
 		if res.StatusCode != 200 {
 			if action == "delete" && res.StatusCode == http.StatusNotFound {
@@ -84,7 +120,7 @@ func (c *client) request(ctx context.Context, action string, n int, payload []by
 				}
 				delay = max(delay, time.Duration(seconds)*time.Second)
 			}
-			if res.StatusCode == 429 || res.StatusCode == 502 || res.StatusCode == 503 || res.StatusCode == 504 {
+			if retryable {
 				continue
 			}
 			return nil, last
@@ -113,14 +149,20 @@ func (c *client) state(ctx context.Context, op string, n int, p []byte) (State, 
 
 type Options struct {
 	Direction, Peer, Profile, Key, Resume, Report string
+	AllowHTTP                                     bool
 	Output                                        io.Writer
 	panel                                         *panelTransfer
 }
 
 func (s Store) Transfer(ctx context.Context, o Options) error {
-	base, err := peerOrigin(o.Peer)
+	base, err := parsePeerOrigin(o.Peer, o.AllowHTTP)
 	if err != nil {
 		return err
+	}
+	if strings.HasPrefix(base, "http://") {
+		if err = migrationhttp.CheckKey(o.Key); err != nil {
+			return err
+		}
 	}
 	if !validProfile(o.Profile) || o.Key == "" || (o.Direction != "push" && o.Direction != "pull") {
 		return ErrInvalid
