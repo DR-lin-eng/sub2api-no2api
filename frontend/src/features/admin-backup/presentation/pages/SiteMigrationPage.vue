@@ -10,7 +10,7 @@
             <label v-for="item in directions" :key="item" class="flex cursor-pointer items-center gap-3 rounded-xl border p-3.5" :class="direction === item ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/30' : 'border-gray-200 dark:border-dark-600'">
               <input v-model="direction" type="radio" :value="item" name="direction" class="accent-primary-600" />
               <Icon :name="item === 'push' ? 'upload' : 'download'" size="sm" />
-              <span class="text-sm font-semibold">{{ t('admin.migration.' + item) }}</span>
+              <span class="text-sm font-semibold">{{ t(directionLabels[item]) }}</span>
             </label>
           </div>
         </fieldset>
@@ -28,11 +28,11 @@
         <label class="block space-y-1.5 text-sm font-medium">
           <span>{{ t('admin.migration.scope') }}</span>
           <select v-model="scope" class="input w-full" :disabled="busy || !secure">
-            <option v-for="item in scopes" :key="item" :value="item">{{ t('admin.migration.scopes.' + item) }}</option>
+            <option v-for="item in scopes" :key="item" :value="item">{{ t(scopeLabels[item]) }}</option>
           </select>
         </label>
         <div class="rounded-lg bg-gray-50 p-3.5 text-sm text-gray-600 dark:bg-dark-700/60 dark:text-dark-300">
-          <p>{{ t('admin.migration.hints.' + scope) }}</p>
+          <p>{{ t(scopeHints[scope]) }}</p>
           <p class="mt-1 break-words">{{ t('admin.migration.permission') }} <code class="text-xs">{{ grant }}</code></p>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-dark-700">
@@ -52,10 +52,10 @@
           <li v-for="job in jobs" :key="job.id" class="space-y-2 py-4">
             <div class="flex flex-wrap items-start justify-between gap-2">
               <div class="min-w-0">
-                <strong class="break-all text-sm">{{ t('admin.migration.' + job.direction) }} · {{ job.peer }}</strong>
-                <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.migration.scopes.' + job.profile) }} · {{ new Date(job.created_at).toLocaleString() }}</p>
+                <strong class="break-all text-sm">{{ t(directionLabels[job.direction]) }} · {{ job.peer }}</strong>
+                <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t(scopeLabels[job.profile]) }} · {{ new Date(job.created_at).toLocaleString() }}</p>
               </div>
-              <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="phaseStyle(job.phase)">{{ t('admin.migration.phases.' + job.phase) }}</span>
+              <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="phaseStyle(job.phase)">{{ t(phaseLabels[job.phase]) }}</span>
             </div>
             <div v-if="job.total > 0 && !terminal(job.phase)" class="space-y-1">
               <progress class="h-1.5 w-full accent-primary-600" :value="job.acknowledged" :max="job.total" :aria-label="t('admin.migration.progress')" />
@@ -63,7 +63,7 @@
             </div>
             <p v-if="job.phase === 'completed'" class="text-sm">{{ t('admin.migration.counts', { inserted: job.inserted, issues: job.issues }) }}</p>
             <p v-if="job.phase === 'completed' && job.profile === 'clone'" class="break-all text-sm">{{ t('admin.migration.cloneReady', { database: 'sub2api_clone_' + job.id.replace(/-/g, ''), directory: 'site-migration-clones/' + job.id + '/pages' }) }}</p>
-            <p v-if="job.phase === 'failed' || job.phase === 'interrupted'" class="text-sm text-amber-700 dark:text-amber-400">{{ t('admin.migration.errors.' + (job.error_code || 'interrupted')) }}</p>
+            <p v-if="job.phase === 'failed' || job.phase === 'interrupted'" class="text-sm text-amber-700 dark:text-amber-400">{{ t(errorLabel(job.error_code)) }}</p>
             <div class="flex flex-wrap items-center justify-between gap-2">
               <code class="break-all text-xs text-gray-500 dark:text-dark-400">{{ job.id }}</code>
               <button v-if="job.phase === 'completed'" type="button" class="btn btn-secondary btn-sm" :disabled="busy || !secure" @click="download(job)"><Icon name="download" size="sm" />{{ t('admin.migration.csv') }}</button>
@@ -104,6 +104,49 @@ const stepUp = useStepUp()
 const secure = secureMigrationOrigin()
 const directions: MigrationDirection[] = ['push', 'pull']
 const scopes: MigrationScope[] = ['all', 'login', 'login-quota', 'clone']
+const directionLabels: Record<MigrationDirection, string> = {
+  'push': 'admin.migration.push',
+  'pull': 'admin.migration.pull',
+}
+const scopeLabels: Record<MigrationScope, string> = {
+  'all': 'admin.migration.scopes.all',
+  'login': 'admin.migration.scopes.login',
+  'login-quota': 'admin.migration.scopes.login-quota',
+  'clone': 'admin.migration.scopes.clone',
+}
+const scopeHints: Record<MigrationScope, string> = {
+  'all': 'admin.migration.hints.all',
+  'login': 'admin.migration.hints.login',
+  'login-quota': 'admin.migration.hints.login-quota',
+  'clone': 'admin.migration.hints.clone',
+}
+const phaseLabels: Record<MigrationPhase, string> = {
+  'connecting': 'admin.migration.phases.connecting',
+  'preparing': 'admin.migration.phases.preparing',
+  'transferring': 'admin.migration.phases.transferring',
+  'applying': 'admin.migration.phases.applying',
+  'reporting': 'admin.migration.phases.reporting',
+  'completed': 'admin.migration.phases.completed',
+  'failed': 'admin.migration.phases.failed',
+  'interrupted': 'admin.migration.phases.interrupted',
+}
+const failureLabels: Record<string, string> = {
+  'peer_auth': 'admin.migration.errors.peer_auth',
+  'peer_missing': 'admin.migration.errors.peer_missing',
+  'peer_locked': 'admin.migration.errors.peer_locked',
+  'peer_error': 'admin.migration.errors.peer_error',
+  'limit': 'admin.migration.errors.limit',
+  'address': 'admin.migration.errors.address',
+  'connection': 'admin.migration.errors.connection',
+  'checkpoint': 'admin.migration.errors.checkpoint',
+  'conflict': 'admin.migration.errors.conflict',
+  'interrupted': 'admin.migration.errors.interrupted',
+  'transfer': 'admin.migration.errors.transfer',
+}
+function errorLabel(code?: string) {
+  if (!code) return failureLabels.interrupted
+  return Object.prototype.hasOwnProperty.call(failureLabels, code) ? failureLabels[code] : failureLabels.transfer
+}
 const direction = ref<MigrationDirection>('push')
 const scope = ref<MigrationScope>('all')
 const peer = ref('')
@@ -121,7 +164,7 @@ let refreshQueued = false
 let retry: { id: string; signature: string } | undefined
 
 const grant = computed(() => 'admin.migration.' + (scope.value.startsWith('login') ? 'users.' : '') + (direction.value === 'push' ? 'import' : 'export'))
-const confirmMessage = computed(() => t('admin.migration.confirmRoute', { direction: t('admin.migration.' + direction.value), peer: peer.value, scope: t('admin.migration.scopes.' + scope.value) }) + ' ' + t('admin.migration.' + (scope.value === 'clone' ? 'cloneNotice' : 'mergeNotice')))
+const confirmMessage = computed(() => t('admin.migration.confirmRoute', { direction: t(directionLabels[direction.value]), peer: peer.value, scope: t(scopeLabels[scope.value]) }) + ' ' + (scope.value === 'clone' ? t('admin.migration.cloneNotice') : t('admin.migration.mergeNotice')))
 function terminal(phase: MigrationPhase) { return ['completed', 'interrupted', 'failed'].includes(phase) }
 function phaseStyle(phase: MigrationPhase) {
   if (phase === 'completed') return 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400'
