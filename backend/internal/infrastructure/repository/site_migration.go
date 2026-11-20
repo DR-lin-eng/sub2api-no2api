@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/sitemigration"
@@ -117,4 +118,8 @@ func bindMigrationDatabase(ctx context.Context, db *sql.DB, id, name, marker str
 		return err
 	}
 	return tx.Commit()
+}
+
+func ProvideSiteMigrationPanel(store sitemigration.Store) *sitemigration.Panel {
+	return sitemigration.NewPanel(store, strings.Split(os.Getenv("SITE_MIGRATION_PRIVATE_PEERS"), ","))
 }

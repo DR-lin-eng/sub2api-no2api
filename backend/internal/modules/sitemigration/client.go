@@ -74,7 +74,7 @@ func (c *client) request(ctx context.Context, action string, n int, payload []by
 			if action == "delete" && res.StatusCode == http.StatusNotFound {
 				return nil, nil
 			}
-			last = fmt.Errorf("peer rejected %s (HTTP %d)", action, res.StatusCode)
+			last = &peerResponseError{action: action, status: res.StatusCode}
 			if seconds, e := strconv.Atoi(res.Header.Get("Retry-After")); e == nil && seconds > 0 {
 				if seconds > 120 {
 					return nil, last
@@ -108,6 +108,7 @@ func (c *client) state(ctx context.Context, op string, n int, p []byte) (State, 
 type Options struct {
 	Direction, Peer, Profile, Key, Resume, Report string
 	Output                                        io.Writer
+	panel                                         *panelTransfer
 }
 
 func (s Store) Transfer(ctx context.Context, o Options) error {
@@ -123,6 +124,9 @@ func (s Store) Transfer(ctx context.Context, o Options) error {
 		mode, remoteMode = "import", "export"
 	}
 	id := o.Resume
+	if o.panel != nil {
+		id = o.panel.job.ID
+	}
 	if id == "" {
 		id = uuid.NewString()
 	}
@@ -131,6 +135,10 @@ func (s Store) Transfer(ctx context.Context, o Options) error {
 	}
 	a := Auth{Owner: "cli/" + base, Key: o.Key}
 	transport := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13}, TLSHandshakeTimeout: 15 * time.Second, IdleConnTimeout: time.Minute, DisableCompression: true}
+	if o.panel != nil {
+		a.Owner = fmt.Sprintf("panel/%d/%s", o.panel.admin, base)
+		transport.DialContext = o.panel.panel.dialPeer(base)
+	}
 	defer transport.CloseIdleConnections()
 	c := &client{base: base, key: o.Key, id: id, mode: remoteMode, profile: o.Profile, http: &http.Client{Transport: transport, Timeout: 31 * time.Minute, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 	if o.Output == nil {
@@ -156,10 +164,13 @@ func (s Store) Transfer(ctx context.Context, o Options) error {
 	} else if exists {
 		fmt.Fprintln(o.Output, "接收站已有数据。将只导入无冲突的记录，同邮箱及其他跳过原因会写入 CSV。")
 	}
-	if o.Resume != "" {
+	if o.Resume != "" && o.panel == nil {
 		if _, err = s.Status(ctx, a, id, mode); err != nil {
 			return err
 		}
+	}
+	if err = o.panel.progress(ctx, "preparing", 0, 0); err != nil {
+		return err
 	}
 	local, err := s.Open(ctx, a, id, mode, o.Profile, nil)
 	if err != nil {
@@ -194,6 +205,9 @@ func (s Store) Transfer(ctx context.Context, o Options) error {
 		return ErrConflict
 	}
 	fmt.Fprintf(o.Output, "快照共 %d 块，接收站已确认 %d 块。\n", src.Blocks, dst.Blocks)
+	if err = o.panel.progress(ctx, "transferring", dst.Blocks, src.Blocks); err != nil {
+		return err
+	}
 	for n := dst.Blocks; n < src.Blocks; n++ {
 		var b []byte
 		if mode == "export" {
@@ -213,9 +227,17 @@ func (s Store) Transfer(ctx context.Context, o Options) error {
 		if dst.Blocks != n+1 {
 			return ErrConflict
 		}
+		if o.panel != nil && (n == 0 || (n+1)%8 == 0 || n+1 == src.Blocks) {
+			if err = o.panel.progress(ctx, "transferring", n+1, src.Blocks); err != nil {
+				return err
+			}
+		}
 		if (n+1)%64 == 0 {
 			fmt.Fprintf(o.Output, "已确认 %d / %d 块。\n", n+1, src.Blocks)
 		}
+	}
+	if err = o.panel.progress(ctx, "applying", src.Blocks, src.Blocks); err != nil {
+		return err
 	}
 	if mode == "export" {
 		dst, err = c.state(ctx, "apply", 0, nil)
@@ -232,7 +254,7 @@ func (s Store) Transfer(ctx context.Context, o Options) error {
 	if path == "" {
 		path = filepath.Join(s.DataDir, "migration-errors-"+id+".csv")
 	}
-	err = writeReport(path, func(w io.Writer) error {
+	writeCSV := func(w io.Writer) error {
 		if _, e := io.WriteString(w, "\uFEFF数据表,源记录ID,邮箱,跳过原因\r\n"); e != nil {
 			return e
 		}
@@ -264,7 +286,15 @@ func (s Store) Transfer(ctx context.Context, o Options) error {
 		}
 		csvOut.Flush()
 		return csvOut.Error()
-	})
+	}
+	if err = o.panel.progress(ctx, "reporting", src.Blocks, src.Blocks); err != nil {
+		return err
+	}
+	if o.panel != nil {
+		err = o.panel.complete(ctx, dst, writeCSV)
+	} else {
+		err = writeReport(path, writeCSV)
+	}
 	if err != nil {
 		return err
 	}

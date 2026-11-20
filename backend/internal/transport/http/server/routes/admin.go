@@ -28,8 +28,15 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
 	{
-		if len(migration) == 1 {
+		if len(migration) >= 1 {
 			admin.POST("/site-migration/:mode/:action", migration[0])
+		}
+		if len(migration) == 2 {
+			panel := admin.Group("/migration-console", middleware.AdminSessionOnly())
+			panel.GET("/jobs", migration[1])
+			panel.POST("/jobs", migration[1])
+			panel.POST("/jobs/:id/resume", migration[1])
+			panel.GET("/jobs/:id/report", migration[1])
 		}
 
 		// 部署与运营合规确认

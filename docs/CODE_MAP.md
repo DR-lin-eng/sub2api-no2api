@@ -193,4 +193,4 @@ TypeSafe 原生协议入口为 [独立模块](../backend/internal/modules/typesa
 
 模型发现元数据的纯规则见 [modelcatalog](../backend/internal/modules/modelcatalog/README.md)，刷新与持久化由 `upstream_model_catalog.go` 和 `oauth_model_sync_service.go` 编排，Codex 客户端投影由 `openai_codex_models_metadata.go` 负责。
 
-迁移入口为 `backend/cmd/server/migrate.go`，站间协议、数据投影及合并归属见 [sitemigration](../backend/internal/modules/sitemigration/README.md)。
+迁移入口为 `/admin/site-migration` 和 `backend/cmd/server/migrate.go`，站间协议、数据投影及合并归属见 [sitemigration](../backend/internal/modules/sitemigration/README.md)。

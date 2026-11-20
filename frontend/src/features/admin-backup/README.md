@@ -2,7 +2,9 @@
 
 本 feature 的 `BackupPage` 嵌入系统设置的备份页签，当前没有独立 `/admin/backup` 路由。
 
-## 两套接口
+站点迁移独立页面为 [SiteMigrationPage.vue](presentation/pages/SiteMigrationPage.vue)，可从侧栏或设置的备份页签打开。其 [datasource](data/datasources/siteMigrationDatasource.ts) 通过完整管理员会话管理自己的迁移任务及 CSV。
+
+## 备份接口
 
 | 入口 | 作用 |
 | --- | --- |

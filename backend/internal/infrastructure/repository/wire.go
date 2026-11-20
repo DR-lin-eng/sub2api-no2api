@@ -186,6 +186,7 @@ var ProviderSet = wire.NewSet(
 	ProvideEnt,
 	ProvideSQLDB,
 	ProvideSiteMigration,
+	ProvideSiteMigrationPanel,
 	ProvideRedis,
 )
 

@@ -796,6 +796,12 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/site-migration',
+    name: 'AdminSiteMigration',
+    component: () => import('@/features/admin-backup/presentation/pages/SiteMigrationPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Site migration', titleKey: 'admin.migration.title', descriptionKey: 'admin.migration.description' }
+  },
+  {
     path: '/admin/settings',
     name: 'AdminSettings',
     component: () => import('@/features/admin-settings/presentation/pages/SettingsPage.vue'),

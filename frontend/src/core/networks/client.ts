@@ -147,6 +147,11 @@ apiClient.interceptors.response.use(
 
     // Handle common errors
     if (error.response) {
+      // A CSV download still returns the normal JSON error for TOTP, expiry or denial.
+      if (error.config?.responseType === 'blob' && error.response.data instanceof Blob &&
+          error.response.data.size <= 32 * 1024 && error.response.data.type.includes('json')) {
+        try { error.response.data = JSON.parse(await error.response.data.text()) } catch { /* Use the HTTP status below. */ }
+      }
       const { status, data } = error.response
       const url = String(error.config?.url || '')
 

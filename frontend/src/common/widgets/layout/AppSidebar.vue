@@ -946,6 +946,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true, permission: 'settings.manage' }
   ]
 
+  if (authStore.isAdmin) baseItems.push({ path: '/admin/site-migration', label: t('nav.siteMigration'), icon: ServerIcon })
   const visible = applyPermissions(applyFeatureFlags(baseItems))
   const settingsItem: NavItem = { path: '/admin/settings', label: t('nav.settings'), icon: CogIcon, permission: 'settings.manage' }
 

@@ -228,6 +228,7 @@ export default {
   },
   // Navigation
   nav: {
+    siteMigration: '站点迁移',
     mcp: 'MCP 接入',
     dashboard: '仪表盘',
     announcements: '公告',

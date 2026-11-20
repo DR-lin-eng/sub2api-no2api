@@ -491,6 +491,7 @@ func (s Store) ReportPage(ctx context.Context, a Auth, id string, first int) ([]
 
 func (s Store) DecodeReportPage(ctx context.Context, a Auth, id, mode string, first, remaining int, page []byte, write func([]byte) error) (int, error) {
 	count := 0
+	var lines [][]byte
 	_, err := s.withJob(ctx, a, id, mode, func(tx *sql.Tx, j *session) error {
 		if len(page) == 0 || len(page) > BlockSize || first < 0 {
 			return ErrInvalid
@@ -508,15 +509,21 @@ func (s Store) DecodeReportPage(ctx context.Context, a Auth, id, mode string, fi
 			if err != nil || !last || len(b) > maxReportRow {
 				return ErrInvalid
 			}
-			if err = write(b); err != nil {
-				return err
-			}
+			lines = append(lines, b)
 			page = page[n:]
 			count++
 		}
 		return nil
 	})
-	return count, err
+	if err != nil {
+		return 0, err
+	}
+	for _, line := range lines {
+		if err = write(line); err != nil {
+			return 0, err
+		}
+	}
+	return count, nil
 }
 func (s Store) Remove(ctx context.Context, a Auth, id, mode string) (State, error) {
 	return s.withJob(ctx, a, id, mode, func(tx *sql.Tx, j *session) error {

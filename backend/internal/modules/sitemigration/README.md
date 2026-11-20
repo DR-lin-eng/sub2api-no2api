@@ -2,6 +2,7 @@
 
 站间迁移的快照、合并和会话协议。命令及操作边界见[双站迁移](../../../../docs/SITE_MIGRATION.md)。
 
+- `panel*.go` 管理网页任务、恢复租约、对端地址校验以及归属发起管理员的加密 CSV。
 - `session.go` 和 `client.go` 负责临时密钥协商、加密分块、PostgreSQL 检查点与本地报告。
 - `snapshot.go`、`policy.go` 和 `catalog.go` 控制源端投影、准入数据表和敏感字段再加密。
 - `merge.go` 与 `references.go` 在同一事务中检查自然键、重建关系，记录拒绝或需要管理员处理的行。

@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
+
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -42,5 +44,23 @@ func TestSiteMigrationOnlyExplicitCredentialAndTLS(t *testing.T) {
 			require.Equal(t, tt.want, w.Code)
 			require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 		})
+	}
+}
+
+func TestMigrationConsoleRequiresHumanAdministratorOverTLS(t *testing.T) {
+	for _, tc := range []struct{ role, method, scheme string }{
+		{"admin", "admin_api_key", "https"}, {"admin", "mcp_oauth", "https"}, {"support", "jwt", "https"}, {"user", "jwt", "https"}, {"admin", "jwt", "http"},
+	} {
+		r := gin.New()
+		r.GET("/jobs", func(c *gin.Context) {
+			c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1})
+			c.Set(string(middleware.ContextKeyUserRole), tc.role)
+			c.Set("auth_method", tc.method)
+			c.Next()
+		}, SiteMigrationPanel(nil, nil))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest("GET", tc.scheme+"://example.test/jobs", nil))
+		require.Equal(t, 403, w.Code, tc)
+		require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 	}
 }
