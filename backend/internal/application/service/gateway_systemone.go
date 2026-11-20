@@ -11,6 +11,7 @@ import (
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/typesafe"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/sjson"
 )
 
 type SystemOneForwardResult struct {
@@ -42,6 +43,15 @@ func (s *GatewayService) ForwardSystemOne(ctx context.Context, c *gin.Context, a
 	baseURL, err := s.validateUpstreamBaseURL(account.GetTypeSafeBaseURL())
 	if err != nil {
 		return nil, err
+	}
+	mappedModel := firstNonEmpty(account.GetMappedModel(typesafe.JevLatestModel), typesafe.JevLatestModel)
+	var upstreamModel string
+	if mappedModel != typesafe.JevLatestModel {
+		body, err = sjson.SetBytes(body, "model", mappedModel)
+		if err != nil {
+			return nil, fmt.Errorf("apply TypeSafe account model mapping: %w", err)
+		}
+		upstreamModel = mappedModel
 	}
 	req, err := typesafe.NewSystemOneRequest(ctx, baseURL, key, body)
 	if err != nil {
@@ -90,6 +100,7 @@ func (s *GatewayService) ForwardSystemOne(ctx context.Context, c *gin.Context, a
 			RequestID:             resp.Header.Get("x-request-id"),
 			Usage:                 ClaudeUsage{InputTokens: decoded.Usage.InputTokens, OutputTokens: decoded.Usage.OutputTokens},
 			Model:                 typesafe.JevLatestModel,
+			UpstreamModel:         upstreamModel,
 			UpstreamResponseModel: decoded.Model,
 			Duration:              time.Since(started),
 		},

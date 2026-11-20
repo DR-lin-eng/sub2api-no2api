@@ -587,7 +587,7 @@ import type {
   UpstreamQuotaQueryResult,
   WindowStats
 } from '@/types'
-import { buildOpenAIUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
+import { buildAccountUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/core/utils/usageLoadQueue'
 import { formatCompactNumber, formatRelativeTime } from '@/core/utils/format'
 import { useOpenAIQuotaDisplayState } from '@/features/admin-accounts/presentation/composables/useOpenAIQuotaDisplayState'
@@ -601,7 +601,7 @@ import GrokQuotaProbeCell from './GrokQuotaProbeCell.vue'
 import CNProviderUsageCell from './CNProviderUsageCell.vue'
 import AccountKeyUsageDetails from './AccountKeyUsageDetails.vue'
 
-const _usageCache = new Map<number, { data: AccountUsageInfo; ts: number }>()
+const _usageCache = new Map<number, { data: AccountUsageInfo; ts: number; refreshKey: string }>()
 const USAGE_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const SUPPRESS_USAGE_REFRESH_WINDOW_MS = 5 * 1000
 const props = withDefaults(
@@ -704,7 +704,7 @@ const {
   clearQuotaUsage: clearOpenAIQuotaUsage
 } = useOpenAIQuotaDisplayState(usageInfo)
 
-const openAIUsageRefreshKey = computed(() => buildOpenAIUsageRefreshKey(props.account))
+const usageRefreshKey = computed(() => buildAccountUsageRefreshKey(props.account))
 
 const shouldAutoLoadUsageOnMount = computed(() => {
   return shouldFetchUsage.value
@@ -1210,13 +1210,19 @@ const shouldLoadPassiveUsage = computed(() =>
   (props.account.platform === 'openai' && props.account.type === 'oauth')
 )
 
+let usageRevision = 0
 const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?: boolean }) => {
   if (!shouldFetchUsage.value) return
+
+  const accountID = props.account.id
+  const refreshKey = usageRefreshKey.value
+  const revision = ++usageRevision
+  const current = () => !unmounted.value && props.account.id === accountID && usageRefreshKey.value === refreshKey && revision === usageRevision
 
   // Check cache
   if (!options?.bypassCache) {
     const cached = _usageCache.get(props.account.id)
-    if (cached && Date.now() - cached.ts < USAGE_CACHE_TTL) {
+    if (cached && cached.refreshKey === refreshKey && Date.now() - cached.ts < USAGE_CACHE_TTL) {
       usageInfo.value = cached.data
       loading.value = false
       return
@@ -1228,20 +1234,20 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
 
   try {
     const fetchFn = () => options?.source
-      ? getUsage(props.account.id, options.source)
-      : getUsage(props.account.id)
+      ? getUsage(accountID, options.source)
+      : getUsage(accountID)
     const result = await enqueueUsageRequest(props.account, fetchFn)
-    if (!unmounted.value) {
+    if (current()) {
       usageInfo.value = result
-      _usageCache.set(props.account.id, { data: result, ts: Date.now() })
+      _usageCache.set(accountID, { data: result, ts: Date.now(), refreshKey })
     }
   } catch (e: any) {
-    if (!unmounted.value) {
+    if (current()) {
       error.value = t('common.error')
       console.error('Failed to load usage:', e)
     }
   } finally {
-    if (!unmounted.value) loading.value = false
+    if (current()) loading.value = false
   }
 }
 
@@ -1378,7 +1384,7 @@ const handleGrokProbed = (result: GrokQuotaProbeResult) => {
     error_code: result.billing || snapshot ? undefined : current.error_code
   }
   usageInfo.value = merged
-  _usageCache.set(props.account.id, { data: merged, ts: Date.now() })
+  _usageCache.set(props.account.id, { data: merged, ts: Date.now(), refreshKey: usageRefreshKey.value })
 }
 
 const formatKeyRequests = computed(() => {
@@ -1425,9 +1431,13 @@ onMounted(() => {
   requestAutoLoad(source)
 })
 
-watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
+watch(usageRefreshKey, (nextKey, prevKey) => {
   if (!prevKey || nextKey === prevKey) return
-  if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return
+  if (!shouldFetchUsage.value) return
+  if (props.account.platform !== 'openai') {
+    requestAutoLoad(shouldLoadPassiveUsage.value ? 'passive' : undefined)
+    return
+  }
   if (Date.now() < suppressOpenAIUsageRefreshUntil.value) {
     suppressOpenAIUsageRefreshUntil.value = 0
     return

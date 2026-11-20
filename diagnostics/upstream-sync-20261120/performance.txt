@@ -1,0 +1,17 @@
+goos: linux
+goarch: arm64
+pkg: github.com/DR-lin-eng/sub2api-no2api
+BenchmarkRepair/upstream/100         	     285	   1263273 ns/op	 1795536 B/op	    1032 allocs/op
+BenchmarkRepair/upstream/100         	     297	   1078448 ns/op	 1795536 B/op	    1032 allocs/op
+BenchmarkRepair/upstream/100         	     366	    978908 ns/op	 1795536 B/op	    1032 allocs/op
+BenchmarkRepair/candidate/100        	    7957	     54986 ns/op	   31488 B/op	       3 allocs/op
+BenchmarkRepair/candidate/100        	    5245	     67077 ns/op	   31488 B/op	       3 allocs/op
+BenchmarkRepair/candidate/100        	    8230	     47687 ns/op	   31488 B/op	       3 allocs/op
+BenchmarkRepair/upstream/1000        	       4	  88223615 ns/op	160925112 B/op	   10924 allocs/op
+BenchmarkRepair/upstream/1000        	       4	  88689636 ns/op	160925096 B/op	   10924 allocs/op
+BenchmarkRepair/upstream/1000        	       4	  79401646 ns/op	160925092 B/op	   10924 allocs/op
+BenchmarkRepair/candidate/1000       	     758	    514485 ns/op	  311296 B/op	       3 allocs/op
+BenchmarkRepair/candidate/1000       	     678	    581488 ns/op	  311296 B/op	       3 allocs/op
+BenchmarkRepair/candidate/1000       	     770	    509455 ns/op	  311296 B/op	       3 allocs/op
+PASS
+ok  	github.com/DR-lin-eng/sub2api-no2api	4.516s

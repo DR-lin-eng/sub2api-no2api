@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"net/http"
 	"strings"
 
@@ -91,6 +92,12 @@ func GroupForcesOpenAIImageToolForPlatform(group *Group, targetPlatform string) 
 	return group.Platform == PlatformComposite && targetPlatform == PlatformOpenAI
 }
 
+// Every supported image model or tool name contains this ASCII substring.
+// Escaped JSON needs the full decoder so an escaped name still gets classified.
+func mayDeclareImageGeneration(body []byte) bool {
+	return containsImageHintFold(body, []byte("imag")) || bytes.Contains(body, []byte(`\u`))
+}
+
 // IsImageGenerationIntent classifies requests that can produce generated images.
 func IsImageGenerationIntent(endpoint string, requestedModel string, body []byte) bool {
 	if IsImageGenerationEndpoint(endpoint) {
@@ -99,7 +106,7 @@ func IsImageGenerationIntent(endpoint string, requestedModel string, body []byte
 	if isOpenAIImageGenerationModel(requestedModel) {
 		return true
 	}
-	if len(body) == 0 || !gjson.ValidBytes(body) {
+	if !mayDeclareImageGeneration(body) || !gjson.ValidBytes(body) {
 		return false
 	}
 
@@ -141,7 +148,7 @@ func IsExplicitImageGenerationIntent(endpoint string, requestedModel string, bod
 	if IsImageGenerationEndpoint(endpoint) || isOpenAIImageGenerationModel(requestedModel) {
 		return true
 	}
-	if len(body) == 0 || !gjson.ValidBytes(body) {
+	if !mayDeclareImageGeneration(body) || !gjson.ValidBytes(body) {
 		return false
 	}
 	var modelSeen, toolsSeen, toolChoiceSeen bool
@@ -188,7 +195,7 @@ func isExplicitGrokImageGenerationIntent(endpoint string, requestedModel string,
 	if IsImageGenerationEndpoint(endpoint) || isOpenAIImageGenerationModel(requestedModel) {
 		return true
 	}
-	if len(body) == 0 || !gjson.ValidBytes(body) {
+	if !mayDeclareImageGeneration(body) || !gjson.ValidBytes(body) {
 		return false
 	}
 
@@ -575,4 +582,47 @@ func openAIJSONString(value gjson.Result) string {
 		return ""
 	}
 	return strings.TrimSpace(value.String())
+}
+
+func containsImageHintFold(haystack, needle []byte) bool {
+	if len(needle) == 0 || len(haystack) < len(needle) {
+		return false
+	}
+	first := needle[0]
+	upper := first
+	if 'a' <= first && first <= 'z' {
+		upper = first - ('a' - 'A')
+	}
+	last := len(haystack) - len(needle)
+
+	lowerPos := bytes.IndexByte(haystack, first)
+	upperPos := -1
+	if upper != first {
+		upperPos = bytes.IndexByte(haystack, upper)
+	}
+	for lowerPos >= 0 || upperPos >= 0 {
+		pos := lowerPos
+		if pos < 0 || (upperPos >= 0 && upperPos < pos) {
+			pos = upperPos
+		}
+		if pos > last {
+			return false
+		}
+		if bytes.EqualFold(haystack[pos:pos+len(needle)], needle) {
+			return true
+		}
+		// 只推进刚刚消费掉的那条游标。
+		if pos == lowerPos {
+			lowerPos = -1
+			if next := bytes.IndexByte(haystack[pos+1:], first); next >= 0 {
+				lowerPos = pos + 1 + next
+			}
+			continue
+		}
+		upperPos = -1
+		if next := bytes.IndexByte(haystack[pos+1:], upper); next >= 0 {
+			upperPos = pos + 1 + next
+		}
+	}
+	return false
 }

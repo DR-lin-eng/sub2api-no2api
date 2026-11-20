@@ -14,7 +14,7 @@ var codexSelectedPageName = regexp.MustCompile(`^codex_apps_selected_page_part_(
 // Desktop injects page snapshots as standalone outputs, without a model tool call.
 // Keep them as untrusted user text, including on history replay and mixed bootstrap turns.
 func NormalizeCodexPageContext(body []byte) ([]byte, bool) {
-	if (!bytes.Contains(body, []byte("codex_apps_open_page")) && !bytes.Contains(body, []byte("codex_apps_selected_page_part_")) && !bytes.Contains(body, []byte("browser_info")) && !bytes.Contains(body, []byte("goal_objective")) && !bytes.Contains(body, []byte("untrusted_context"))) || !hasUniqueJSONMembers(body) {
+	if (!bytes.Contains(body, []byte("function_call_output")) && !bytes.Contains(body, []byte(`\u`))) || !hasUniqueJSONMembers(body) {
 		return body, false
 	}
 	var request map[string]json.RawMessage
@@ -45,13 +45,14 @@ func NormalizeCodexPageContext(body []byte) ([]byte, bool) {
 				continue
 			}
 		}
-		name, output := readString("name"), readString("output")
-		if !validCodexUntrustedContext(name, output) {
+		name := readString("name")
+		var output *string
+		if json.Unmarshal(item["output"], &output) != nil || output == nil || !validCodexUntrustedContext(name, *output) {
 			continue
 		}
-		text := "<external_" + name + ">" + output + "</external_" + name + ">"
-		if validCodexPageContext(name, output) {
-			text = "<external_" + name + ">\n" + output + "\n</external_" + name + ">"
+		text := "<external_" + name + ">" + *output + "</external_" + name + ">"
+		if validCodexPageContext(name, *output) {
+			text = "<external_" + name + ">\n" + *output + "\n</external_" + name + ">"
 		}
 		message := map[string]any{
 			"type": "message",
@@ -128,8 +129,14 @@ func validCodexPageSnapshot(text string) bool {
 
 func validCodexUntrustedContext(name, output string) bool {
 	switch name {
-	case "browser_info", "goal_objective", "untrusted_context":
+	case "browser_info", "goal_objective", "untrusted_context", "ide_context":
 		return strings.TrimSpace(output) != ""
+	case "untrusted_content":
+		// Codex's fallback for an unnamed context source can carry any text, including an empty value.
+		return true
+	case "proposed_plan":
+		// Codex splits an approved plan by byte length, so a chunk can be all whitespace.
+		return output != ""
 	default:
 		return validCodexPageContext(name, output)
 	}

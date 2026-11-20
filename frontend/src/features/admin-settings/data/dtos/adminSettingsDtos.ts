@@ -280,7 +280,7 @@ export interface BetaPolicySettings {
 }
 
 export interface WebSearchProviderConfig {
-  type: "brave" | "tavily";
+  type: "brave" | "tavily" | "exa";
   api_key: string;
   api_key_configured: boolean;
   quota_limit: number | null;

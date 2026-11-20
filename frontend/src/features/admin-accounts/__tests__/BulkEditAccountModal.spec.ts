@@ -281,7 +281,6 @@ describe('BulkEditAccountModal', () => {
     expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
       extra: {
         openai_passthrough: true,
-        openai_passthrough_model_filter: false
       }
     })
   })
@@ -757,13 +756,12 @@ describe('BulkEditAccountModal', () => {
     expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
       extra: {
         openai_passthrough: false,
-        openai_passthrough_model_filter: false,
         openai_oauth_passthrough: false
       }
     })
   })
 
-  it('开启 OpenAI 自动透传时不再同时提交模型限制', async () => {
+  it('显式停用透传模型筛选时忽略模型限制编辑', async () => {
     const wrapper = mountModal({
       selectedPlatforms: ['openai'],
       selectedTypes: ['oauth']
@@ -771,6 +769,7 @@ describe('BulkEditAccountModal', () => {
 
     await wrapper.get('#bulk-edit-openai-passthrough-enabled').setValue(true)
     await wrapper.get('#bulk-edit-openai-passthrough-toggle').trigger('click')
+    await wrapper.get('#bulk-edit-openai-passthrough-model-filter-enabled').setValue(true)
     await wrapper.get('#bulk-edit-model-restriction-enabled').setValue(true)
     await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
     await flushPromises()
@@ -779,7 +778,7 @@ describe('BulkEditAccountModal', () => {
     expect(bulkUpdate).toHaveBeenCalledWith([1, 2], {
       extra: {
         openai_passthrough: true,
-        openai_passthrough_model_filter: false
+        openai_passthrough_model_filter: false,
       }
     })
     expect(wrapper.text()).toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
@@ -826,6 +825,7 @@ describe('BulkEditAccountModal', () => {
     expect(wrapper.find('[data-testid="openai-passthrough-model-filter"]').exists()).toBe(false)
     await wrapper.get('#bulk-edit-openai-passthrough-enabled').setValue(true)
     await wrapper.get('#bulk-edit-openai-passthrough-toggle').trigger('click')
+    await wrapper.get('#bulk-edit-openai-passthrough-model-filter-enabled').setValue(true)
     const checkbox = wrapper.get('[data-testid="openai-passthrough-model-filter"]')
     expect((checkbox.element as HTMLInputElement).checked).toBe(false)
     await checkbox.setValue(true)

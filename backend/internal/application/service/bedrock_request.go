@@ -721,6 +721,9 @@ func sanitizeBedrockThinking(body []byte, modelID string) []byte {
 		return body
 	}
 
+	if isClaude55SignedThinkingModel(modelID) {
+		return adaptThinkingToClaude55(body, modelID)
+	}
 	if isBedrockOpus47OrNewer(modelID) {
 		if thinkingType == "enabled" {
 			body, _ = sjson.SetBytes(body, "thinking.type", "adaptive")

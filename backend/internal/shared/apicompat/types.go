@@ -235,6 +235,10 @@ type ResponsesRequest struct {
 	ServiceTier        string              `json:"service_tier,omitempty"`
 	PromptCacheKey     string              `json:"prompt_cache_key,omitempty"`
 	PreviousResponseID string              `json:"previous_response_id,omitempty"`
+	// Stop 在 Chat Completions 里是原生字段，Responses 协议本身没有。这里保留原样
+	// （string 或 []string），仅在降级到 Chat Completions 时透传，避免客户端设的
+	// 停止序列在转换层被静默丢弃。
+	Stop json.RawMessage `json:"stop,omitempty"`
 }
 
 // ResponsesReasoning configures reasoning effort in the Responses API.
@@ -474,6 +478,10 @@ func (o *ResponsesOutput) UnmarshalJSON(data []byte) error {
 type WebSearchAction struct {
 	Type  string `json:"type,omitempty"`  // "search"
 	Query string `json:"query,omitempty"` // primary search query
+	// URL and Sources stay raw: a strictly typed value of an unexpected shape
+	// would fail decoding the whole terminal event that carries this call.
+	URL     json.RawMessage `json:"url,omitempty"` // open_page / find_in_page target
+	Sources json.RawMessage `json:"sources,omitempty"`
 }
 
 // ResponsesSummary is a summary text block inside a reasoning output.

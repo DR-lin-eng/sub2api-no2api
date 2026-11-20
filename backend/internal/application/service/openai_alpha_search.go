@@ -99,7 +99,7 @@ func (s *OpenAIGatewayService) ForwardAlphaSearch(ctx context.Context, c *gin.Co
 			// 漏过 PAT 类型判断。这里仍允许本次请求换号，但不修改任何账号状态；
 			// 真正的凭据失效由普通 Responses 请求或 whoami 校验判定。
 			shouldDisable := false
-			if shouldApplyOpenAIAlphaSearchAccountErrorSideEffects(resp.StatusCode) {
+			if shouldApplyOpenAIAlphaSearchAccountErrorSideEffects(resp.StatusCode, upstreamMessage, respBody) {
 				shouldDisable = s.handleFailoverSideEffects(ctx, resp, account, respBody, upstreamModel)
 			}
 			return nil, newOpenAIUpstreamFailoverError(
@@ -176,7 +176,7 @@ func (s *OpenAIGatewayService) forwardAlphaSearchViaResponsesWebSearch(
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
 			// 仍按 alpha/search 工具请求处理：PAT 的工具链路失败不能直接永久置错。
 			shouldDisable := false
-			if shouldApplyOpenAIAlphaSearchAccountErrorSideEffects(resp.StatusCode) {
+			if shouldApplyOpenAIAlphaSearchAccountErrorSideEffects(resp.StatusCode, upstreamMessage, respBody) {
 				shouldDisable = s.handleFailoverSideEffects(ctx, resp, account, respBody, upstreamModel)
 			}
 			return nil, newOpenAIUpstreamFailoverError(
@@ -535,13 +535,20 @@ func isOpenAIAlphaSearchEndpointUnsupported(account *Account, statusCode int) bo
 	return statusCode == http.StatusNotFound || statusCode == http.StatusMethodNotAllowed
 }
 
-func shouldApplyOpenAIAlphaSearchAccountErrorSideEffects(statusCode int) bool {
+func shouldApplyOpenAIAlphaSearchAccountErrorSideEffects(statusCode int, upstreamMessage string, responseBody []byte) bool {
 	switch statusCode {
 	case http.StatusUnauthorized, http.StatusNotFound, http.StatusMethodNotAllowed:
 		// 401：工具端点的 access enforcement 不代表凭据全局失效；
 		// 404/405：端点不存在只说明该上游不支持独立搜索，账号本身健康。
 		// 两类都只换号，不写账号错误状态。
 		return false
+	case http.StatusForbidden:
+		// 403 只有在明确是账号/工作区访问状态错误（停用、禁用等）时才是账号级
+		// 证据。其余 403 是搜索工具本身的拒绝，例如套餐不含文献检索时的
+		// {"detail":"Literature search is unavailable."}：同一请求会在 failover
+		// 中逐号重放，若按通用 403 处理（首次冷却 10 分钟、3 次永久置错），
+		// 一条请求就能停掉整个号池。这类 403 只换号，不写账号状态。
+		return hasAlphaSearchAccountStateCode(responseBody)
 	default:
 		return true
 	}
@@ -706,4 +713,31 @@ func (s *OpenAIGatewayService) openAIAlphaSearchURLWithContext(ctx context.Conte
 	default:
 		return "", fmt.Errorf("unsupported OpenAI account type: %s", account.Type)
 	}
+}
+
+func hasAlphaSearchAccountStateCode(body []byte) bool {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return false
+	}
+	for _, path := range []string{"error.code", "response.error.code", "detail.code", "code"} {
+		if isOpenAIUpstreamAccessStateCode(gjson.GetBytes(body, path).String()) {
+			return true
+		}
+	}
+	return false
+}
+
+func isOpenAIUpstreamAccessStateCode(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "deactivated_workspace" {
+		return true
+	}
+	for _, subject := range []string{"workspace", "account", "organization", "org"} {
+		for _, state := range []string{"deactivated", "disabled", "suspended"} {
+			if value == subject+"_"+state || value == state+"_"+subject {
+				return true
+			}
+		}
+	}
+	return false
 }

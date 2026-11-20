@@ -6,6 +6,8 @@ OpenAI OAuth 模型请求在发送时通知后台额度同步服务：active 账
 
 本文给出高频链路的阅读顺序和不变量。它刻意省略平台内部的全部分支；调试具体问题时，应从命中的路由和 handler 继续追踪。
 
+网关在组合模型改写、调度和计费之前检查重复请求字段；Responses WebSocket 首帧和后续客户端帧共用读取校验。参见[协议和升级边界](UPSTREAM_SYNC_20261120.md)。
+
 ## API Key 模型请求
 
 典型入口包括 TypeSafe 原生非流式 `/v1/systemone`、`/v1/messages`、`/v1/responses`、`/v1/decisions`、`/v1/chat/completions`、`/v1beta/...` 以及无 `/v1` 的兼容别名。所有绑定在 `backend/internal/transport/http/server/routes/gateway.go`。

@@ -56,7 +56,7 @@ export default {
   cacheTTL5m: '5 minutes',
   cacheTTL1h: '1 hour',
   anthropicCacheTTL1hInjection: 'Anthropic Cache TTL Injection',
-  anthropicCacheTTL1hInjectionHint: 'When enabled, existing ephemeral cache_control blocks in Anthropic OAuth/Setup Token request bodies are forced to 1h; response usage is billed back as 5m by default, with account-level TTL billing override taking priority.',
+  anthropicCacheTTL1hInjectionHint: 'When enabled, existing ephemeral cache_control blocks in Anthropic OAuth/Setup Token request bodies use 1h, or 5m for Claude Code compaction requests; response usage is billed back as 5m by default, with account-level TTL billing override taking priority.',
   rewriteMessageCacheControl: 'Rewrite Message Cache Breakpoints',
   rewriteMessageCacheControlHint: 'Default off: preserve client cache_control on message content blocks. When enabled, client breakpoints are stripped and proxy breakpoints are injected for clients that do not manage caching themselves.',
   clientDatelineNormalization: 'Client Dateline Normalization',

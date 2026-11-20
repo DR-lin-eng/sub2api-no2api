@@ -1080,6 +1080,10 @@ func (a *Account) isModelMappingSupportedForRequest(requestedModel, routedModel 
 	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
 	// model_mapping 白名单错误排除出候选集，导致 no available accounts / 404（issue #4936）。
 	if a.IsOpenAIPassthroughEnabled() {
+		target := strings.ToLower(lastOpenAIModelSegment(firstNonEmptyModel(routedModel, requestedModel)))
+		if a.IsOpenAIOAuth() && (strings.HasPrefix(target, "claude-") || isKnownForeignOpenAIModel(target)) {
+			return false
+		}
 		if !a.IsOpenAIPassthroughModelFilterEnabled() {
 			return true
 		}
