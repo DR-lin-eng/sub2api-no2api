@@ -180,7 +180,7 @@ func adminAPIKeyRequestAllowed(c *gin.Context, scopes []string) bool {
 	}
 	if strings.HasPrefix(path, "/api/v1/admin/site-migration/") {
 		mode, _, _ := strings.Cut(strings.TrimPrefix(path, "/api/v1/admin/site-migration/"), "/")
-		return c.Request.Method == http.MethodPost && (mode == "export" || mode == "import") && (slices.Contains(scopes, "admin.migration."+mode) || slices.Contains(scopes, "admin.migration.users."+mode))
+		return c.Request.Method == http.MethodPost && (mode == "export" || mode == "import") && (slices.Contains(scopes, "admin.migration."+mode) || slices.Contains(scopes, "admin.migration.users."+mode) || slices.Contains(scopes, "admin.migration.userkeys."+mode))
 	}
 	required := adminAPIKeyRequiredScope(c.Request.Method, path)
 	for _, scope := range scopes {

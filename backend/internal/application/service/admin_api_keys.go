@@ -50,6 +50,7 @@ var AdminAPIKeyScopes = []string{
 	AdminAPIKeyScopeOpsRead, AdminAPIKeyScopeOpsWrite,
 	AdminAPIKeyScopeRedeemSecrets, "admin.migration.export", "admin.migration.import",
 	"admin.migration.users.export", "admin.migration.users.import",
+	"admin.migration.userkeys.export", "admin.migration.userkeys.import",
 }
 
 type AdminAPIKey struct {

@@ -34,7 +34,8 @@ describe('site migration console', () => {
     try {
       await w.get('input[placeholder="gateway.example.com"]').setValue('peer.example')
       await w.get('input[type="password"]').setValue('fixture-peer-key-with-scope')
-      await w.get('select').setValue('login-quota')
+      await w.get('select').setValue('login-quota-keys')
+      expect(w.text()).toContain('admin.migration.userkeys.import')
       await w.get('form').trigger('submit')
       expect(start).not.toHaveBeenCalled()
       // Keep a snapshot of the request before the component clears sensitive values.
@@ -42,7 +43,7 @@ describe('site migration console', () => {
       start.mockImplementationOnce(async form => { sent={...form}; return {...baseJob, phase:'completed'} })
       await w.get('[data-test="confirm"]').trigger('click')
       await flushPromises()
-      expect(sent).toMatchObject({peer:'peer.example',direction:'push',profile:'login-quota',key:'fixture-peer-key-with-scope'})
+      expect(sent).toMatchObject({peer:'peer.example',direction:'push',profile:'login-quota-keys',key:'fixture-peer-key-with-scope'})
       expect((w.get('input[type="password"]').element as HTMLInputElement).value).toBe('')
     } finally { w.unmount() }
   })

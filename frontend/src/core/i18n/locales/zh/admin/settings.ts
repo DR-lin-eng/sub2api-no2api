@@ -944,8 +944,10 @@ export default {
       adminApiKey: {
         migrationUsersExportScope: '仅迁出普通用户登录信息和可选额度',
         migrationUsersImportScope: '仅迁入普通用户登录信息和可选额度',
-        migrationExportScope: '迁出全站数据（含用户凭据和站级密钥）',
-        migrationImportScope: '迁入全站数据（完整克隆含站级密钥）',
+        migrationUserKeysExportScope: '迁出普通用户登录、额度及个人 API Key',
+        migrationUserKeysImportScope: '迁入普通用户登录、额度及个人 API Key',
+        migrationExportScope: '迁出业务数据及普通用户凭据',
+        migrationImportScope: '迁入业务数据及普通用户凭据',
         redeemSecretsScope: '卡密明文读取与导出',
         title: '管理员 API Key',
         description: '按资源、读写及卡密分别授权。现有密钥（含旧版）可直接编辑权限，无需更换密钥值；旧版默认只读。',

@@ -199,6 +199,17 @@ func (im *importer) mergePass(t *table, self, deferParents bool) (int, int, erro
 				}
 			}
 			originalID := record.fields["id"]
+			rebind := false
+			if t.name == "api_keys" {
+				var e error
+				rebind, e = im.needsKeyRebinding(record.fields)
+				if e != nil {
+					return 0, 0, e
+				}
+				if rebind {
+					detachForeignKeyGroups(record.fields)
+				}
+			}
 			reason, err := im.insert(t, record.fields)
 			if err != nil {
 				return 0, 0, err
@@ -208,6 +219,10 @@ func (im *importer) mergePass(t *table, self, deferParents bool) (int, int, erro
 					record.fields["id"] = originalID
 				}
 				if err = im.reject(t, record.fields, reason); err != nil {
+					return 0, 0, err
+				}
+			} else if rebind {
+				if err = im.reject(t, row{"id": originalID}, "Key 已保留并停用，用户需在新站重新选择分组并启用"); err != nil {
 					return 0, 0, err
 				}
 			}
@@ -419,7 +434,7 @@ func (im *importer) insert(t *table, r row) (string, error) {
 			}
 		}
 	}
-	if t.name == "users" {
+	if t.name == "users" && (r["deleted_at"] == nil || string(r["deleted_at"]) == "null") {
 		_, err = im.tx.ExecContext(im.ctx, "INSERT INTO migration_emails VALUES("+emailExpr("$1::text")+") ON CONFLICT DO NOTHING", r.str("email"))
 		if err != nil {
 			return "", err
@@ -483,4 +498,37 @@ func (im *importer) protectAccountBindings() error {
 		}
 		cursor = ids[len(ids)-1]
 	}
+}
+
+// An all-data merge may reuse only groups that were actually imported by
+// this job. One missing binding invalidates the entire binding set.
+func (im *importer) needsKeyRebinding(r row) (bool, error) {
+	if im.j.Profile == userKeysProfile {
+		return true, nil
+	}
+	base := idText(r, "group_id")
+	if base != "" && base != "null" {
+		_, ok, err := im.mapped("groups", "id", base)
+		if err != nil || !ok {
+			return !ok, err
+		}
+	}
+	// rewriteEmbedded may partially rewrite r on success; validate on a copy.
+	probe := row{"group_bindings": r["group_bindings"]}
+	if err := rewriteEmbedded("api_keys", probe, im.mapped); err != nil {
+		var missing *referenceConflict
+		if errors.As(err, &missing) {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
+}
+
+// The three-field profile does not import groups. A numeric group ID, including
+// one that happens to exist locally, is not proof that both sites grant the same access.
+func detachForeignKeyGroups(r row) {
+	r["group_id"] = json.RawMessage("null")
+	r["group_bindings"] = json.RawMessage("[]")
+	r.set("status", "inactive")
 }

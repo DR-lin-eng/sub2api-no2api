@@ -948,8 +948,10 @@ export default {
       adminApiKey: {
         migrationUsersExportScope: 'Export regular user logins and optional quotas only',
         migrationUsersImportScope: 'Import regular user logins and optional quotas only',
-        migrationExportScope: 'Export site data, including user credentials and site keys',
-        migrationImportScope: 'Import site data, including site keys in clone mode',
+        migrationUserKeysExportScope: 'Export ordinary user logins, quotas and personal API keys',
+        migrationUserKeysImportScope: 'Import ordinary user logins, quotas and personal API keys',
+        migrationExportScope: 'Export business data and ordinary user credentials',
+        migrationImportScope: 'Import business data and ordinary user credentials',
         redeemSecretsScope: 'Read and export voucher secrets',
         title: 'Admin API Key',
         description: 'Manage resource, read/write and voucher permissions. Existing keys, including the legacy key, can be edited without changing their value; legacy keys default to read-only.',

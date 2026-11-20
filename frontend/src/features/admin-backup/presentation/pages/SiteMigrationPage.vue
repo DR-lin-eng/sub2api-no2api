@@ -103,7 +103,7 @@ const app = useAppStore()
 const stepUp = useStepUp()
 const secure = secureMigrationOrigin()
 const directions: MigrationDirection[] = ['push', 'pull']
-const scopes: MigrationScope[] = ['all', 'login', 'login-quota', 'clone']
+const scopes: MigrationScope[] = ['all', 'login', 'login-quota', 'login-quota-keys', 'clone']
 const directionLabels: Record<MigrationDirection, string> = {
   'push': 'admin.migration.push',
   'pull': 'admin.migration.pull',
@@ -112,12 +112,14 @@ const scopeLabels: Record<MigrationScope, string> = {
   'all': 'admin.migration.scopes.all',
   'login': 'admin.migration.scopes.login',
   'login-quota': 'admin.migration.scopes.login-quota',
+  'login-quota-keys': 'admin.migration.scopes.login-quota-keys',
   'clone': 'admin.migration.scopes.clone',
 }
 const scopeHints: Record<MigrationScope, string> = {
   'all': 'admin.migration.hints.all',
   'login': 'admin.migration.hints.login',
   'login-quota': 'admin.migration.hints.login-quota',
+  'login-quota-keys': 'admin.migration.hints.login-quota-keys',
   'clone': 'admin.migration.hints.clone',
 }
 const phaseLabels: Record<MigrationPhase, string> = {
@@ -142,13 +144,15 @@ const failureLabels: Record<string, string> = {
   'conflict': 'admin.migration.errors.conflict',
   'interrupted': 'admin.migration.errors.interrupted',
   'transfer': 'admin.migration.errors.transfer',
+  'clone_policy': 'admin.migration.errors.clonePolicy',
+  'billing_pending': 'admin.migration.errors.billingPending',
 }
 function errorLabel(code?: string) {
   if (!code) return failureLabels.interrupted
   return Object.prototype.hasOwnProperty.call(failureLabels, code) ? failureLabels[code] : failureLabels.transfer
 }
 const direction = ref<MigrationDirection>('push')
-const scope = ref<MigrationScope>('all')
+const scope = ref<MigrationScope>('login-quota-keys')
 const peer = ref('')
 const peerKey = ref('')
 const jobs = ref<MigrationJob[]>([])
@@ -163,7 +167,11 @@ let poll: ReturnType<typeof setTimeout> | undefined
 let refreshQueued = false
 let retry: { id: string; signature: string } | undefined
 
-const grant = computed(() => 'admin.migration.' + (scope.value.startsWith('login') ? 'users.' : '') + (direction.value === 'push' ? 'import' : 'export'))
+const grant = computed(() => {
+  const mode = direction.value === 'push' ? 'import' : 'export'
+  if (scope.value === 'login-quota-keys') return 'admin.migration.userkeys.' + mode
+  return 'admin.migration.' + (scope.value.startsWith('login') ? 'users.' : '') + mode
+})
 const confirmMessage = computed(() => t('admin.migration.confirmRoute', { direction: t(directionLabels[direction.value]), peer: peer.value, scope: t(scopeLabels[scope.value]) }) + ' ' + (scope.value === 'clone' ? t('admin.migration.cloneNotice') : t('admin.migration.mergeNotice')))
 function terminal(phase: MigrationPhase) { return ['completed', 'interrupted', 'failed'].includes(phase) }
 function phaseStyle(phase: MigrationPhase) {

@@ -72,6 +72,8 @@ export type AdminApiKeyScope =
   | "admin.write"
   | "admin.migration.users.export"
   | "admin.migration.users.import"
+  | "admin.migration.userkeys.export"
+  | "admin.migration.userkeys.import"
   | "admin.migration.export"
   | "admin.migration.import"
   | "admin.redeem.secrets"

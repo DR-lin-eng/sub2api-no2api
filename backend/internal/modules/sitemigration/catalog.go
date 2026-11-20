@@ -35,6 +35,10 @@ batch_image_jobs batch_image_items batch_image_events video_balance_holds
 ops_alert_rules ops_alert_events ops_error_logs ops_ingress_reject_aggregates ops_metrics_daily ops_metrics_hourly
 ops_system_log_cleanup_audits ops_system_logs ops_system_metrics content_moderation_logs
 prompt_audit_events audit_logs deleted_api_key_audits auth_identity_migration_reports orphan_allowed_groups_audit`
+const userKeysProfile = "login-quota-keys"
+
+func includesUserQuota(p string) bool { return p == "login-quota" || p == userKeysProfile }
+
 const loginTables = "users auth_identities auth_identity_channels passkey_user_handles passkey_credentials"
 const loginFields = "id email password_hash username status signup_source totp_enabled totp_enabled_at totp_secret_encrypted"
 const quotaFields = "balance concurrency rpm_limit total_recharged"
@@ -45,6 +49,7 @@ type table struct {
 	cols, pk []string
 	refs     []ref
 	serial   bool
+	nullable map[string]bool
 }
 type catalog struct {
 	tables map[string]*table
@@ -66,16 +71,19 @@ func readCatalog(ctx context.Context, tx *sql.Tx, profile string) (catalog, erro
 		names = append(names, strings.Fields(cloneExtraTables)...)
 	} else if profile != "all" {
 		names = strings.Fields(loginTables)
-		if profile == "login-quota" {
+		if includesUserQuota(profile) {
 			names = append(names, "user_platform_quotas")
+			if profile == userKeysProfile {
+				names = append(names, "api_keys")
+			}
 		}
 	}
 	c := catalog{tables: make(map[string]*table)}
 	for _, n := range names {
-		c.tables[n] = &table{name: n}
+		c.tables[n] = &table{name: n, nullable: map[string]bool{}}
 	}
 	rows, err := tx.QueryContext(ctx, `SELECT tab.relname,a.attname,format_type(a.atttypid,a.atttypmod),
-        coalesce(a.attnum=ANY(idx.indkey),false),pg_get_serial_sequence(format('public.%I',tab.relname),a.attname) IS NOT NULL
+        coalesce(a.attnum=ANY(idx.indkey),false),pg_get_serial_sequence(format('public.%I',tab.relname),a.attname) IS NOT NULL, NOT a.attnotnull
         FROM pg_class tab JOIN pg_attribute a ON a.attrelid=tab.oid
         LEFT JOIN pg_index idx ON idx.indrelid=tab.oid AND idx.indisprimary
         WHERE tab.relnamespace='public'::regnamespace AND tab.relname=ANY($1) AND tab.relkind='r'
@@ -87,8 +95,8 @@ func readCatalog(ctx context.Context, tx *sql.Tx, profile string) (catalog, erro
 	h := sha256.New()
 	for rows.Next() {
 		var name, col, typ string
-		var pk, serial bool
-		if err = rows.Scan(&name, &col, &typ, &pk, &serial); err != nil {
+		var pk, serial, nullable bool
+		if err = rows.Scan(&name, &col, &typ, &pk, &serial, &nullable); err != nil {
 			return c, err
 		}
 		if !selectedColumn(profile, name, col) {
@@ -96,6 +104,7 @@ func readCatalog(ctx context.Context, tx *sql.Tx, profile string) (catalog, erro
 		}
 		t := c.tables[name]
 		t.cols = append(t.cols, col)
+		t.nullable[col] = nullable
 		if pk {
 			t.pk = append(t.pk, col)
 		}
@@ -187,7 +196,7 @@ deleted_api_key_audits.user_id.users deleted_api_key_audits.api_key_id.api_keys 
 ops_error_logs.api_key_id.api_keys ops_error_logs.group_id.groups ops_error_logs.resolved_by_user_id.users ops_error_logs.deleted_key_owner_user_id.users
 ops_ingress_reject_aggregates.user_id.users ops_ingress_reject_aggregates.api_key_id.api_keys ops_system_logs.user_id.users ops_system_logs.account_id.accounts
 ops_system_logs.api_key_id.api_keys ops_metrics_daily.group_id.groups ops_metrics_hourly.group_id.groups ops_system_metrics.group_id.groups
-ops_system_log_cleanup_audits.operator_id.users ops_alert_events.rule_id.ops_alert_rules usage_billing_dedup.api_key_id.api_keys
+ops_system_log_cleanup_audits.operator_id.users ops_alert_events.rule_id.ops_alert_rules usage_billing_jobs.api_key_id.api_keys usage_billing_dedup.api_key_id.api_keys
 usage_billing_dedup_archive.api_key_id.api_keys usage_billing_dead_letters.api_key_id.api_keys usage_billing_admin_actions.operator_id.users
 usage_billing_admin_actions.source_job_id.usage_billing_jobs usage_billing_dead_letters.last_replayed_by.users usage_billing_admin_actions.api_key_id.api_keys usage_billing_admin_actions.source_dead_letter_id.usage_billing_dead_letters
 usage_dashboard_daily_users.user_id.users usage_dashboard_hourly_users.user_id.users usage_group_daily_rollups.group_id.groups

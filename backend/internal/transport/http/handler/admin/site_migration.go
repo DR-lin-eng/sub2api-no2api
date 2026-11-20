@@ -25,22 +25,28 @@ func SiteMigration(store sitemigration.Store) gin.HandlerFunc {
 		grant, _ := scopes.([]string)
 		owner := c.GetString("admin_api_key_id")
 		c.Header("Cache-Control", "no-store")
+		c.Header(sitemigration.ClonePolicyHeader, sitemigration.ClonePolicyVersion)
 		if !middleware.RequestIsHTTPS(c) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
 		full := slices.Contains(grant, "admin.migration."+mode)
-		if owner == "" || owner == "legacy" || c.GetString("auth_method") != "admin_api_key" || (mode != "import" && mode != "export") || (!full && !slices.Contains(grant, "admin.migration.users."+mode)) {
+		userKeys := slices.Contains(grant, "admin.migration.userkeys."+mode)
+		if owner == "" || owner == "legacy" || c.GetString("auth_method") != "admin_api_key" || (mode != "import" && mode != "export") || (!full && !userKeys && !slices.Contains(grant, "admin.migration.users."+mode)) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
-		a := sitemigration.Auth{Owner: "remote/" + owner, Key: c.GetHeader("x-api-key"), UsersOnly: !full}
+		a := sitemigration.Auth{Owner: "remote/" + owner, Key: c.GetHeader("x-api-key"), UsersOnly: !full, UserKeys: userKeys}
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Minute)
 		defer cancel()
 		var state sitemigration.State
 		var err error
 		switch op {
 		case "probe":
+			if c.Query("scope") == "clone" && c.GetHeader(sitemigration.ClonePolicyHeader) != sitemigration.ClonePolicyVersion {
+				c.Status(http.StatusPreconditionFailed)
+				return
+			}
 			if !a.Allows(c.Query("scope")) {
 				c.Status(403)
 				return
@@ -61,6 +67,10 @@ func SiteMigration(store sitemigration.Store) gin.HandlerFunc {
 			b, e := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, 1024))
 			if e != nil || json.Unmarshal(b, &v) != nil || len(v.Public) != 32 {
 				c.Status(400)
+				return
+			}
+			if v.Profile == "clone" && c.GetHeader(sitemigration.ClonePolicyHeader) != sitemigration.ClonePolicyVersion {
+				c.Status(http.StatusPreconditionFailed)
 				return
 			}
 			state, err = store.Open(ctx, a, id, mode, v.Profile, v.Public)
@@ -116,6 +126,8 @@ func SiteMigration(store sitemigration.Store) gin.HandlerFunc {
 		if err != nil {
 			code := 422
 			switch {
+			case errors.Is(err, sitemigration.ErrBillingPending):
+				code = http.StatusFailedDependency
 			case errors.Is(err, sitemigration.ErrDenied):
 				code = 403
 			case errors.Is(err, sitemigration.ErrMissing):

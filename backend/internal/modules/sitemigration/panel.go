@@ -220,6 +220,10 @@ func panelError(e error) string {
 	switch {
 	case errors.As(e, &peer):
 		switch peer.status {
+		case 412:
+			return "clone_policy"
+		case 424:
+			return "billing_pending"
 		case 401, 403:
 			return "peer_auth"
 		case 404:
@@ -233,6 +237,10 @@ func panelError(e error) string {
 		default:
 			return "peer_error"
 		}
+	case errors.Is(e, ErrClonePolicy):
+		return "clone_policy"
+	case errors.Is(e, ErrBillingPending):
+		return "billing_pending"
 	case errors.Is(e, ErrPeerAddress):
 		return "address"
 	case errors.Is(e, ErrMissing):
