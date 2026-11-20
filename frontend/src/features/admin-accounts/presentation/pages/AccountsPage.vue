@@ -76,7 +76,7 @@ import ScheduledTestsPanel from '@/features/admin-accounts/presentation/widgets/
 import type { SelectOption } from '@/common/widgets/forms/Select.vue'
 import ErrorPassthroughRulesModal from '@/features/admin-settings/presentation/widgets/ErrorPassthroughRulesDialog.vue'
 import TLSFingerprintProfilesModal from '@/features/admin-settings/presentation/widgets/TLSFingerprintProfilesDialog.vue'
-import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
+import { buildGrokUsageRefreshKey, buildAccountUsageRefreshKey } from '@/core/utils/accountUsageRefresh'
 import { getFloatingPanelPosition } from '@/core/utils/floatingPanel'
 import { useAccountsUpstreamBilling } from '@/features/admin-accounts/presentation/composables/useAccountsUpstreamBilling'
 import { useAccountTablePresentation } from '@/features/admin-accounts/presentation/composables/useAccountTablePresentation'
@@ -574,7 +574,7 @@ const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
     current.stream_degraded !== next.stream_degraded ||
     current.stream_degradation_level !== next.stream_degradation_level ||
     current.stream_next_probe_at !== next.stream_next_probe_at ||
-    buildOpenAIUsageRefreshKey(current) !== buildOpenAIUsageRefreshKey(next) ||
+    buildAccountUsageRefreshKey(current) !== buildAccountUsageRefreshKey(next) ||
     buildGrokUsageRefreshKey(current) !== buildGrokUsageRefreshKey(next)
   )
 }
@@ -1207,7 +1207,14 @@ const handleDuplicateAccount = async (a: Account) => {
     duplicatingAccountIDs.delete(a.id)
   }
 }
+const recentTokenRefreshes = new Map<number, number>()
 const handleRefresh = async (a: Account) => {
+  const now = Date.now()
+  for (const [id, started] of recentTokenRefreshes) {
+    if (now - started >= 60_000) recentTokenRefreshes.delete(id)
+  }
+  if (recentTokenRefreshes.has(a.id)) appStore.showWarning(t('admin.accounts.refreshTokenFrequentWarning'))
+  recentTokenRefreshes.set(a.id, now)
   try {
       const result = await accountActions.refreshCredentials(a.id)
       invalidateUpstreamQuotaState(a.id)

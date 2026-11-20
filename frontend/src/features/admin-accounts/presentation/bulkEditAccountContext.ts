@@ -30,6 +30,7 @@ export interface BulkEditRoutingPolicyContext {
   enableHeaderOverride: Ref<boolean>
   enableInterceptWarmup: Ref<boolean>
   enableModelRestriction: Ref<boolean>
+  editPassthroughModelFilter: Ref<boolean>
   enableOpenAIPassthrough: Ref<boolean>
   enableOpenAIFlattenNamespaces: Ref<boolean>
   filteredPresets: ComputedRef<ModelPreset[]>

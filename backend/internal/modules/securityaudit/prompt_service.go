@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -109,7 +110,25 @@ func (s *PromptService) EffectiveMode() Mode {
 }
 
 func (s *PromptService) Enqueue(_ context.Context, req Request) error {
-	if s == nil || s.enqueuer == nil || s.EffectiveMode() != ModeAsync {
+	if s == nil || s.enqueuer == nil || s.config == nil {
+		return nil
+	}
+	// Enqueuer rechecks configuration before persistence. Check it here too so
+	// requests outside the audit scope never copy their potentially large body.
+	if s.EffectiveMode() != ModeAsync {
+		return nil
+	}
+	cfg, ok := enqueueConfig(s.config)
+	if !ok || cfg.EffectiveMode() != ModeAsync {
+		return nil
+	}
+	if !cfg.IncludesGroup(req.GroupID) {
+		LogInfo(EventEnqueueSkipped, mergeLogFields(requestLogFields(req), map[string]any{"config_version": cfg.ConfigVersion, "status": "skipped", "error_code": "group_out_of_scope"}))
+		return nil
+	}
+	if !slices.ContainsFunc(cfg.Endpoints, func(ep ActiveEndpoint) bool { return ep.Enabled }) {
+		s.enqueuer.recordDropped()
+		LogWarn(EventEnqueueDropped, mergeLogFields(requestLogFields(req), map[string]any{"config_version": cfg.ConfigVersion, "status": "dropped", "error_code": "no_enabled_endpoint"}))
 		return nil
 	}
 	select {
@@ -476,4 +495,16 @@ func parseTimeQuery(value string) *time.Time {
 	}
 	parsed = parsed.UTC()
 	return &parsed
+}
+
+// enqueueConfig reads the immutable in-process policy before copying a request into the queue.
+func enqueueConfig(store ConfigStore) (ActiveConfig, bool) {
+	if manager, ok := store.(*ConfigManager); ok {
+		snapshot, loaded := manager.activeReadOnly()
+		if !loaded {
+			return ActiveConfig{}, false
+		}
+		return snapshot.active, true
+	}
+	return store.Active()
 }

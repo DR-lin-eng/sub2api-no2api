@@ -825,6 +825,7 @@ const enablePriority = ref(false)
 const enableRateMultiplier = ref(false)
 const enableStatus = ref(false)
 const enableGroups = ref(false)
+const editPassthroughModelFilter = ref(false)
 const enableOpenAIPassthrough = ref(false)
 const openAIImageSizeTiersUpdate = ref<string[] | null>(null)
 const enableOpenAIFlattenNamespaces = ref(false)
@@ -921,7 +922,7 @@ const isOpenAIModelRestrictionDisabled = computed(
   () =>
     allOpenAIPassthroughCapable.value &&
     enableOpenAIPassthrough.value &&
-    openaiPassthroughEnabled.value && !openaiPassthroughModelFilterEnabled.value
+    openaiPassthroughEnabled.value && editPassthroughModelFilter.value && !openaiPassthroughModelFilterEnabled.value
 )
 
 const openAIWSModeOptions = computed(() => [
@@ -1056,7 +1057,7 @@ const bulkEditRoutingPolicyContext = {
   enableInterceptWarmup,
   enableModelRestriction,
   enableOpenAIFlattenNamespaces,
-  enableOpenAIPassthrough,
+  enableOpenAIPassthrough, editPassthroughModelFilter,
   filteredPresets,
   headerOverrideEnabled,
   headerOverrideRows,
@@ -1121,6 +1122,7 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     baseUrl: baseUrl.value,
     enableOpenAIPassthrough: enableOpenAIPassthrough.value,
     openaiPassthroughEnabled: openaiPassthroughEnabled.value,
+    editPassthroughModelFilter: editPassthroughModelFilter.value && allOpenAIPassthroughCapable.value,
     openaiPassthroughModelFilterEnabled: openaiPassthroughModelFilterEnabled.value,
     enableOpenAIFlattenNamespaces: enableOpenAIFlattenNamespaces.value,
     excelBpsMode: allOpenAIOAuthOnly.value ? excelBpsMode.value : 'unchanged',
@@ -1235,6 +1237,7 @@ const handleSubmit = async () => {
   const hasAnyFieldEnabled =
     (allOpenAIPassthroughCapable.value && openAIImageSizeTiersUpdate.value !== null) ||
     enableBaseUrl.value ||
+    (editPassthroughModelFilter.value && allOpenAIPassthroughCapable.value) ||
     enableOpenAIPassthrough.value ||
     enableOpenAIFlattenNamespaces.value ||
     (allOpenAIOAuthOnly.value && excelBpsMode.value !== 'unchanged') ||
@@ -1413,6 +1416,7 @@ watch(
       enableRateMultiplier.value = false
       enableStatus.value = false
       enableGroups.value = false
+      editPassthroughModelFilter.value = false
       enableOpenAIPassthrough.value = false
       openAIImageSizeTiersUpdate.value = null
       enableOpenAIFlattenNamespaces.value = false

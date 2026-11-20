@@ -92,3 +92,8 @@ func TestValidateModelFieldsMultipartChecksUntrimmedLiveBoundary(t *testing.T) {
 	require.NoError(t, writer.Close())
 	require.NoError(t, ValidateModelFields(writer.FormDataContentType(), body.Bytes()))
 }
+
+func TestGatewayControlFieldsAndFreeformSchema(t *testing.T) {
+	require.Error(t, ValidateJSONModelFields([]byte(`{"reasoning":{"effort":"low","Effort":"low"}}`)))
+	require.NoError(t, ValidateJSONModelFields([]byte(`{"tools":[{"parameters":{"properties":{"id":{},"ID":{}}}}]}`)))
+}

@@ -47,8 +47,19 @@
               ]"
             />
           </button>
-          <OpenAIPassthroughModelFilterField v-if="openaiPassthroughEnabled" v-model="openaiPassthroughModelFilterEnabled" />
         </div>
+      </div>
+
+      <div v-if="allOpenAIPassthroughCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <label class="flex items-center justify-between gap-3">
+          {{ t('admin.accounts.openai.passthroughModelFilter') }}
+          <input id="bulk-edit-openai-passthrough-model-filter-enabled" v-model="editPassthroughModelFilter" type="checkbox" />
+        </label>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.openai.passthroughModelFilterDesc') }}</p>
+        <label v-if="editPassthroughModelFilter" class="mt-2 flex items-center gap-2 text-sm">
+          <input v-model="openaiPassthroughModelFilterEnabled" type="checkbox" data-testid="openai-passthrough-model-filter" />
+          {{ t('common.enabled') }}
+        </label>
       </div>
 
       <!-- OpenAI Codex namespace flattening compatibility (OAuth only) -->
@@ -578,7 +589,6 @@
 </template>
 
 <script setup lang="ts">
-import OpenAIPassthroughModelFilterField from "@/features/admin-accounts/presentation/widgets/OpenAIPassthroughModelFilterField.vue"
 import GrokBaseUrlPresets from '@/features/admin-accounts/presentation/widgets/GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '@/features/admin-accounts/presentation/widgets/HeaderOverrideEditor.vue'
 import ModelWhitelistSelector from '@/features/admin-accounts/presentation/widgets/ModelWhitelistSelector.vue'
@@ -604,7 +614,7 @@ const {
   enableInterceptWarmup,
   enableModelRestriction,
   enableOpenAIFlattenNamespaces,
-  enableOpenAIPassthrough,
+  enableOpenAIPassthrough, editPassthroughModelFilter,
   filteredPresets,
   headerOverrideEnabled,
   headerOverrideRows,

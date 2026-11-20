@@ -152,13 +152,17 @@ func stripOpenAIResponsesInputNamespaces(body []byte, keepToolCallNamespaces boo
 	if !bytes.Contains(body, []byte(`"namespace"`)) {
 		return body, nil
 	}
-	input := gjson.Get(unsafe.String(unsafe.SliceData(body), len(body)), "input")
+	input := parseRawJSONView(body).Get("input")
 	if !input.IsArray() {
 		return body, nil
 	}
+	// inputStart/inputEnd 是 input 数组在 body 里的字节区间。
+	inputStart := input.Index
+	inputEnd := inputStart + len(input.Raw)
 
-	var rebuilt bytes.Buffer
-	changed := false
+	// 输出缓冲只在首次真正改写时分配，容量按整个 body 预留，prefix + 改写后的数组 +
+	// suffix 一次写完，不再额外走一遍 sjson.SetRawBytes（那会再拷一份完整 body）。
+	var out []byte
 	// Offsets below are relative to input.Raw, not the full request body.
 	copyFrom := 0
 	var stripErr error
@@ -167,35 +171,30 @@ func stripOpenAIResponsesInputNamespaces(body []byte, keepToolCallNamespaces boo
 			(keepToolCallNamespaces && isOpenAIResponsesToolCallItemType(item.Get("type").String())) {
 			return true
 		}
-		itemBody, err := sjson.DeleteBytes([]byte(item.Raw), "namespace")
+		itemBody, err := sjson.Delete(item.Raw, "namespace")
 		if err != nil {
 			stripErr = err
 			return false
 		}
-		if !changed {
-			// Allocate only on the first change; copy unchanged spans without
-			// traversing their items again or converting them to byte slices.
-			rebuilt.Grow(len(input.Raw))
-			changed = true
+		if out == nil {
+			out = make([]byte, 0, len(body))
+			out = append(out, body[:inputStart]...)
 		}
 		itemStart := item.Index - input.Index
-		_, _ = rebuilt.WriteString(input.Raw[copyFrom:itemStart])
-		_, _ = rebuilt.Write(itemBody)
+		out = append(out, input.Raw[copyFrom:itemStart]...)
+		out = append(out, itemBody...)
 		copyFrom = itemStart + len(item.Raw)
 		return true
 	})
 	if stripErr != nil {
 		return body, fmt.Errorf("delete OpenAI input namespace: %w", stripErr)
 	}
-	if !changed {
+	if out == nil {
 		return body, nil
 	}
-	_, _ = rebuilt.WriteString(input.Raw[copyFrom:])
-	stripped, err := sjson.SetRawBytes(body, "input", rebuilt.Bytes())
-	if err != nil {
-		return body, fmt.Errorf("replace OpenAI input after namespace deletion: %w", err)
-	}
-	return stripped, nil
+	out = append(out, input.Raw[copyFrom:]...)
+	out = append(out, body[inputEnd:]...)
+	return out, nil
 }
 
 func clearOpenAIResponsesNamespaceNames(c *gin.Context) {

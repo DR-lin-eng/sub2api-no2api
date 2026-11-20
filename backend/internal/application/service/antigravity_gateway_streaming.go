@@ -191,7 +191,8 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 	if s.settingService.cfg != nil && s.settingService.cfg.Gateway.StreamKeepaliveInterval > 0 {
 		keepaliveInterval = time.Duration(s.settingService.cfg.Gateway.StreamKeepaliveInterval) * time.Second
 	}
-	if keepaliveInterval > 0 && downstreamRejectsSSEComments(c) {
+	rejectComments := downstreamRejectsSSEComments(c)
+	if rejectComments {
 		keepaliveInterval = 0
 	}
 	var keepaliveTicker *time.Ticker
@@ -218,6 +219,7 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 		flusher.Flush()
 	}
 
+	var needsEventSeparator bool
 	for {
 		select {
 		case ev, ok := <-events:
@@ -243,8 +245,10 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 			s.observeAntigravityGeminiSSELine(c, line)
 			trimmed := strings.TrimRight(line, "\r\n")
 			if strings.HasPrefix(trimmed, "data:") {
+				needsEventSeparator = false
 				payload := strings.TrimSpace(strings.TrimPrefix(trimmed, "data:"))
 				if payload == "" || payload == "[DONE]" {
+					needsEventSeparator = true
 					cw.Fprintf("%s\n", line)
 					continue
 				}
@@ -289,10 +293,17 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 			// relay the upstream blank separator again or the next event starts with
 			// an extra newline for strict \n\n-delimited Gemini clients.
 			if trimmed == "" {
+				if needsEventSeparator {
+					cw.Fprintf("\n")
+					needsEventSeparator = false
+				}
 				continue
 			}
-
+			if rejectComments && strings.HasPrefix(trimmed, ":") {
+				continue
+			}
 			cw.Fprintf("%s\n", line)
+			needsEventSeparator = true
 
 		case <-intervalCh:
 			lastRead := time.Unix(0, atomic.LoadInt64(&lastReadAt))
@@ -319,6 +330,7 @@ func (s *AntigravityGatewayService) handleGeminiStreamingResponse(c *gin.Context
 				logger.LegacyPrintf("service.antigravity_gateway", "Client disconnected during keepalive ping (antigravity gemini), continuing to drain upstream for billing")
 				continue
 			}
+			needsEventSeparator = false
 		}
 	}
 }

@@ -1,0 +1,984 @@
+{
+  "schema_version": 1,
+  "baseline": "0ffc7bb8be524a242375180b9d611f48dea00d51",
+  "upstream_base": "2af3f1e15c98c893a89255a037f551046883b8c0",
+  "upstream_head": "328db26f450edbdf9f8d4344a3ea903ac6396842",
+  "inherited_ledgers": [
+    {
+      "path": "diagnostics/upstream-deferred-20261115/UPSTREAM_PRS.json",
+      "sha256": "bff83d0d7a14827b826185391fcf69116338ae9197a680686df7ee3c1fe5dd04"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116/UPSTREAM_PRS.json",
+      "sha256": "61da2564ce13d4364c32b5403e074b846da4a2d777599b8657747a89b006ec91"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261116-followup/UPSTREAM_PRS.json",
+      "sha256": "f85d33399f87f8800a2ff27d6c91e770d545388bc6d82a4551c91889de53b2ab"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261117/UPSTREAM_PRS.json",
+      "sha256": "d755d12bf6306e473c3f8eb7f05d1f5cdb04368ca4e84e12d4b720edd7e2e207"
+    },
+    {
+      "path": "diagnostics/upstream-sync-20261118/UPSTREAM_PRS.json",
+      "sha256": "be7e84bb55db804a567336faa245197e7380dc9c6eea43604b919ceb62d7fe5b"
+    }
+  ],
+  "entries": [
+    {
+      "pr": 8982,
+      "merge_sha": "16b53b60a8c9b83a6e4e93c8157b9b7756dc2c30",
+      "title": "Merge pull request #8982 from Wei-Shaw/fix/openai-alpha-search-403-account-penalty",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8982",
+      "diff_sha256": "e5103717174a8d091befae8ac83999fde32bd76f7d39af249f9c78d2c3ddd005",
+      "files": [
+        "backend/internal/service/openai_alpha_search.go",
+        "backend/internal/service/openai_alpha_search_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/openai_alpha_search.go"
+      ],
+      "decision": "独立搜索和 Responses 回退均只对有结构化账号或工作区状态码的 403 应用账号处罚。搜索工具拒绝仍走现有请求换号。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8671,
+      "merge_sha": "c38a534be9a2e9600084b5f514badad828886958",
+      "title": "Merge pull request #8671 from xuemk/fix/openai-oauth-token-rotation-persistence",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8671",
+      "diff_sha256": "e551ef37d90f0f1729d9a92fb6a20a8600e400e69fa558b765c14eb2d1c3535d",
+      "files": [
+        "backend/internal/repository/account_repo.go",
+        "backend/internal/repository/account_repo_temp_unsched_test.go",
+        "backend/internal/service/oauth_refresh_api.go",
+        "backend/internal/service/oauth_refresh_api_test.go",
+        "backend/internal/service/token_refresh_service.go",
+        "backend/internal/service/token_refresh_service_candidates_test.go",
+        "backend/internal/service/token_refresh_service_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/oauth_refresh_api.go",
+        "backend/internal/infrastructure/repository/account_repo_credentials.go"
+      ],
+      "decision": "成功轮换后在有界脱离取消的上下文内条件写回。按原凭据与代理比较，保留同期重授权和非令牌设置；凭据和调度 outbox 在一个 SQL 语句提交。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8794,
+      "merge_sha": "3027001928870a71160ac68e8a3001208a3ef790",
+      "title": "Merge pull request #8794 from Anankke/feat/compaction-cache-ttl-5m",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8794",
+      "diff_sha256": "33e59d2c52475d7ecd2143abf13e13ebb3443a0d06da9c02d00e722089d0e21f",
+      "files": [
+        "backend/internal/service/gateway_claude_oauth_body.go",
+        "backend/internal/service/gateway_compaction_cache_ttl_test.go",
+        "frontend/src/i18n/locales/en/admin/settings.ts",
+        "frontend/src/i18n/locales/zh/admin/settings.ts"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/gateway_claude_oauth_body.go"
+      ],
+      "decision": "仅在已有 TTL 注入开关下识别最后一个 user 的 Claude Code 压缩前缀并选择 5m；普通流量沿用原 TTL 策略。前缀或 JSON 转义均可进入解析。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8801,
+      "merge_sha": "fb60f041730f64c4d50d4811f1e416faf3b3f506",
+      "title": "Merge pull request #8801 from Anankke/feat/websearch-exa-provider",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8801",
+      "diff_sha256": "3fcad8a4fbdd7d384e85ac6456192af7ae19e6e5040af960b38341df1d0a6ed5",
+      "files": [
+        "backend/internal/pkg/websearch/exa.go",
+        "backend/internal/pkg/websearch/exa_test.go",
+        "backend/internal/pkg/websearch/manager.go",
+        "backend/internal/pkg/websearch/provider.go",
+        "backend/internal/pkg/websearch/types.go",
+        "backend/internal/service/websearch_config.go",
+        "backend/internal/service/websearch_config_exa_test.go",
+        "frontend/src/api/admin/settings.ts",
+        "frontend/src/views/admin/SettingsView.vue"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/shared/websearch/exa.go",
+        "backend/internal/application/service/websearch_config.go",
+        "frontend/src/features/admin-settings/data/dtos/adminSettingsDtos.ts"
+      ],
+      "decision": "现有搜索提供商列表可显式选择 Exa，复用代理客户端、响应大小上限和原有额度管理。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8803,
+      "merge_sha": "d36670a04185af3b3f62c597391eda67fbd00ab3",
+      "title": "Merge pull request #8803 from Anankke/feat/web-search-sources-bridge",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8803",
+      "diff_sha256": "4916f70dbc65ea9435bf685adbc82481a14b758cbdfeb0a4fb1c252f89eb77b0",
+      "files": [
+        "backend/internal/pkg/apicompat/responses_to_anthropic.go",
+        "backend/internal/pkg/apicompat/responses_web_search_sources.go",
+        "backend/internal/pkg/apicompat/responses_web_search_sources_test.go",
+        "backend/internal/pkg/apicompat/types.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_messages_web_search_sources_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/shared/apicompat/responses_web_search_sources.go",
+        "backend/internal/application/service/openai_gateway_messages.go"
+      ],
+      "decision": "按原生 web_search 声明追加 sources include，在同步与流式 Anthropic 响应中投影来源链接和打开的页面。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8804,
+      "merge_sha": "135aff88e12db62446a7f454b01b864cbbfc13c6",
+      "title": "Merge pull request #8804 from Anankke/fix/messages-bridge-native-tool-search",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8804",
+      "diff_sha256": "61767acdf922ce969651e2268fadbde48803bd0880f3954680ad825ba989efa7",
+      "files": [
+        "backend/internal/pkg/apicompat/anthropic_tool_search.go",
+        "backend/internal/pkg/apicompat/anthropic_tool_search_test.go",
+        "backend/internal/pkg/apicompat/responses_to_anthropic.go",
+        "backend/internal/pkg/apicompat/responses_to_chatcompletions.go",
+        "backend/internal/pkg/apicompat/types.go",
+        "backend/internal/service/openai_codex_tool_names.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_messages_tool_search_test.go"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/shared/apicompat/anthropic_to_responses.go",
+        "backend/internal/shared/apicompat/responses_client_tools.go",
+        "backend/internal/application/service/openai_codex_models_metadata.go"
+      ],
+      "decision": "保留客户端工具兼容路径。上游把 ToolSearch 同名普通函数和延迟工具转为一种新历史格式，需在请求时确认该账号实际投影出的 supports_search_tool；历史会跨账号重放。本次没有启用依赖单账号目录的原生 ToolSearch 重构。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8820,
+      "merge_sha": "600e1e1888badd20e2adb4a14da15fe8605391ef",
+      "title": "Merge pull request #8820 from Anankke/fix/buffered-hosted-output-items",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8820",
+      "diff_sha256": "3808a870aeca0ca9f3647b65dba3863d448efdf16a97e55376a83e69cff19591",
+      "files": [
+        "backend/internal/pkg/apicompat/responses_to_anthropic.go",
+        "backend/internal/pkg/apicompat/responses_to_anthropic_tool_input_test.go",
+        "backend/internal/pkg/apicompat/responses_to_chatcompletions.go",
+        "backend/internal/pkg/apicompat/types.go",
+        "backend/internal/service/openai_gateway_buffered_hosted_items.go",
+        "backend/internal/service/openai_gateway_buffered_hosted_items_test.go",
+        "backend/internal/service/openai_gateway_buffered_server_side_search_test.go",
+        "backend/internal/service/openai_gateway_buffered_stream_parity_test.go",
+        "backend/internal/service/openai_gateway_messages.go"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/shared/apicompat/responses_to_chatcompletions.go",
+        "backend/internal/application/service/openai_gateway_messages.go"
+      ],
+      "decision": "现有缓冲补全保留文本、函数、密文和 xAI 服务端调用。补丁新增的第二个累积器按事件解析并在缺少稳定索引时倒序搜索所有 slot；多 item 输入可能二次增长。保留现有单累积器，托管输出的完整按槽重建未采用。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8845,
+      "merge_sha": "84a293056a000715b38f66ad41b6f8b2484fc32e",
+      "title": "Merge pull request #8845 from r266-tech/codex/scheduler-compact-account-groups",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8845",
+      "diff_sha256": "6d2e36e33ae9f5bb05ae6aa150e6d277af969e3f0cfe9f5baf7234114f55a75c",
+      "files": [
+        "backend/internal/repository/scheduler_cache.go",
+        "backend/internal/repository/scheduler_cache_integration_test.go",
+        "backend/internal/repository/scheduler_cache_payload_unit_test.go",
+        "backend/internal/repository/scheduler_cache_unit_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/infrastructure/repository/scheduler_cache.go",
+        "backend/internal/infrastructure/repository/scheduler_cache_payload_unit_test.go"
+      ],
+      "decision": "调度快照写入前裁掉两个重复的展开分组对象，保留 ID、优先级与绑定时间。读取兼容原 JSON，输入对象图保持完整。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8858,
+      "merge_sha": "29d9fe2ad0e091c104a24e916ff708ec057570cf",
+      "title": "Merge pull request #8858 from wucm667/fix/issue-8854-passive-usage-refresh",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8858",
+      "diff_sha256": "807f3df84a3ca7d8c38b48c72157e44d7b1843068d27010ae05f8b5ed02acdb4",
+      "files": [
+        "frontend/src/components/account/AccountUsageCell.vue",
+        "frontend/src/components/account/__tests__/AccountUsageCell.spec.ts",
+        "frontend/src/i18n/locales/en/admin/overview.ts",
+        "frontend/src/i18n/locales/zh/admin/overview.ts",
+        "frontend/src/utils/__tests__/accountUsageRefresh.spec.ts",
+        "frontend/src/utils/accountUsageRefresh.ts",
+        "frontend/src/views/admin/AccountsView.vue",
+        "frontend/src/views/admin/__tests__/AccountsView.lite.spec.ts"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "frontend/src/features/admin-accounts/presentation/widgets/AccountUsageCell.vue",
+        "frontend/src/core/utils/accountUsageRefresh.ts"
+      ],
+      "decision": "Anthropic 和 Gemini 的被动快照变化会使单元格缓存过期。异步响应在账号、快照和请求版本一致时回写；沿用本站 WS 观察和查询方式。未采用上游列表的第二套批缓存及独立 Ultra Fast 提示。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8859,
+      "merge_sha": "3ad84e1333f4ae05ac1ce20221a940f2f2095e3d",
+      "title": "Merge pull request #8859 from Anankke/fix/composite-route-thinking-adapt",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8859",
+      "diff_sha256": "48092f37553f4a813d70fbde936c6a1f1b66c9779426d854411fb5fd08733279",
+      "files": [
+        "backend/internal/server/routes/composite_platform_test.go",
+        "backend/internal/server/routes/gateway.go",
+        "backend/internal/service/bedrock_request.go",
+        "backend/internal/service/claude55_thinking.go",
+        "backend/internal/service/composite_platform.go",
+        "backend/internal/service/composite_platform_thinking_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/claude55_thinking.go",
+        "backend/internal/application/service/composite_platform.go",
+        "backend/internal/transport/http/server/routes/gateway.go"
+      ],
+      "decision": "复用组合路由 model 改写，仅在实际目标是新版 Claude 时转换 thinking；Bedrock 保留已有 Fable 行为和非 Claude 分支。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8862,
+      "merge_sha": "998d1c8e2ee2c59bc0e8b60b3a5dc62e4e20f148",
+      "title": "Merge pull request #8862 from lishuangqiang/perf/cache-control-ttl-short-circuit",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8862",
+      "diff_sha256": "ee96c65ca8e3b45029c36962fdc7c11371d01539cc56ef52083abbd560dca45f",
+      "files": [
+        "backend/internal/service/gateway_claude_oauth_body.go",
+        "backend/internal/service/gateway_request_json_bench_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/gateway_claude_oauth_body.go"
+      ],
+      "decision": "有缓存块但无 1h 的普通 JSON 只执行数量限制；出现 Unicode 转义时仍执行完整 TTL 顺序检查。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8864,
+      "merge_sha": "9cf9921eb4e5b61b8eeb8139f6d8099fe3325725",
+      "title": "Merge pull request #8864 from Anankke/fix/grok-search-billing-usage",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8864",
+      "diff_sha256": "a983d0dd2e0d9c9c9694fb000af184a8172dcbcdb2b3d31972b57feb308bb8c8",
+      "files": [
+        "backend/internal/pkg/apicompat/types.go",
+        "backend/internal/service/grok_search_count.go",
+        "backend/internal/service/grok_search_usage_billing_test.go",
+        "backend/internal/service/openai_gateway_chat_completions.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_response_handling.go"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "docs/UPSTREAM_SYNC_20261116_FOLLOWUP.md",
+        "backend/internal/shared/apicompat/responses_to_chatcompletions.go"
+      ],
+      "decision": "继承 #5925 与 #8834 的账务边界。当前 xAI 调用识别继续使用，未引入独立搜索调用次数收费或在请求内推断应收次数。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8866,
+      "merge_sha": "50c802c518de49bdd259637b9f71df3b8e2f9917",
+      "title": "Merge pull request #8866 from lishuangqiang/perf/image-intent-prefilter",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8866",
+      "diff_sha256": "51d0986c3d122fe451549ecb30d0113cc59cd55cc12b0f20beb4208d83e16321",
+      "files": [
+        "backend/internal/handler/gateway_handler_responses.go",
+        "backend/internal/service/image_generation_intent.go",
+        "backend/internal/service/image_generation_intent_prefilter_benchmark_test.go",
+        "backend/internal/service/image_generation_intent_prefilter_test.go",
+        "backend/internal/service/openai_codex_tool_names.go",
+        "backend/internal/service/openai_ws_forwarder_ingress.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/image_generation_intent.go"
+      ],
+      "decision": "复用当前单遍 image intent 判断，缺少图片模型、工具标记及 JSON 转义的请求跳过校验与遍历。保留对未知来源请求的 JSON 校验和 Grok 平台规则。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8868,
+      "merge_sha": "a437224cd291f5cfa48d95252919e650d38c7141",
+      "title": "Merge pull request #8868 from lishuangqiang/perf/gateway-request-single-scan",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8868",
+      "diff_sha256": "7f0f86d44a0c5bd3fbf6782dd7c7245e67d71030093d4ed226adc62d7e605cf9",
+      "files": [
+        "backend/internal/handler/gateway_handler_chat_completions.go",
+        "backend/internal/handler/gateway_handler_responses.go",
+        "backend/internal/service/gateway_request.go",
+        "backend/internal/service/gateway_request_scan_benchmark_test.go",
+        "backend/internal/service/gateway_request_scan_equivalence_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/gateway_request_fields.go",
+        "backend/internal/application/service/gateway_request.go"
+      ],
+      "decision": "共用一次根字段扫描，保留标量独立储存、模型后缀规范化后重新扫描与 BodyRef 可变性。保持现有调用的校验边界。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8870,
+      "merge_sha": "67b2df8d91ffc93c13fa176810008d14376c7e7b",
+      "title": "Merge pull request #8870 from lishuangqiang/perf/openai-namespace-strip-copies",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8870",
+      "diff_sha256": "6748e6c9c924b8d110d36515fce3639dc1e7234af758ea406781933bcadc4cdb",
+      "files": [
+        "backend/internal/service/openai_responses_namespace.go",
+        "backend/internal/service/openai_responses_namespace_benchmark_test.go",
+        "backend/internal/service/openai_responses_namespace_equivalence_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/openai_responses_namespace.go"
+      ],
+      "decision": "复用现有零拷贝 input 和账号级 namespace 规则，第一次实际删改时才为完整结果分配，直接拼接前缀、改动区和尾部。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8872,
+      "merge_sha": "356cdccbe888854cf631127c9754b6051fa17e07",
+      "title": "Merge pull request #8872 from lishuangqiang/perf/tool-schema-sanitizer",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8872",
+      "diff_sha256": "36929a0cc140b1be61de7d22d13d5a9ab10abfeb58e115d9dc1f12dff4d3c927",
+      "files": [
+        "backend/internal/service/openai_responses_tool_schema.go",
+        "backend/internal/service/openai_responses_tool_schema_benchmark_test.go",
+        "backend/internal/service/openai_responses_tool_schema_scan_test.go",
+        "backend/internal/service/testdata/fuzz/FuzzOpenAIResponsesToolSchemaGatesAreNecessary/19981bffc2abbaf1",
+        "backend/internal/service/testdata/fuzz/FuzzOpenAIResponsesToolSchemaGatesAreNecessary/430233b3de39cf96",
+        "backend/internal/service/testdata/fuzz/FuzzOpenAIResponsesToolSchemaGatesAreNecessary/6c31f0fa5746a2cd",
+        "backend/internal/service/testdata/fuzz/FuzzOpenAIResponsesToolSchemaGatesAreNecessary/e90985907f88433e"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/openai_responses_tool_schema.go",
+        "backend/internal/shared/apicompat"
+      ],
+      "decision": "本站的 null 修正只匹配 JSON 的 null 字面量；缺失时直接返回，命中后读取同一只读视图。保留有界 schema 遍历和历史联合类型契约，未引入上游另一套正则扫描器。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8875,
+      "merge_sha": "fb7d8fc7b91a101fe69800c3dca3917c83c32eaf",
+      "title": "Merge pull request #8875 from zhx8702/fix/openai-body-copy-reduction",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8875",
+      "diff_sha256": "075327d39bff83e02a6367c617a714f603a1d87ac3c5805d5b04fc1ef19c317d",
+      "files": [
+        "backend/internal/securityaudit/coordinator.go",
+        "backend/internal/securityaudit/prompt_memory_optimization_test.go",
+        "backend/internal/securityaudit/prompt_scanner.go",
+        "backend/internal/securityaudit/prompt_service.go",
+        "backend/internal/securityaudit/prompt_snapshot.go",
+        "backend/internal/service/openai_gateway_chat_completions.go",
+        "backend/internal/service/openai_gateway_messages.go",
+        "backend/internal/service/openai_gateway_request_body.go",
+        "backend/internal/service/openai_gateway_service_hotpath_test.go",
+        "backend/internal/service/openai_gateway_usage.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/openai_gateway_request_body.go",
+        "backend/internal/application/service/openai_gateway_usage.go",
+        "backend/internal/modules/securityaudit/prompt_service.go"
+      ],
+      "decision": "保留异步队列所有权和同步审计隔离，异步范围外先返回；分块与摘要减少全文分配，长请求的小字段与账单对象脱离请求体。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8883,
+      "merge_sha": "490af330d7a7c3e7084c9ad6f50e5ba7766527a9",
+      "title": "Merge pull request #8883 from wucm667/fix/issue-8880-anthropic-model-metadata",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8883",
+      "diff_sha256": "1e0a6507941860b555d4ec1583842577d26324f2d7dea41f5a3972559524de70",
+      "files": [
+        "backend/internal/handler/gateway_handler.go",
+        "backend/internal/handler/gateway_models_test.go",
+        "backend/internal/service/anthropic_models_list.go",
+        "backend/internal/service/upstream_models.go",
+        "backend/internal/service/upstream_models_test.go"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/modules/modelcatalog/README.md",
+        "backend/internal/application/service/upstream_models.go"
+      ],
+      "decision": "Anthropic 模型发现复用本站已有元数据快照。上游在列模型时额外查所有可调度账号并按模型、账号、候选路由循环；本站未启用这种列表展开，也未自动发布推测的 [1m] 别名。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8893,
+      "merge_sha": "fe2d953f528ae05fd6fca494431a096fa6272d7e",
+      "title": "Merge pull request #8893 from SipengXie2024/fix/openai-oauth-skip-claude-models",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8893",
+      "diff_sha256": "4d4dab43b9ee93f5166d4a8069d6067e85bdec6f5cd5a86ea4eca759e9c7600a",
+      "files": [
+        "backend/internal/handler/openai_gateway_handler.go",
+        "backend/internal/service/account.go",
+        "backend/internal/service/openai_model_mapping.go",
+        "backend/internal/service/openai_oauth_model_support_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/account.go",
+        "backend/internal/application/service/openai_model_mapping.go",
+        "backend/internal/transport/http/handler/openai_gateway_messages.go"
+      ],
+      "decision": "Messages 普通调度采用渠道实际映射。保留既有显式 OAuth 透传与模型筛选开关、自定义上游和 Claude→Codex 分发；没有为已配置透传的账号引入隐式异族前缀拦截。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8899,
+      "merge_sha": "6eb32ab4451ef51f6dea039bd840175d19d47e56",
+      "title": "Merge pull request #8899 from r266-tech/codex/bulk-passthrough-model-filter-opt-in",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8899",
+      "diff_sha256": "8377b233a2b10522112c5490171bb29ad91c453eb3949c9777f4cbe1d7e16258",
+      "files": [
+        "frontend/src/components/account/BulkEditAccountModal.vue",
+        "frontend/src/components/account/__tests__/BulkEditAccountModal.spec.ts"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "frontend/src/features/admin-accounts/presentation/accountBulkUpdatePayload.ts",
+        "frontend/src/features/admin-accounts/presentation/widgets/BulkEditRoutingPolicyFields.vue"
+      ],
+      "decision": "批量修改筛选开关独立勾选，省略键时保留账号之前的值；可在不切换透传的情况下批量显式设置筛选。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8900,
+      "merge_sha": "88ff563f7365dc55ff74b087bb43fa0a9e7018f9",
+      "title": "Merge pull request #8900 from stevelee477/feat/claude-window-cost-estimate",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8900",
+      "diff_sha256": "e52643a1263490a4b51fd377ee2138fae796dcf83b27f6ef1549ce186d64a4d1",
+      "files": [
+        "backend/internal/service/account_usage_service.go",
+        "backend/internal/service/account_usage_window_cost_test.go",
+        "frontend/src/components/account/AccountUsageCell.vue",
+        "frontend/src/components/account/__tests__/AccountUsageCell.spec.ts"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/application/service/account_usage_service.go",
+        "frontend/src/features/admin-accounts/presentation/widgets/AccountUsageCell.vue"
+      ],
+      "decision": "保留已有账号窗口用量。上游按 5h 和 7d 窗口分别查询历史费用并外推总价，在集中刷新时增加逐账号聚合；未在默认管理列表启用七日成本外推。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8902,
+      "merge_sha": "2f49048cb80a8883df597bcfc4c66787d9662ed2",
+      "title": "Merge pull request #8902 from Ming-Sir-69/feat/refresh-button-risk-hint",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8902",
+      "diff_sha256": "51875d6a75e0af9144b27a28207f7bdd17a3064c10dba37b95e19a5f1490df4b",
+      "files": [
+        "frontend/src/components/admin/account/AccountActionMenu.vue",
+        "frontend/src/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/i18n/locales/zh/admin/accounts.ts",
+        "frontend/src/views/admin/AccountsView.vue"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "frontend/src/features/admin-accounts/presentation/widgets/AccountActionMenu.vue",
+        "frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue"
+      ],
+      "decision": "手动刷新按钮显示提示；同一账号一分钟内再次操作时提醒。提醒仅保留最近时间窗口，不阻止操作。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8911,
+      "merge_sha": "69237d2ebd166674739b8ee5e6a343d0f3f635b4",
+      "title": "Merge pull request #8911 from Echways/fix/anthropic-account-test-temperature",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8911",
+      "diff_sha256": "495e69775a67708a234213151ca419e74d7b9c648ebed1529c9007630c38aa04",
+      "files": [
+        "backend/internal/pkg/claude/sampling.go",
+        "backend/internal/pkg/claude/sampling_test.go",
+        "backend/internal/service/account_test_service.go",
+        "backend/internal/service/account_test_service_payload_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/shared/claude/sampling.go",
+        "backend/internal/application/service/account_test_service.go"
+      ],
+      "decision": "对明确拒绝 temperature 的模型在 Anthropic 和 Bedrock 测试负载中省略该参数，其他探测保留原行为。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8918,
+      "merge_sha": "a912d13e62514cd4d6233126da0cd77bef901d2b",
+      "title": "Merge pull request #8918 from XYZ0901/codex/fix-admin-user-default-platform-quotas",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8918",
+      "diff_sha256": "9b10d42b537cf0a4440244c211c34ff67aa33bebf73efa6a43ff62a96346e80b",
+      "files": [
+        "backend/cmd/server/wire_gen.go",
+        "backend/internal/repository/custom_admin_key_review_test.go",
+        "backend/internal/server/api_contract_test.go",
+        "backend/internal/server/routes/custom_admin_key_group_models_test.go",
+        "backend/internal/service/admin_service.go",
+        "backend/internal/service/admin_service_create_user_test.go",
+        "backend/internal/service/admin_user.go",
+        "backend/internal/service/auth_service.go",
+        "backend/internal/service/user_platform_quota_defaults.go",
+        "frontend/src/i18n/locales/en/admin/settings.ts",
+        "frontend/src/i18n/locales/zh/admin/settings.ts"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/application/service/admin_user.go",
+        "backend/internal/application/service/auth_service.go",
+        "frontend/src/core/i18n/locales/zh/admin/settings.ts"
+      ],
+      "decision": "本站设置明确限定为注册时分配，管理员创建支持自定义角色和单独授权。将已有设置自动应用到管理员创建的普通账号会改变既有站点配置含义；保留注册范围，未扩展管理端额度分配。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8923,
+      "merge_sha": "16b67d9afd0f268ac46ef42a0c7dca15cd36d407",
+      "title": "Merge pull request #8923 from iam1maker/fix/gemini-final-turn-trailing-parts",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8923",
+      "diff_sha256": "57b110aab82570313e7f4dc426a3eb5973abaa9aebf32ba8fce1b8d2547eac35",
+      "files": [
+        "backend/internal/service/antigravity_tool_result_images_test.go",
+        "backend/internal/service/gemini_messages_compat_service.go",
+        "backend/internal/service/gemini_messages_compat_service_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/gemini_messages_compat_service.go"
+      ],
+      "decision": "将最后一个 user turn 中紧跟函数结果的其他内容拆到后续 user turn，保留工具结果顺序。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8929,
+      "merge_sha": "a64189740286f936dccccae2184e75674d243d22",
+      "title": "Merge pull request #8929 from superman2003/fix/codex-standalone-context-names",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8929",
+      "diff_sha256": "fb12a7d1ddcff7bb47e14386744651624775384430917860002e19d142093856",
+      "files": [
+        "backend/internal/handler/openai_page_context.go",
+        "backend/internal/handler/openai_page_context_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/shared/apicompat/codex_page_context.go"
+      ],
+      "decision": "扩大独立 agent 上下文名称；output 必须为字符串，真实 call_id 仍归原协议，外部内容仍为 user 文本。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8931,
+      "merge_sha": "fe1f2b6d76cc1c535ae7bcebdc0e694aac9cb742",
+      "title": "Merge pull request #8931 from superman2003/fix/responses-requested-effort",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8931",
+      "diff_sha256": "84238f5ae50022b5ce539490121c71e393e42950d1a2ac46ae24d0d1c4917981",
+      "files": [
+        "backend/internal/handler/gateway_compat_effort_policy_test.go",
+        "backend/internal/service/openai_gateway_request_body.go",
+        "backend/internal/service/openai_reasoning_effort_policy_test.go",
+        "backend/internal/service/openai_ws_forwarder_ingress.go",
+        "backend/internal/service/openai_ws_http_bridge.go",
+        "backend/internal/service/openai_ws_http_bridge_test.go"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/application/service/openai_gateway_request_body.go",
+        "docs/UPSTREAM_SYNC_20260831.md"
+      ],
+      "decision": "现有有效推理强度和账单记录沿用；专门的 requested_reasoning_effort 字段及历史查询曾在 #6188 保留。本次没有新增存储列或把回放的上一轮设置归到当前客户端请求。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8932,
+      "merge_sha": "320695ae72639efba68e25e1ff5094f7fbea46b9",
+      "title": "Merge pull request #8932 from superman2003/fix/codex-catalog-audio-input",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8932",
+      "diff_sha256": "df59e409ae453d6ca964f892f878ab976c59f87a75478ffae0ee5973f8de84e8",
+      "files": [
+        "backend/internal/service/openai_codex_model_metadata.go",
+        "backend/internal/service/openai_codex_model_metadata_test.go",
+        "backend/internal/service/openai_codex_models_service.go",
+        "backend/internal/service/upstream_models.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/modules/modelcatalog/descriptor.go",
+        "backend/internal/application/service/openai_codex_models_metadata.go"
+      ],
+      "decision": "本站目录已接纳显式 audio，支持提供商嵌套或直接 input_modalities，并保留管理员覆盖与账号快照优先级。未以订阅模型 ID 合成为整组音频能力。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8937,
+      "merge_sha": "1134f5dffbf96b4c9a82d81e2ec4f93c5cabbf06",
+      "title": "Merge pull request #8937 from TeacherLi07/fix/ops-duration-weighted-token-rate",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8937",
+      "diff_sha256": "1da87152a7ce400670864438864d1890205a8e53171aa7f5ce31774d5fe655cd",
+      "files": [
+        "backend/internal/repository/ops_repo_openai_token_stats.go",
+        "backend/internal/repository/ops_repo_openai_token_stats_integration_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/infrastructure/repository/ops_repo_openai_token_stats.go"
+      ],
+      "decision": "按有效总输出 token / 有效总时长计算模型速率，保留查询过滤、分页和首 token 图片排除，无额外查询。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8943,
+      "merge_sha": "50dc3141e7dea62f2ed3b92998c1ac4367172f1a",
+      "title": "Merge pull request #8943 from alfadb/fix/deepseek-thinking-passback",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8943",
+      "diff_sha256": "0f5e88639b23575af0545985d1039d401771a19807e811c940ae7ca63ecc7e9c",
+      "files": [
+        "backend/internal/service/openai_gateway_deepseek_anthropic_thinking.go",
+        "backend/internal/service/openai_gateway_deepseek_anthropic_thinking_test.go",
+        "backend/internal/service/openai_gateway_messages_anthropic_native.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/openai_gateway_deepseek_anthropic_thinking.go",
+        "backend/internal/application/service/openai_gateway_messages_anthropic_native.go"
+      ],
+      "decision": "仅在实际 Anthropic 出口为 DeepSeek 且启用 thinking 时补齐带 tool_use 的 assistant 轮。逐消息重写整个历史改为一次扫描按原字节区间拼接，保留已有 thinking 和签名。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8946,
+      "merge_sha": "55898028ad60b51b56dbd99734e2a372480ae846",
+      "title": "Merge pull request #8946 from r266-tech/codex/gemini-upstream-comment-frames",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8946",
+      "diff_sha256": "ef84d57a5bd92ef3cd8d9c2f348605093778056d347f6a5838f01b8dd8638571",
+      "files": [
+        "backend/internal/service/antigravity_gateway_service_test.go",
+        "backend/internal/service/antigravity_gateway_streaming.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/antigravity_gateway_streaming.go"
+      ],
+      "decision": "对不接受 SSE 注释的 Gemini SDK 同时过滤本地心跳和上游注释，其余客户保留注释与正确分隔，断连后仍排水。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8962,
+      "merge_sha": "c03fc529b827c46ce6ba1ba04a84f4088d5f0f3b",
+      "title": "Merge pull request #8962 from wucm667/fix/issue-8957-grok-edit-input",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8962",
+      "diff_sha256": "bb635c96473b7d46cda38807d3a940e26a763ed1015e00b6b34b71f2e6172c76",
+      "files": [
+        "backend/internal/handler/grok_media.go",
+        "backend/internal/handler/grok_media_errors_test.go",
+        "backend/internal/service/grok_media.go",
+        "backend/internal/service/grok_media_input_validation_test.go",
+        "backend/internal/service/openai_gateway_grok_test.go"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/application/service/grok_media_request_adapter.go",
+        "backend/internal/application/service/grok_media.go",
+        "backend/internal/transport/http/handler/grok_media.go"
+      ],
+      "decision": "本站 JSON 和 multipart 入口已经接受四至五张参考图，掩膜独立传递，并支持管理员自定义上游模板。上游的全局五图上限和六图本地 400 会收紧兼容供应商的既有契约，本批保留目前的供应商校验。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8963,
+      "merge_sha": "ba5ddded9c6fa251d711d9a357881fcd14951c60",
+      "title": "Merge pull request #8963 from Daiyangcheng/fix/responses-stop-passthrough",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8963",
+      "diff_sha256": "2c3919b62af7e81ddb8696ca4a1fe731a4f71101a61115818eaf93bf4ce50ddf",
+      "files": [
+        "backend/internal/pkg/apicompat/chatcompletions_responses_bridge.go",
+        "backend/internal/pkg/apicompat/types.go",
+        "backend/internal/service/openai_cursor_warmup_pipeline_test.go",
+        "backend/internal/service/openai_gateway_chat_completions.go",
+        "backend/internal/service/openai_gateway_chat_completions_anthropic_native.go",
+        "backend/internal/service/openai_gateway_kimi_dynamic_tools_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/shared/apicompat/chatcompletions_responses_bridge.go",
+        "backend/internal/application/service/openai_gateway_chat_request.go"
+      ],
+      "decision": "Responses 降级到 Chat 时保留原始 stop 形态；Kimi 的 system.tools 只在桥接时移入工具声明，原生 Chat 不改写。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8968,
+      "merge_sha": "58659ec579ad6a84495bf3e96d71c2f1d7dfce63",
+      "title": "Merge pull request #8968 from wucm667/fix/issue-8967-image-timeout-failover",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8968",
+      "diff_sha256": "1b83d2d4222d08be053ffac483f33f0323acd5f0e7f558269992fb7b63ada1e0",
+      "files": [
+        "backend/internal/service/openai_gateway_grok_405_test.go",
+        "backend/internal/service/openai_gateway_request_timeout_test.go",
+        "backend/internal/service/openai_gateway_upstream_errors.go",
+        "backend/internal/service/openai_images_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/openai_gateway_upstream_errors.go",
+        "backend/internal/application/service/openai_images.go"
+      ],
+      "decision": "将上游 HTTP 408 纳入现有错误换号判断；保留策略/上下文错误和前置客户端错误处理，受已有换号预算与响应写出边界约束。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8972,
+      "merge_sha": "cdf3af4b84f884d78928155d126848259c932bb4",
+      "title": "Merge pull request #8972 from r266-tech/codex/typesafe-apply-account-model-mapping",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8972",
+      "diff_sha256": "b7971e3055cea20b273f68ff5cd29a5ef421f3dad8d6d28a07b167cb162861cc",
+      "files": [
+        "backend/internal/service/account_test_service_typesafe.go",
+        "backend/internal/service/account_test_service_typesafe_test.go",
+        "backend/internal/service/gateway_systemone.go",
+        "backend/internal/service/gateway_systemone_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/gateway_systemone.go",
+        "backend/internal/application/service/account_test_service_typesafe.go"
+      ],
+      "decision": "TypeSafe 原生请求与连接测试应用账号显式映射；记录请求模型、映射模型及上游回传模型，使用现有定价解析。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8973,
+      "merge_sha": "242556f973a27d8bc86af769fe814a983825d55a",
+      "title": "Merge pull request #8973 from william-drakemond/pr/antigravity-bare429-request-scoped",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8973",
+      "diff_sha256": "8970ab99a7fea039311222d6a3ef42deaa8d3fabf438f447ed8eaece3b4dab85",
+      "files": [
+        "backend/internal/service/antigravity_bare429_after_loop_test.go",
+        "backend/internal/service/antigravity_bare429_request_scope_test.go",
+        "backend/internal/service/antigravity_bare429_scope.go",
+        "backend/internal/service/antigravity_gateway_claude.go",
+        "backend/internal/service/antigravity_gateway_compat.go",
+        "backend/internal/service/antigravity_gateway_gemini.go",
+        "backend/internal/service/antigravity_gateway_retry.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/antigravity_bare429_scope.go",
+        "backend/internal/application/service/antigravity_gateway_retry.go"
+      ],
+      "decision": "单请求遇到多账号无明确信息的 429 时最多冷却一个不同账号，带详情/重置的限流继续走原策略；保持现有并发和粘性 owner。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8976,
+      "merge_sha": "1eea0d750a945c7c83a44b7bb8ff6232fc03521e",
+      "title": "Merge pull request #8976 from yan9651688/feat/model-plaza-copy-model-id",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8976",
+      "diff_sha256": "53bcfc3b87877d591cb2bfe8008ddd57d61477a899b7ee4a2330f97e6cc0d3e5",
+      "files": [
+        "frontend/src/components/modelPlaza/PlazaModelPricingTable.vue",
+        "frontend/src/components/modelPlaza/__tests__/PlazaModelPricingTable.spec.ts",
+        "frontend/src/i18n/locales/en/dashboard.ts",
+        "frontend/src/i18n/locales/zh/dashboard.ts"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "frontend/src/features/model-plaza/presentation/widgets/PlazaModelPricingTable.vue"
+      ],
+      "decision": "模型广场复用现有剪贴板 composable，按行复制完整模型 ID 并显示本地化提示。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8979,
+      "merge_sha": "eb9143956f1e74458c6ca56af069c3e8604c3bd0",
+      "title": "Merge pull request #8979 from SipengXie2024/fix/antigravity-quota-forward-endpoint",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8979",
+      "diff_sha256": "c6590343e397ec2e3e2f95a775faba1df8b32bce03e619520ff59870433abe58",
+      "files": [
+        "backend/internal/service/antigravity_quota_fetcher.go",
+        "backend/internal/service/antigravity_quota_fetcher_test.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/antigravity_quota_fetcher.go"
+      ],
+      "decision": "模型额度与组额度均采用该账号实际转发端点，保留代理、专属出口和组额度二秒超时。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": 8886,
+      "merge_sha": "62cebadf54b5b208d6dd9b93f1929d25263e67e8",
+      "title": "Merge pull request #8886 from SipengXie2024/fix/images-sse-usage-single-line",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8886",
+      "diff_sha256": "ae233e61d692b26a2fd02f8f19ba57e77ecbf12c7a9751fd14c4dc01cd75af4f",
+      "files": [
+        "backend/internal/service/openai_images_direct_test.go",
+        "backend/internal/service/openai_images_responses.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/application/service/openai_images_responses.go"
+      ],
+      "decision": "将上游格式化的原始 usage 压为合法单行后再写图片完成 SSE，保持字段与数值。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": null,
+      "merge_sha": "5c2982a81b46e2142d0143d2f83c1ce9c4da1d24",
+      "title": "Merge commit from fork",
+      "url": "https://github.com/Wei-Shaw/sub2api/commit/5c2982a81b46e2142d0143d2f83c1ce9c4da1d24",
+      "diff_sha256": "8d05ba92a2bc9840d70843686cf0e62fa283c6540d4b9f0d6378520403bbaf7d",
+      "files": [
+        "backend/internal/handler/openai_gateway_handler.go",
+        "backend/internal/handler/openai_gateway_handler_test.go",
+        "backend/internal/handler/openai_gateway_ws_model_allowlist_test.go",
+        "backend/internal/handler/openai_gateway_ws_model_conflict_test.go",
+        "backend/internal/handler/request_body_limit.go",
+        "backend/internal/handler/request_body_limit_test.go",
+        "backend/internal/handler/request_body_read_log.go",
+        "backend/internal/handler/request_body_read_log_test.go",
+        "backend/internal/pkg/httputil/body_read_error.go",
+        "backend/internal/pkg/requestmodel/conflict.go",
+        "backend/internal/pkg/requestmodel/conflict_test.go",
+        "backend/internal/pkg/requestmodel/requestmodel.go",
+        "backend/internal/pkg/requestmodel/requestmodel_test.go",
+        "backend/internal/server/middleware/group_model_allowlist_test.go",
+        "backend/internal/server/middleware/ingress_reject.go",
+        "backend/internal/server/middleware/request_body_read_failure.go",
+        "backend/internal/server/middleware/request_field_conflict.go",
+        "backend/internal/server/middleware/request_field_conflict_test.go",
+        "backend/internal/server/routes/gateway.go",
+        "backend/internal/server/routes/gateway_model_allowlist_test.go",
+        "backend/internal/server/routes/gateway_request_field_conflict_test.go",
+        "backend/internal/service/openai_ws_forwarder_ingress.go",
+        "backend/internal/service/openai_ws_forwarder_ingress_session_test.go",
+        "backend/internal/service/openai_ws_v2_passthrough_adapter.go"
+      ],
+      "status": "adapted",
+      "current_owners": [
+        "backend/internal/shared/requestmodel/conflict.go",
+        "backend/internal/shared/requestmodel/validation.go"
+      ],
+      "decision": "复用既有 HTTP 准入和 WS 公共读入口，单次扫描检查协议对象的重复字段，保留自定义键空间的大小写区分及本地 multipart 双 boundary、旧模型错误格式。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    },
+    {
+      "pr": null,
+      "merge_sha": "328db26f450edbdf9f8d4344a3ea903ac6396842",
+      "title": "chore: sync VERSION to 0.2.24 [skip ci]",
+      "url": "https://github.com/Wei-Shaw/sub2api/commit/328db26f450edbdf9f8d4344a3ea903ac6396842",
+      "diff_sha256": "94eac24cd0bd0cf22258f413b03f53d2b319f4f11dde67826c43a0e57cc7927a",
+      "files": [
+        "backend/cmd/server/VERSION"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/cmd/server/VERSION"
+      ],
+      "decision": "上游发行号属于原仓库，本项目继续使用自己的版本解析和发布流程。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
+    }
+  ],
+  "counts": {
+    "adapted": 26,
+    "retain-local-contract": 9,
+    "adapted-local-scope": 6
+  }
+}

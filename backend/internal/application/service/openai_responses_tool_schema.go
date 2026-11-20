@@ -28,13 +28,14 @@ type openAIResponsesToolSchemaNullType struct {
 // Matches are collected first and rewritten in one pass so a large Responses
 // request is copied once rather than once per offending tool.
 func sanitizeOpenAIResponsesToolParameterTypes(body []byte) ([]byte, bool, error) {
-	if len(body) == 0 {
+	if !bytes.Contains(body, []byte(openAIResponsesToolSchemaNullLiteral)) {
 		return body, false, nil
 	}
 
 	hits := make([]openAIResponsesToolSchemaNullType, 0, 2)
-	collectOpenAIResponsesToolSchemaNullTypes(body, gjson.GetBytes(body, "tools"), 0, &hits)
-	if input := gjson.GetBytes(body, "input"); input.IsArray() {
+	root := parseRawJSONView(body)
+	collectOpenAIResponsesToolSchemaNullTypes(body, root.Get("tools"), 0, &hits)
+	if input := root.Get("input"); input.IsArray() {
 		input.ForEach(func(_, item gjson.Result) bool {
 			if item.IsObject() {
 				collectOpenAIResponsesToolSchemaNullTypes(body, item.Get("tools"), 0, &hits)

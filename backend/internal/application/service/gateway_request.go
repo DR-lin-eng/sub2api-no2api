@@ -105,34 +105,6 @@ func clearGatewayRequestRanges(parsed *ParsedRequest) {
 	parsed.inputRange = missingJSONRange()
 }
 
-func setGatewayRequestRanges(parsed *ParsedRequest, protocol string, jsonStr string) {
-	if parsed == nil {
-		return
-	}
-	switch protocol {
-	case domain.PlatformGemini:
-		if sysParts := gjson.Get(jsonStr, "systemInstruction.parts"); sysParts.Exists() && sysParts.IsArray() {
-			parsed.systemRange = rangeFromResult(sysParts)
-		}
-		if contents := gjson.Get(jsonStr, "contents"); contents.Exists() && contents.IsArray() {
-			parsed.messagesRange = rangeFromResult(contents)
-		}
-	default:
-		if sys := gjson.Get(jsonStr, "system"); sys.Exists() {
-			parsed.HasSystem = true
-			parsed.systemRange = rangeFromResult(sys)
-		}
-		if msgs := gjson.Get(jsonStr, "messages"); msgs.Exists() && msgs.IsArray() {
-			parsed.messagesRange = rangeFromResult(msgs)
-		}
-		if protocol == "responses" {
-			if input := gjson.Get(jsonStr, "input"); input.Exists() {
-				parsed.inputRange = rangeFromResult(input)
-			}
-		}
-	}
-}
-
 const claudeCodeLongContextModelSuffix = "[1m]"
 
 // Claude Code treats [1m] as a client-side context selector and normally removes it
@@ -158,11 +130,11 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 	}
 
 	// 只在当前函数内零拷贝读取 JSON 字段；ReplaceBody 后必须重新进入本函数刷新派生状态。
-	jsonStr := *(*string)(unsafe.Pointer(&bodyBytes))
+	fields := scanGatewayRequestRoot(bodyBytes)
 	clearGatewayRequestDerivedState(parsed)
 	parsed.protocol = protocol
 
-	modelResult := gjson.Get(jsonStr, "model")
+	modelResult := fields.model
 	if modelResult.Exists() {
 		if modelResult.Type != gjson.String {
 			return fmt.Errorf("invalid model field type")
@@ -177,13 +149,13 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 				}
 				parsed.Body.Replace(normalizedBody)
 				bodyBytes = normalizedBody
-				jsonStr = *(*string)(unsafe.Pointer(&bodyBytes))
+				fields = scanGatewayRequestRoot(bodyBytes)
 				parsed.Model = normalizedModel
 			}
 		}
 	}
 
-	streamResult := gjson.Get(jsonStr, "stream")
+	streamResult := fields.stream
 	if streamResult.Exists() {
 		if streamResult.Type != gjson.True && streamResult.Type != gjson.False {
 			return fmt.Errorf("invalid stream field type")
@@ -191,14 +163,14 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 		parsed.Stream = streamResult.Bool()
 	}
 
-	parsed.MetadataUserID = strings.Clone(gjson.Get(jsonStr, "metadata.user_id").String())
+	parsed.MetadataUserID = strings.Clone(fields.metadataUID.String())
 
-	thinkingType := gjson.Get(jsonStr, "thinking.type").String()
+	thinkingType := fields.thinkingType.String()
 	parsed.ThinkingEnabled = thinkingType == "enabled" || thinkingType == "adaptive"
 
-	parsed.OutputEffort = strings.Clone(strings.TrimSpace(gjson.Get(jsonStr, "output_config.effort").String()))
+	parsed.OutputEffort = strings.Clone(strings.TrimSpace(fields.outputEffort.String()))
 
-	maxTokensResult := gjson.Get(jsonStr, "max_tokens")
+	maxTokensResult := fields.maxTokens
 	if maxTokensResult.Exists() && maxTokensResult.Type == gjson.Number {
 		f := maxTokensResult.Float()
 		if !math.IsNaN(f) && !math.IsInf(f, 0) && f == math.Trunc(f) &&
@@ -207,7 +179,7 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 		}
 	}
 
-	setGatewayRequestRanges(parsed, protocol, jsonStr)
+	setGatewayRequestRangesFromFields(parsed, protocol, fields)
 	parsed.saveBodyState()
 	return nil
 }
