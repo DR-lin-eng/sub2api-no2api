@@ -23,7 +23,11 @@ const messagesWebSearchBody = `{"model":"gpt-5.5","max_tokens":64,"stream":true,
 const messagesWithoutWebSearchBody = `{"model":"gpt-5.5","max_tokens":64,"stream":true,
  "messages":[{"role":"user","content":"hello"}]}`
 
-const webSearchCompletedSSE = "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_ws\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":5,\"output_tokens\":2,\"total_tokens\":7}}}\n\n"
+const webSearchCompletedSSE = `data: {"type":"response.output_text.delta","item_id":"msg_1","output_index":0,"content_index":0,"delta":"ok"}
+
+data: {"type":"response.completed","response":{"id":"resp_ws","model":"gpt-5.5","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":5,"output_tokens":2,"total_tokens":7}}}
+
+`
 
 func codexOAuthWebSearchTestAccount() *Account {
 	return &Account{

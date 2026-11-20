@@ -69,8 +69,10 @@ func isOpenAIOAuthServableModel(requestedModel string) bool {
 	if model == "k3" || model == "k3-256k" {
 		return false
 	}
-	if isKnownForeignOpenAIModel(model) {
-		return false
+	for _, prefix := range openAIOAuthForeignModelPrefixes {
+		if strings.HasPrefix(model, prefix) {
+			return false
+		}
 	}
 	if claudeMessagesDispatchFamily(model) != "" {
 		return true
@@ -366,13 +368,4 @@ func resolveOpenAICompactFallbackForwardModels(account *Account, requestedModel,
 		result = append(result, upstreamModel)
 	}
 	return result
-}
-
-func isKnownForeignOpenAIModel(model string) bool {
-	for _, prefix := range openAIOAuthForeignModelPrefixes {
-		if strings.HasPrefix(model, prefix) {
-			return true
-		}
-	}
-	return false
 }

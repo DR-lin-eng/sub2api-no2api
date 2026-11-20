@@ -1,0 +1,37 @@
+--- a/check.py
++++ b/check.py
+@@ -15,3 +15,3 @@
+-COMPOSE = ['docker', 'compose', '-f', str(ROOT / 'compose.yaml'), '-p', 'sub2api-sync-20261118']
+-BASELINE = 'sub2api:sync-baseline-20261118'
+-CANDIDATE = 'sub2api:sync-candidate-20261118'
++COMPOSE = ['docker', 'compose', '-f', str(ROOT / 'compose.yaml'), '-p', 'sub2api-sync-9266']
++BASELINE = 'ghcr.io/dr-lin-eng/sub2api-no2api:sha-0ffc7bb'
++CANDIDATE = os.environ['SYNC_TEST_CANDIDATE']
+@@ -36 +36 @@
+-    req = urllib.request.Request('http://127.0.0.1:18578' + path, data=None if body is None else json.dumps(body).encode(), headers=headers, method=method)
++    req = urllib.request.Request('http://127.0.0.1:19586' + path, data=None if body is None else json.dumps(body).encode(), headers=headers, method=method)
+@@ -164 +164 @@
+-        creation = (50 if stream else 30) if fixed else 0
++        creation = 50 if stream else 30
+@@ -183,0 +184,9 @@
++    type_gid, type_aid = create_fixture(stage+'-typesafe', 'typesafe', '', [])
++    sql("UPDATE accounts SET credentials = credentials || jsonb_build_object('model_mapping',jsonb_build_object('jev-latest','mapped-fixture')) WHERE id="+str(type_aid))
++    kid,key=create_key(token,type_gid,stage+'-typesafe')
++    status, result=request('/v1/systemone',{'model':'jev-latest','state':{},'questions':{'q':{'type':'noul','instructions':'fixture'}},'stream':False},key)
++    expected_model = 'mapped-fixture' if fixed else 'jev-latest'
++    assert status==200 and result['model']==expected_model,(stage,'typesafe',status,result)
++    row=usage_row(kid)
++    assert len(row)==1 and row[0]['input']==10 and row[0]['output']==2, (stage,'typesafe settlement',row)
++    cases.append({'case':'typesafe-current-account-mapping','observed_model':result['model'],'usage':row})
+--- a/compose.yaml
++++ b/compose.yaml
+@@ -29 +29 @@
+-      - '127.0.0.1:18578:8080'
++      - '127.0.0.1:19586:8080'
+--- a/provider.py
++++ b/provider.py
+@@ -21 +21,3 @@
+-        if request_path.endswith('/messages'):
++        if request_path.endswith('/systemone'):
++            result={'model':model, 'answers':{'q':{'type':'noul','answer':'ok'}}, 'usage':{'input_tokens':10,'output_tokens':2}}
++        elif request_path.endswith('/messages'):

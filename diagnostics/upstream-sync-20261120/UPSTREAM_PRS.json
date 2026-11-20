@@ -474,7 +474,7 @@
         "backend/internal/application/service/openai_model_mapping.go",
         "backend/internal/transport/http/handler/openai_gateway_messages.go"
       ],
-      "decision": "Messages 普通调度采用渠道实际映射；透传 OAuth 在调度时排除明确的外部模型。保留本地 Claude→Codex 分发、显式映射、开放 API Key 端点及分组分发优先级。",
+      "decision": "Messages 普通调度采用渠道实际映射。保留既有显式 OAuth 透传与模型筛选开关、自定义上游和 Claude→Codex 分发；没有为已配置透传的账号引入隐式异族前缀拦截。",
       "diff_review_closed": true,
       "capability_complete": false,
       "reopen_when": "上游净补丁或运行契约变化、当前 owner 回归，或明确要求引入所列剩余能力。"
