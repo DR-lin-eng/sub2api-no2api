@@ -425,7 +425,7 @@ export function useSettingsPage() {
   });
 
 
-  const { adminApiKeyExists, adminApiKeyForm, adminApiKeyLoading, adminApiKeyMasked, adminApiKeyMinExpiry, adminApiKeyOperating, adminApiKeyPanelLoading, adminApiKeyPanelOperating, adminApiKeyPanelSecret, adminApiKeyScopeOptions, cancelEditScopedAdminApiKey, copyNewKey, copyScopedAdminApiKey, createAdminApiKey, createScopedAdminApiKey, deleteAdminApiKey, editScopedAdminApiKey, editingAdminApiKeyId, formatAdminApiKeyDate, loadAdminApiKey, loadScopedAdminApiKeys, newAdminApiKey, regenerateAdminApiKey, revokeScopedAdminApiKey, rotateScopedAdminApiKey, scopedAdminApiKeys } = useSettingsAdminApiKeys(copyToClipboard)
+  const { adminApiKeyExists, adminApiKeyForm, adminApiKeyLoading, adminApiKeyMasked, adminApiKeyMinExpiry, adminApiKeyOperating, adminApiKeyPanelLoading, adminApiKeyPanelOperating, adminApiKeyPanelSecret, adminApiKeyScopeOptions, cancelEditScopedAdminApiKey, copyNewKey, copyScopedAdminApiKey, createAdminApiKey, createScopedAdminApiKey, deleteAdminApiKey, editScopedAdminApiKey, editingAdminApiKeyId, formatAdminApiKeyDate, loadAdminApiKey, loadScopedAdminApiKeys, newAdminApiKey, regenerateAdminApiKey, revokeScopedAdminApiKey, rotateScopedAdminApiKey, scopedAdminApiKeys } = useSettingsAdminApiKeys(copyToClipboard, settingsStepUp)
   const {
     addOpenAIFastPolicyModelPattern,
     addOpenAIFastPolicyRule,

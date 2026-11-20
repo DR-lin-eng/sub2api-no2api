@@ -777,3 +777,5 @@ Gemini 原生模型元数据在全部可调度 Gemini 账号都声明映射时�
 Explicit `mcp.public_url` enables the management resource. Protocol discovery uses the MCP path issuer and does not replace the existing root OAuth2 discovery endpoint. The browser restores its ordinary session, previews the registered application and callback, explicitly chooses personal/admin and read-only/write authority, and completes any required TOTP step-up. Only the approved client exchanges a resource- and S256-PKCE-bound authorization code.
 
 MCP requests pass fail-closed network rate limits, a fresh joined credential/grant/user check and a separate user transport bucket. A fixed tool/schema then dispatches in process to the existing management route with a private context. That route retains resource ownership, panel global/heavy limits, permissions, compliance, audit and step-up. The result is bounded and redacted before returning as one MCP text block. No request chooses an arbitrary URL or forwards browser cookies/credentials.
+
+后台迁移从本机 CLI 建立会话，对端 Admin API 按请求校验迁移专属权限与 HTTPS，收到完整快照后再导入。范围及冲突行为见[双站迁移](SITE_MIGRATION.md)。

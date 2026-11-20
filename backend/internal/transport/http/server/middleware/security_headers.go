@@ -146,7 +146,7 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string, g
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Header("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
 		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		if requestIsHTTPS(c) {
+		if RequestIsHTTPS(c) {
 			c.Header("Strict-Transport-Security", "max-age=31536000")
 		}
 		if isAPIRoutePath(c) {
@@ -170,7 +170,8 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string, g
 	}
 }
 
-func requestIsHTTPS(c *gin.Context) bool {
+// RequestIsHTTPS accepts native TLS or HTTPS asserted by a trusted TCP peer.
+func RequestIsHTTPS(c *gin.Context) bool {
 	if c == nil || c.Request == nil {
 		return false
 	}

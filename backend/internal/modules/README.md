@@ -4,6 +4,7 @@
 
 | 模块 | 作用 |
 | --- | --- |
+| [sitemigration](sitemigration/README.md) | 站间加密迁移、断点与业务表合并 |
 | [activitycenter](activitycenter/README.md) | 活动配置、可见性、抽奖、签到、兑换膨胀和参与记录领域规则 |
 | [codexremotecontrol](codexremotecontrol/README.md) | Codex controller 注册、step-up、设备密钥 challenge 与会话生命周期 |
 | [chat](chat/README.md) | 在线客服会话、消息、未读状态、撤回事件、保留清理和实时广播 |

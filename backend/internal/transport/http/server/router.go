@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/sitemigration"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	coremiddleware "github.com/DR-lin-eng/sub2api-no2api/internal/platform/middleware"
 	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler"
+	adminhandler "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler/admin"
 	middleware2 "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/routes"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/webassets"
@@ -42,6 +44,7 @@ func SetupRouter(
 	cfg *config.Config,
 	redisClient *redis.Client,
 	db *sql.DB,
+	migration sitemigration.Store,
 ) *gin.Engine {
 	// Gin redirects run before middleware; disable automatic API rewrites.
 	r.RedirectTrailingSlash = false
@@ -113,7 +116,7 @@ func SetupRouter(
 	}
 
 	// 注册路由
-	registerRoutes(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clusterReleaseService, cfg, redisClient, db)
+	registerRoutes(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clusterReleaseService, cfg, redisClient, db, migration)
 
 	return r
 }
@@ -137,6 +140,7 @@ func registerRoutes(
 	cfg *config.Config,
 	redisClient *redis.Client,
 	db *sql.DB,
+	migration sitemigration.Store,
 ) {
 	// 通用路由（健康检查、状态等）
 	routes.RegisterCommonRoutes(r, clusterReleaseService)
@@ -154,7 +158,7 @@ func registerRoutes(
 	routes.RegisterUserRoutes(v1, h, jwtAuth, auditLog, settingService, panelRateLimiter, stepUpAuth)
 	routes.RegisterChannelMonitorPublicRoutes(v1, h, optionalJWTAuth, settingService, panelRateLimiter)
 	routes.RegisterModelPlazaRoutes(v1, h, optionalJWTAuth, settingService, panelRateLimiter)
-	routes.RegisterAdminRoutes(v1, h, adminAuth, auditLog, stepUpAuth, settingService, panelRateLimiter)
+	routes.RegisterAdminRoutes(v1, h, adminAuth, auditLog, stepUpAuth, settingService, panelRateLimiter, adminhandler.SiteMigration(migration))
 	routes.RegisterMCPRoutes(v1, h, auditLog, stepUpAuth, settingService, panelRateLimiter, cfg.CORS.AllowedOrigins, redisClient)
 	routes.RegisterMCPOAuthRoutes(r, v1, h, redisClient)
 	routes.RegisterGatewayRoutes(r, h, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, panelRateLimiter.PublicFixedWindow("generated-image", 120, time.Minute, coremiddleware.RateLimitFailOpen))

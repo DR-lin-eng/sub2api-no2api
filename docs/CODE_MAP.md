@@ -192,3 +192,5 @@ rg -n "from '@/api|from '@/api/admin|from '@/stores" frontend/src -g '*.{ts,vue}
 TypeSafe 原生协议入口为 [独立模块](../backend/internal/modules/typesafe/README.md)，HTTP/application 编排为 `gateway_systemone.go`；充值阶梯纯规则归属 [支付模块](../backend/internal/modules/payment/README.md)。升级与验证见 [专项适配](UPSTREAM_ADAPT_20261006.md)。
 
 模型发现元数据的纯规则见 [modelcatalog](../backend/internal/modules/modelcatalog/README.md)，刷新与持久化由 `upstream_model_catalog.go` 和 `oauth_model_sync_service.go` 编排，Codex 客户端投影由 `openai_codex_models_metadata.go` 负责。
+
+迁移入口为 `backend/cmd/server/migrate.go`，站间协议、数据投影及合并归属见 [sitemigration](../backend/internal/modules/sitemigration/README.md)。

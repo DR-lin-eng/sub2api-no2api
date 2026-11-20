@@ -3,6 +3,7 @@ package admin
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
@@ -64,11 +65,32 @@ func (h *SettingHandler) ListAdminAPIKeys(c *gin.Context) {
 	response.Success(c, gin.H{"items": keys})
 }
 
+// A migration-capable key can export user credentials. Creating scope grants
+// and rotating the secret therefore observes the site's interactive step-up policy.
+func (h *SettingHandler) authorizeKeyGrant(c *gin.Context) bool {
+	enabled, err := h.settingService.ReadStepUpEnabled(c.Request.Context())
+	if err != nil {
+		response.InternalError(c, "Unable to verify step-up policy")
+		return false
+	}
+	if !enabled {
+		return true
+	}
+	if h.totpService == nil || h.userService == nil {
+		middleware.AbortWithError(c, 503, "STEP_UP_UNAVAILABLE", "Step-up verification service unavailable")
+		return false
+	}
+	return middleware.EnforceStepUpAlways(c, h.totpService, h.userService)
+}
+
 // CreateAdminAPIKey creates a scoped machine credential. The full key is returned once.
 func (h *SettingHandler) CreateAdminAPIKey(c *gin.Context) {
 	var req adminAPIKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if migrationScopes(req.Scopes) && !h.authorizeKeyGrant(c) {
 		return
 	}
 	key, secret, err := h.settingService.CreateAdminAPIKey(c.Request.Context(), service.AdminAPIKeyCreateInput{
@@ -87,6 +109,10 @@ func (h *SettingHandler) UpdateAdminAPIKey(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	// Extending an expired key can re-enable an existing migration grant without a scopes field.
+	if (req.ExpiresAt.Present || (req.Scopes != nil && migrationScopes(*req.Scopes))) && !h.authorizeKeyGrant(c) {
+		return
+	}
 	var expiresAt **time.Time
 	if req.ExpiresAt.Present {
 		expiresAt = &req.ExpiresAt.Value
@@ -101,7 +127,20 @@ func (h *SettingHandler) UpdateAdminAPIKey(c *gin.Context) {
 	response.Success(c, key)
 }
 
+func migrationScopes(scopes []string) bool {
+	for _, scope := range scopes {
+		if strings.HasPrefix(strings.TrimSpace(scope), "admin.migration.") {
+			return true
+		}
+	}
+	return false
+}
 func (h *SettingHandler) RotateAdminAPIKey(c *gin.Context) {
+	// Require the grant on rotations since this operation returns a fresh
+	// secret and another administrator may update scopes concurrently.
+	if !h.authorizeKeyGrant(c) {
+		return
+	}
 	key, secret, err := h.settingService.RotateAdminAPIKey(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		response.ErrorFrom(c, err)

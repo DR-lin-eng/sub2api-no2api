@@ -70,6 +70,10 @@ export interface AdminApiKeyStatus {
 export type AdminApiKeyScope =
   | "admin.read"
   | "admin.write"
+  | "admin.migration.users.export"
+  | "admin.migration.users.import"
+  | "admin.migration.export"
+  | "admin.migration.import"
   | "admin.redeem.secrets"
   | "admin.users.read"
   | "admin.users.write"

@@ -19,7 +19,7 @@ describe('voucher permission on existing admin keys', () => {
 
   it('adds the independent permission to the original legacy key without rotating its value', async () => {
     actions.updateAdminApiKey.mockResolvedValue({})
-    const panel = useSettingsAdminApiKeys(vi.fn())
+    const panel = useSettingsAdminApiKeys(vi.fn(), { run: action => action() })
     panel.editScopedAdminApiKey({
       id: 'legacy', name: 'external software', key_prefix: 'fixture', last_four: '1234',
       scopes: ['admin.read'], status: 'active', created_by: 1,

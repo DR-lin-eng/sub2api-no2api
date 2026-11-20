@@ -4,6 +4,7 @@ package middleware
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
@@ -176,6 +177,10 @@ func adminAPIKeyRequestAllowed(c *gin.Context, scopes []string) bool {
 	}
 	if strings.HasPrefix(path, "/api/v1/admin/backups/") && strings.HasSuffix(path, "/download-url") {
 		return false
+	}
+	if strings.HasPrefix(path, "/api/v1/admin/site-migration/") {
+		mode, _, _ := strings.Cut(strings.TrimPrefix(path, "/api/v1/admin/site-migration/"), "/")
+		return c.Request.Method == http.MethodPost && (mode == "export" || mode == "import") && (slices.Contains(scopes, "admin.migration."+mode) || slices.Contains(scopes, "admin.migration.users."+mode))
 	}
 	required := adminAPIKeyRequiredScope(c.Request.Method, path)
 	for _, scope := range scopes {

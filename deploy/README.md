@@ -839,3 +839,5 @@ Compose 用户修改 `.env` 后，在部署目录执行 `docker compose up -d su
 
 源码构建的 Vue/词表类型图使用 4 GiB Node build heap，构建环境需为 Go、Node 和系统保留足够内存。
 可用 `docker build --build-arg NODE_BUILD_OPTIONS=--max-old-space-size=4096 .` 显式设置；该参数仅用于前端编译。
+
+两个已部署站点之间的搬迁和选择性合并使用容器内 `/app/sub2api migrate`，见[双站迁移手册](../docs/SITE_MIGRATION.md)。

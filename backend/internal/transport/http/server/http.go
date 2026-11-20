@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/sitemigration"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/websearch"
@@ -65,6 +66,7 @@ func ProvideRouter(
 	clientIPResolver *clientip.Resolver,
 	redisClient *redis.Client,
 	db *sql.DB,
+	migration sitemigration.Store,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -114,7 +116,7 @@ func ProvideRouter(
 		service.SetWebSearchManager(websearch.NewManager(configs, redisClient))
 	})
 
-	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clusterReleaseService, clientIPResolver, cfg, redisClient, db)
+	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clusterReleaseService, clientIPResolver, cfg, redisClient, db, migration)
 }
 
 // ProvideHTTPServer 提供 HTTP 服务器

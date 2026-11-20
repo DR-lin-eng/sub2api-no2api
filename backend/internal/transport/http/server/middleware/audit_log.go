@@ -164,6 +164,7 @@ var auditActionOverrides = map[string]string{
 // binary-upload routes. These bodies either cannot be made safe by key-level
 // redaction or should not be duplicated into the audit store at all.
 var auditBodyOmittedRoutes = map[string]struct{}{
+	"POST /api/v1/admin/site-migration/:mode/:action":             {},
 	"POST /api/v1/user/mcp/authorize":                             {},
 	"POST /api/v1/auth/passkey/login/finish":                      {},
 	"POST /api/v1/user/passkeys/register/finish":                  {},
