@@ -14,7 +14,7 @@ var codexSelectedPageName = regexp.MustCompile(`^codex_apps_selected_page_part_(
 // Desktop injects page snapshots as standalone outputs, without a model tool call.
 // Keep them as untrusted user text, including on history replay and mixed bootstrap turns.
 func NormalizeCodexPageContext(body []byte) ([]byte, bool) {
-	if (!bytes.Contains(body, []byte("function_call_output")) && !bytes.Contains(body, []byte(`\u`))) || !hasUniqueJSONMembers(body) {
+	if !mayContainStandaloneCodexContext(body) || !hasUniqueJSONMembers(body) {
 		return body, false
 	}
 	var request map[string]json.RawMessage
@@ -125,6 +125,15 @@ func validCodexPageSnapshot(text string) bool {
 	}
 	var value string
 	return json.Unmarshal(id, &value) == nil && strings.TrimSpace(value) != ""
+}
+
+func mayContainStandaloneCodexContext(body []byte) bool {
+	for _, name := range []string{"codex_apps_", "browser_info", "goal_objective", "untrusted_cont", "ide_context", "proposed_plan"} {
+		if bytes.Contains(body, []byte(name)) {
+			return true
+		}
+	}
+	return bytes.Contains(body, []byte(`\u`))
 }
 
 func validCodexUntrustedContext(name, output string) bool {

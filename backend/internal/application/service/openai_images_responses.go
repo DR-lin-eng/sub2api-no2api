@@ -299,9 +299,11 @@ func buildOpenAIImagesStreamCompletedPayload(
 	}
 	if len(usageRaw) > 0 && gjson.ValidBytes(usageRaw) {
 		// Upstream JSON may be pretty-printed; a newline would split the SSE data line.
-		var compact bytes.Buffer
-		if json.Compact(&compact, usageRaw) == nil {
-			usageRaw = compact.Bytes()
+		if bytes.IndexAny(usageRaw, "\r\n") >= 0 {
+			var compact bytes.Buffer
+			if json.Compact(&compact, usageRaw) == nil {
+				usageRaw = compact.Bytes()
+			}
 		}
 		payload, _ = sjson.SetRawBytes(payload, "usage", usageRaw)
 	}

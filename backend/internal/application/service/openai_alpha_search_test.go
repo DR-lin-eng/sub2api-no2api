@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	"github.com/gin-gonic/gin"
@@ -19,13 +20,19 @@ import (
 
 type alphaSearchAccountStateRepo struct {
 	AccountRepository
-	setErrorCalls int
-	lastError     string
+	setErrorCalls  int
+	cooldownReason string
+	lastError      string
 }
 
 func (r *alphaSearchAccountStateRepo) SetError(_ context.Context, _ int64, errorMsg string) error {
 	r.setErrorCalls++
 	r.lastError = errorMsg
+	return nil
+}
+
+func (r *alphaSearchAccountStateRepo) SetTempUnschedulable(_ context.Context, _ int64, _ time.Time, reason string) error {
+	r.cooldownReason = reason
 	return nil
 }
 
@@ -539,6 +546,7 @@ func TestForwardAlphaSearchLiteratureSearchForbiddenDoesNotPenalizeAccount(t *te
 			require.Equal(t, http.StatusForbidden, failoverErr.StatusCode)
 			require.Zero(t, repo.setErrorCalls, "a tool-level 403 must not mark the account as errored")
 			require.Empty(t, repo.lastError)
+			require.Empty(t, repo.cooldownReason)
 			require.Equal(t, tc.wantURL, upstream.lastReq.URL.String())
 			require.False(t, c.Writer.Written())
 		})
@@ -572,8 +580,8 @@ func TestForwardAlphaSearchAccessStateForbiddenStillMarksAccount(t *testing.T) {
 
 	var failoverErr *UpstreamFailoverError
 	require.ErrorAs(t, err, &failoverErr)
-	require.Equal(t, 1, repo.setErrorCalls, "a deactivated workspace is account-level evidence")
-	require.Contains(t, repo.lastError, "Workspace is deactivated")
+	require.Zero(t, repo.setErrorCalls)
+	require.Contains(t, repo.cooldownReason, "Workspace is deactivated")
 }
 
 func TestIsOpenAIAlphaSearchEndpointUnsupported(t *testing.T) {

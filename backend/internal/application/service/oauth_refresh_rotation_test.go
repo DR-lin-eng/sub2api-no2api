@@ -324,5 +324,5 @@ func TestOpenAITokenProvider_RefreshAfterUnauthorizedForcesRefresh(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, "new-access-token", account.GetOpenAIAccessToken())
 	require.Equal(t, 1, executor.refreshCalls)
-	require.Equal(t, 1, cache.deleteCalls)
+	require.Equal(t, 2, cache.deleteCalls, "invalidate before using the rejected token, then after the durable rotation")
 }
