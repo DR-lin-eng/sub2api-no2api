@@ -50,6 +50,8 @@ func TestOrdinaryUserKeysQuotaAndAdminBoundary(t *testing.T) {
 	require.NoError(t, e)
 	_, e = tx.ExecContext(ctx, "INSERT INTO user_platform_quotas(user_id,platform,daily_limit_usd,daily_usage_usd) VALUES($1,'openai',12,3)", user)
 	require.NoError(t, e)
+	_, e = tx.ExecContext(ctx, "INSERT INTO api_keys(user_id,key,name,status) VALUES($1,$2,'Media Studio','active'),($1,$3,'Media Studio','inactive')", user, "studio-ok-"+prefix, "studio-disabled-"+prefix)
+	require.NoError(t, e)
 	store := Store{DataDir: t.TempDir()}
 	var snapshot bytes.Buffer
 	require.NoError(t, store.exportSnapshot(ctx, tx, userKeysProfile, &snapshot))
@@ -94,6 +96,17 @@ func TestOrdinaryUserKeysQuotaAndAdminBoundary(t *testing.T) {
 	require.Equal(t, "inactive", status)
 	require.NoError(t, tx.QueryRowContext(ctx, "SELECT daily_limit_usd-daily_usage_usd=9 FROM user_platform_quotas WHERE user_id=$1", uid).Scan(&valid))
 	require.True(t, valid)
+	var eligible []string
+	rows, e := tx.QueryContext(ctx, "SELECT k.key FROM site_migration_studio_rebinds m JOIN api_keys k ON k.id=m.api_key_id WHERE k.user_id=$1", uid)
+	require.NoError(t, e)
+	for rows.Next() {
+		var k string
+		require.NoError(t, rows.Scan(&k))
+		eligible = append(eligible, k)
+	}
+	require.NoError(t, rows.Err())
+	require.NoError(t, rows.Close())
+	require.Equal(t, []string{"studio-ok-" + prefix}, eligible)
 	for i := 0; i < j.Errors; i++ {
 		b, err := getBlock(ctx, tx, j.ID, 1, i)
 		require.NoError(t, err)

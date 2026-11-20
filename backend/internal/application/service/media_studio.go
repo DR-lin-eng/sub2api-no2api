@@ -9,11 +9,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
 	infraerrors "github.com/DR-lin-eng/sub2api-no2api/internal/shared/errors"
 )
 
 const SettingKeyMediaStudioGroupRoutes = "media_studio_group_routes"
-const MediaStudioAPIKeyName = "Media Studio"
+const MediaStudioAPIKeyName = domain.MediaStudioAPIKeyName
 
 var (
 	ErrMediaStudioGroupRouteInvalid = infraerrors.BadRequest(
@@ -556,6 +557,20 @@ func (s *MediaStudioService) EnsureAPIKey(
 	}
 
 	groupIDValue := selected.GroupID
+	// The allowed media type, group and owner were resolved above. Bind a migrated
+	// managed key once, through the same authorized workflow as a new session.
+	if repo, ok := s.apiKeyService.apiKeyRepo.(interface {
+		ClaimMigratedMediaStudioKey(context.Context, int64, int64) (*APIKey, error)
+	}); ok {
+		claimed, err := repo.ClaimMigratedMediaStudioKey(ctx, userID, groupIDValue)
+		if err != nil {
+			return nil, err
+		}
+		if claimed != nil {
+			s.apiKeyService.InvalidateAuthCacheByKey(ctx, claimed.Key)
+			return claimed, nil
+		}
+	}
 	created, err := s.apiKeyService.CreateMediaStudioAPIKey(ctx, userID, CreateAPIKeyRequest{
 		Name:    name,
 		GroupID: &groupIDValue,

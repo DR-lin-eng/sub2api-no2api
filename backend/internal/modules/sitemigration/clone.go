@@ -16,7 +16,7 @@ import (
 
 // New-site replication restores business IDs and relations in a separate database.
 // Portable credentials are rewrapped with a new, receiver-generated key.
-const cloneExtraTables = `usage_billing_jobs usage_cleanup_tasks
+const cloneExtraTables = `site_migration_studio_rebinds usage_billing_jobs usage_cleanup_tasks
 prompt_audit_jobs prompt_audit_queue_state usage_dashboard_aggregation_watermark channel_monitor_aggregation_watermark usage_group_rollup_state`
 
 func cloneTopology(c catalog) ([]string, error) {

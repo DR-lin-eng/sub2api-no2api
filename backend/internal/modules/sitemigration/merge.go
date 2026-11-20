@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/DR-lin-eng/sub2api-no2api/internal/domain"
 	"github.com/lib/pq"
 )
 
@@ -200,6 +201,7 @@ func (im *importer) mergePass(t *table, self, deferParents bool) (int, int, erro
 			}
 			originalID := record.fields["id"]
 			rebind := false
+			sourceActive := record.fields.str("status") == "active"
 			if t.name == "api_keys" {
 				var e error
 				rebind, e = im.needsKeyRebinding(record.fields)
@@ -222,7 +224,18 @@ func (im *importer) mergePass(t *table, self, deferParents bool) (int, int, erro
 					return 0, 0, err
 				}
 			} else if rebind {
-				if err = im.reject(t, row{"id": originalID}, "Key 已保留并停用，用户需在新站重新选择分组并启用"); err != nil {
+				note := "Key 已保留并停用，用户需在新站重新选择分组并启用"
+				if strings.EqualFold(strings.TrimSpace(record.fields.str("name")), domain.MediaStudioAPIKeyName) {
+					if sourceActive {
+						if _, err = im.tx.ExecContext(im.ctx, "INSERT INTO site_migration_studio_rebinds(api_key_id) VALUES($1)", idText(record.fields, "id")); err != nil {
+							return 0, 0, err
+						}
+						note = "媒体工坊 Key 已保留并停用，用户在新站媒体工坊选组后可恢复"
+					} else {
+						note = "媒体工坊 Key 已保留并停用，原 Key 不处于启用状态"
+					}
+				}
+				if err = im.reject(t, row{"id": originalID}, note); err != nil {
 					return 0, 0, err
 				}
 			}
