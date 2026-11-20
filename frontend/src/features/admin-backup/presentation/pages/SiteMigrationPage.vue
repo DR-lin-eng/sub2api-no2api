@@ -25,6 +25,14 @@
             <input v-model="peerKey" class="input w-full" type="password" required minlength="16" maxlength="256" autocomplete="off" spellcheck="false" :placeholder="t('admin.migration.keyPlaceholder')" :disabled="busy || !secure" />
           </label>
         </div>
+        <div class="space-y-1.5">
+          <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-medium">
+            <input v-model="requireTLS" type="checkbox" role="switch" class="accent-primary-600" :disabled="busy || !secure" />
+            {{ t('admin.migration.requireTLS') }}
+          </label>
+          <p v-if="!requireTLS" class="text-xs text-gray-600 dark:text-dark-300">{{ t('admin.migration.optionalTLS') }}</p>
+          <p v-if="httpBlocked" role="alert" class="text-sm text-amber-700 dark:text-amber-400">{{ t('admin.migration.httpBlocked') }}</p>
+        </div>
         <label class="block space-y-1.5 text-sm font-medium">
           <span>{{ t('admin.migration.scope') }}</span>
           <select v-model="scope" class="input w-full" :disabled="busy || !secure">
@@ -37,7 +45,7 @@
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-dark-700">
           <span class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.migration.keyPrivacy') }}</span>
-          <button type="submit" class="btn btn-primary" :disabled="busy || !secure">{{ t('admin.migration.review') }}</button>
+          <button type="submit" class="btn btn-primary" :disabled="busy || !secure || httpBlocked">{{ t('admin.migration.review') }}</button>
         </div>
       </form>
 
@@ -144,6 +152,8 @@ const failureLabels: Record<string, string> = {
   'conflict': 'admin.migration.errors.conflict',
   'interrupted': 'admin.migration.errors.interrupted',
   'transfer': 'admin.migration.errors.transfer',
+  'http_peer': 'admin.migration.errors.httpPeer',
+  'http_key': 'admin.migration.errors.httpKey',
   'clone_policy': 'admin.migration.errors.clonePolicy',
   'billing_pending': 'admin.migration.errors.billingPending',
 }
@@ -154,6 +164,8 @@ function errorLabel(code?: string) {
 const direction = ref<MigrationDirection>('push')
 const scope = ref<MigrationScope>('login-quota-keys')
 const peer = ref('')
+const requireTLS = ref(true)
+const httpBlocked = computed(() => requireTLS.value && /^http:\/\//i.test(peer.value))
 const peerKey = ref('')
 const jobs = ref<MigrationJob[]>([])
 const resuming = ref<MigrationJob | null>(null)
@@ -180,9 +192,11 @@ function phaseStyle(phase: MigrationPhase) {
   return 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
 }
 function errorMessage(err: unknown) {
-  const value = err as { reason?: string; status?: number }
-  if (value.reason === 'MIGRATION_HTTPS_REQUIRED') return t('admin.migration.https')
-  if (value.reason === 'MIGRATION_PEER_ADDRESS') return t('admin.migration.errors.address')
+  const value = err as { reason?: string; code?: string; status?: number }
+  const code = value.reason || value.code
+  if (code === 'MIGRATION_HTTPS_REQUIRED') return t('admin.migration.https')
+  if (code === 'MIGRATION_HTTP_KEY_REQUIRED') return t('admin.migration.errors.httpKey')
+  if (code === 'MIGRATION_PEER_ADDRESS') return t('admin.migration.errors.address')
   if (isStepUpBlocked(err)) return t('stepUp.notEnabled')
   if (value.status === 429) return t('admin.migration.errors.limit')
   if (value.status === 404) return t('admin.migration.errors.checkpoint')
@@ -217,12 +231,12 @@ async function act(run: () => Promise<void>) {
 function openResume(job: MigrationJob) { resumeKey.value = ''; resuming.value = job }
 function closeResume() { resumeKey.value = ''; resuming.value = null }
 function submit() {
-  if (!secure || !confirming.value) return
+  if (!secure || !confirming.value || httpBlocked.value) return
   confirming.value = false
   void act(async () => {
-    const signature = JSON.stringify([peer.value, scope.value, direction.value])
+    const signature = JSON.stringify([peer.value, scope.value, direction.value, requireTLS.value])
     if (retry?.signature !== signature) retry = { id: crypto.randomUUID(), signature }
-    const form = { id: retry.id, peer: peer.value, profile: scope.value, direction: direction.value, key: peerKey.value }
+    const form = { id: retry.id, peer: peer.value, profile: scope.value, direction: direction.value, key: peerKey.value, allow_http: !requireTLS.value }
     peerKey.value = ''
     try {
       const job = await stepUp.run(() => startMigration(form))

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/migrationhttp"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,6 +34,10 @@ func adminAuth(
 	auditService *service.AuditLogService,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.GetHeader(migrationhttp.Header) != "" {
+			serveMigrationHTTP(c, settingService, userService)
+			return
+		}
 		// WebSocket upgrade requests cannot set Authorization headers in browsers.
 		// For admin WebSocket endpoints (e.g. Ops realtime), allow passing the JWT via
 		// Sec-WebSocket-Protocol (subprotocol list) using a prefixed token item:

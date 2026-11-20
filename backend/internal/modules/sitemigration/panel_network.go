@@ -24,11 +24,11 @@ func (e *peerResponseError) Error() string {
 	return fmt.Sprintf("peer rejected %s (HTTP %d)", e.action, e.status)
 }
 
-func canonicalPeer(raw string) (string, error) {
+func canonicalPeer(raw string, allowHTTP bool) (string, error) {
 	if len(raw) > 512 {
 		return "", ErrPeerAddress
 	}
-	origin, err := peerOrigin(strings.TrimSpace(raw))
+	origin, err := parsePeerOrigin(strings.TrimSpace(raw), allowHTTP)
 	if err != nil {
 		return "", ErrPeerAddress
 	}
@@ -41,7 +41,8 @@ func canonicalPeer(raw string) (string, error) {
 	if host == "" || host == "localhost" || strings.HasSuffix(host, ".localhost") || strings.ContainsAny(host, "% /\\") {
 		return "", ErrPeerAddress
 	}
-	if port != "" && port != "443" {
+	defaultPort := (u.Scheme == "https" && port == "443") || (u.Scheme == "http" && port == "80")
+	if port != "" && !defaultPort {
 		u.Host = net.JoinHostPort(host, port)
 	} else if strings.Contains(host, ":") {
 		u.Host = "[" + host + "]"
@@ -54,8 +55,8 @@ func (p *Panel) allowedIP(origin string, ip netip.Addr) bool {
 	ip = ip.Unmap()
 	return urlvalidator.ValidatePublicIP(ip) == nil || (p.privatePeers[origin] && ip.Zone() == "" && ip.IsPrivate())
 }
-func (p *Panel) peerOrigin(raw string) (string, error) {
-	o, err := canonicalPeer(raw)
+func (p *Panel) peerOrigin(raw string, allowHTTP bool) (string, error) {
+	o, err := canonicalPeer(raw, allowHTTP)
 	if err != nil {
 		return "", err
 	}

@@ -39,6 +39,15 @@ func ensureBootstrapSecrets(ctx context.Context, client *ent.Client, cfg *config
 	if err := ensureTOTPEncryptionKey(ctx, client, cfg); err != nil {
 		return err
 	}
+	value, _, err := getOrCreateGeneratedSecuritySecret(ctx, client, "migration_http_x25519_v1", 32)
+	if err != nil {
+		return fmt.Errorf("initialize migration transport key: %w", err)
+	}
+	root, err := hex.DecodeString(value)
+	if err != nil || len(root) != 32 {
+		return errors.New("invalid migration transport key")
+	}
+	cfg.MigrationHTTPRoot = root
 	return nil
 }
 

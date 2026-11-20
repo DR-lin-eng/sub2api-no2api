@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -22,4 +23,22 @@ WHERE key=$1 AND EXISTS (
  WHERE current->>'id'=$2 AND current->>'key_hash'=$3 AND current->>'status'='active'
 )`, "admin_api_keys", id, digest, usedAt.UTC().Format(time.RFC3339Nano))
 	return err
+}
+
+// Claim each authenticated encapsulation once, across replicas. The envelope
+// expires before its replay record can be collected.
+func (r *settingRepository) ConsumeMigrationHTTP(ctx context.Context, nonce []byte, expires time.Time) error {
+	res, err := r.client.ExecContext(ctx, `WITH expired AS (DELETE FROM site_migration_http_nonces WHERE expires_at<now())
+ INSERT INTO site_migration_http_nonces(nonce,expires_at) SELECT $1,$2::timestamptz WHERE $2::timestamptz > now() ON CONFLICT DO NOTHING`, nonce, expires)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return errors.New("migration request already consumed")
+	}
+	return nil
 }

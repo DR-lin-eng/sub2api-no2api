@@ -32,7 +32,8 @@ func migrate(args []string) error {
 	}
 	fs := flag.NewFlagSet("migrate "+args[0], flag.ContinueOnError)
 	opts := sitemigration.Options{Direction: args[0], Output: os.Stderr}
-	fs.StringVar(&opts.Peer, "peer", "", "remote HTTPS IP or domain")
+	fs.StringVar(&opts.Peer, "peer", "", "remote site IP or domain")
+	fs.BoolVar(&opts.AllowHTTP, "allow-http-peer", false, "allow an explicit http:// peer with authenticated migration envelopes")
 	fs.StringVar(&opts.Profile, "scope", "all", "all, clone, login, login-quota or login-quota-keys")
 	fs.StringVar(&opts.Resume, "resume", "", "resume the printed migration UUID")
 	fs.StringVar(&opts.Report, "report", "", "new local CSV file")

@@ -3,14 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SiteMigrationPage from '../SiteMigrationPage.vue'
 import type { MigrationJob } from '../../../data/datasources/siteMigrationDatasource'
 
-const { list, start, resume, secure } = vi.hoisted(() => ({
-  list: vi.fn(), start: vi.fn(), resume: vi.fn(), secure: vi.fn(),
+const { list, start, resume, secure, showError } = vi.hoisted(() => ({
+  list: vi.fn(), start: vi.fn(), resume: vi.fn(), secure: vi.fn(), showError: vi.fn(),
 }))
 vi.mock('../../../data/datasources/siteMigrationDatasource', () => ({
   listMigrationJobs: list, startMigration: start, resumeMigration: resume,
   downloadMigrationReport: vi.fn(), secureMigrationOrigin: secure,
 }))
-vi.mock('@/core/stores/appStore', () => ({ useAppStore: () => ({ showError: vi.fn() }) }))
+vi.mock('@/core/stores/appStore', () => ({ useAppStore: () => ({ showError }) }))
 vi.mock('vue-i18n', async importOriginal => ({ ...(await importOriginal<typeof import('vue-i18n')>()), useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@/common/widgets/layout/AppLayout.vue', () => ({ default: {template: '<main><slot /></main>'} }))
 vi.mock('@/features/auth/totpStepUpDialog', () => ({ default: { template: '<span />' } }))
@@ -47,6 +47,24 @@ describe('site migration console', () => {
       expect((w.get('input[type="password"]').element as HTMLInputElement).value).toBe('')
     } finally { w.unmount() }
   })
+  it('requires an explicit switch change before an HTTP peer can be submitted', async () => {
+    let sent: Record<string, unknown> = {}
+    start.mockImplementationOnce(async form => { sent = {...form}; return {...baseJob, phase: 'completed'} })
+    const w = render()
+    try {
+      const toggle = w.get<HTMLInputElement>('input[role="switch"]')
+      expect(toggle.element.checked).toBe(true)
+      await w.get('input[placeholder="gateway.example.com"]').setValue('http://peer.example:18080')
+      await w.get('input[type="password"]').setValue('fixture-peer-key-with-scope')
+      expect(w.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+      await toggle.setValue(false)
+      expect(w.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+      await w.get('form').trigger('submit')
+      await w.get('[data-test="confirm"]').trigger('click')
+      await flushPromises()
+      expect(sent).toMatchObject({ peer: 'http://peer.example:18080', allow_http: true })
+    } finally { w.unmount() }
+  })
   it('resumes the listed job without creating a new one after refresh', async () => {
     list.mockResolvedValue([baseJob]); resume.mockResolvedValue({...baseJob,phase:'completed'})
     const w=render()
@@ -59,6 +77,21 @@ describe('site migration console', () => {
       await flushPromises()
       expect(resume).toHaveBeenCalledWith(baseJob.id,'fixture-peer-key-with-scope')
       expect(start).not.toHaveBeenCalled()
+    } finally { w.unmount() }
+  })
+  it('explains how to replace an old HTTP migration key from the server error code', async () => {
+    start.mockRejectedValueOnce({ status: 400, code: 'MIGRATION_HTTP_KEY_REQUIRED' })
+    const w = render()
+    try {
+      await w.get('input[value="pull"]').setValue(true)
+      await w.get('input[placeholder="gateway.example.com"]').setValue('http://peer.example:18080')
+      await w.get('input[type="password"]').setValue('fixture-old-peer-key')
+      await w.get('input[role="switch"]').setValue(false)
+      await w.get('form').trigger('submit')
+      await w.get('[data-test="confirm"]').trigger('click')
+      await flushPromises()
+      expect(showError).toHaveBeenCalledWith('admin.migration.errors.httpKey')
+      expect(w.get<HTMLInputElement>('input[type="password"]').element.value).toBe('')
     } finally { w.unmount() }
   })
   it('disables key entry on insecure origins', async () => {

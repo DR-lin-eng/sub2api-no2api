@@ -19,6 +19,7 @@ export interface MigrationJob {
   expires_at: string
 }
 export interface MigrationForm {
+  allow_http?: boolean
   id: string
   direction: MigrationDirection
   peer: string

@@ -395,4 +395,4 @@ curl -X DELETE "${BASE}/api/v1/admin/settings/admin-api-keys/<key-id>" \
 
 启用面板限流时，Admin API Key 按 Key ID 独立计算普通和重查询请求额度；机器密钥不继承“管理员豁免”。管理员 JWT 仍沿用现有豁免设置，Redis 失败处理保持原策略。资源级账户操作/IP 范围授权尚未随上游 #8319 整体导入，具体状态见 [同步审查](UPSTREAM_SYNC_20261026.md)。
 
-站点迁移使用独立的迁入、迁出权限。`admin.migration.users.*` 允许普通用户的登录及可选额度，包含个人 API Key 时需显式授予 `admin.migration.userkeys.import` 或 `admin.migration.userkeys.export`。签发方式、方向和操作步骤见[双站迁移](SITE_MIGRATION.md)。
+站点迁移使用独立的迁入、迁出权限。`admin.migration.users.*` 允许普通用户的登录及可选额度，包含个人 API Key 时需显式授予 `admin.migration.userkeys.import` 或 `admin.migration.userkeys.export`。连接 HTTP 对端时，升级后新建或轮换的迁移 Key 会携带签发站公钥。签发方式、方向和操作步骤见[双站迁移](SITE_MIGRATION.md)。

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/migrationhttp"
 	"github.com/google/uuid"
 )
 
@@ -28,7 +29,7 @@ func NewPanel(store Store, privatePeers []string) *Panel {
 	ctx, cancel := context.WithCancel(context.Background())
 	p := &Panel{store: store, privatePeers: map[string]bool{}, ctx: ctx, cancel: cancel}
 	for _, s := range privatePeers {
-		if o, e := canonicalPeer(s); e == nil {
+		if o, e := canonicalPeer(s, true); e == nil {
 			p.privatePeers[o] = true
 		}
 	}
@@ -84,6 +85,7 @@ func (p *Panel) List(ctx context.Context, admin int64) ([]PanelJob, error) {
 }
 
 type PanelInput struct {
+	AllowHTTP bool   `json:"allow_http,omitempty"`
 	ID        string `json:"id"`
 	Direction string `json:"direction"`
 	Profile   string `json:"profile"`
@@ -105,9 +107,14 @@ func (p *Panel) Start(ctx context.Context, admin int64, in PanelInput, resume bo
 	}
 	if !resume {
 		var err error
-		in.Peer, err = p.peerOrigin(in.Peer)
+		in.Peer, err = p.peerOrigin(in.Peer, in.AllowHTTP)
 		if err != nil {
 			return PanelJob{}, err
+		}
+		if strings.HasPrefix(in.Peer, "http://") {
+			if err = migrationhttp.CheckKey(in.Key); err != nil {
+				return PanelJob{}, err
+			}
 		}
 		if !validProfile(in.Profile) || (in.Direction != "push" && in.Direction != "pull") {
 			return PanelJob{}, ErrInvalid
@@ -139,6 +146,11 @@ func (p *Panel) Start(ctx context.Context, admin int64, in PanelInput, resume bo
 	}
 	if found && job.Phase != "failed" && job.Phase != "interrupted" {
 		return job, nil
+	}
+	if resume && strings.HasPrefix(job.Peer, "http://") {
+		if err = migrationhttp.CheckKey(in.Key); err != nil {
+			return PanelJob{}, err
+		}
 	}
 	var live, retained int
 	if err = tx.QueryRowContext(ctx, "SELECT count(*) FILTER(WHERE lease_until>now()),count(*) FROM site_migration_panel_jobs WHERE expires_at>now()").Scan(&live, &retained); err != nil {
@@ -206,7 +218,7 @@ func (w *panelTransfer) run(key string) {
 			}
 		}
 	}()
-	err := w.panel.store.Transfer(ctx, Options{Direction: w.job.Direction, Peer: w.job.Peer, Profile: w.job.Profile, Key: key, panel: w})
+	err := w.panel.store.Transfer(ctx, Options{Direction: w.job.Direction, Peer: w.job.Peer, AllowHTTP: strings.HasPrefix(w.job.Peer, "http://"), Profile: w.job.Profile, Key: key, panel: w})
 	cancel()
 	<-stopped
 	if err != nil {
@@ -241,6 +253,10 @@ func panelError(e error) string {
 		return "clone_policy"
 	case errors.Is(e, ErrBillingPending):
 		return "billing_pending"
+	case errors.Is(e, migrationhttp.ErrKey):
+		return "http_key"
+	case errors.Is(e, migrationhttp.ErrEnvelope):
+		return "http_peer"
 	case errors.Is(e, ErrPeerAddress):
 		return "address"
 	case errors.Is(e, ErrMissing):

@@ -9,6 +9,7 @@ import (
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/sitemigration"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/migrationhttp"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/response"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
 	"github.com/gin-gonic/gin"
@@ -72,7 +73,7 @@ func SiteMigrationPanel(p *sitemigration.Panel, settings *SettingHandler) gin.Ha
 		}
 		resume := c.Param("id") != ""
 		if resume {
-			if in.ID != "" || in.Direction != "" || in.Peer != "" || in.Profile != "" {
+			if in.AllowHTTP || in.ID != "" || in.Direction != "" || in.Peer != "" || in.Profile != "" {
 				response.BadRequest(c, "Resume accepts only a key")
 				return
 			}
@@ -88,6 +89,8 @@ func SiteMigrationPanel(p *sitemigration.Panel, settings *SettingHandler) gin.Ha
 }
 func panelError(c *gin.Context, e error) {
 	switch {
+	case errors.Is(e, migrationhttp.ErrKey):
+		middleware.AbortWithError(c, 400, "MIGRATION_HTTP_KEY_REQUIRED", "Create or rotate the scoped migration key on the upgraded peer")
 	case errors.Is(e, sitemigration.ErrPeerAddress):
 		middleware.AbortWithError(c, 400, "MIGRATION_PEER_ADDRESS", "Invalid migration peer")
 	case errors.Is(e, sitemigration.ErrInvalid):

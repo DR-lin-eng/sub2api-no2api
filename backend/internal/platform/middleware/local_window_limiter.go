@@ -4,10 +4,12 @@ import (
 	"hash/maphash"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/migrationhttp"
 	"github.com/gin-gonic/gin"
 )
 
@@ -87,9 +89,14 @@ func NewCredentialAuthIngressLimiter() gin.HandlerFunc {
 	submitHandler := submitLimiter.Limit()
 	keySlots := make(chan struct{}, credentialKeyMaxInFlight)
 	submitSlots := make(chan struct{}, credentialSubmitMaxInFlight)
+	// Envelope authentication consumes up to one migration block before the normal admin limiter runs.
+	migrationSlots := make(chan struct{}, 16)
+	migrationRequests := NewBoundedLocalWindowLimiter(1800, 12000, time.Minute, credentialAuthLocalMaxSources).Limit()
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		switch {
+		case c.Request.Method == http.MethodPost && c.GetHeader(migrationhttp.Header) != "" && strings.HasPrefix(path, "/api/v1/admin/site-migration/"):
+			limitCredentialConcurrency(c, migrationSlots, migrationRequests)
 		case c.Request.Method == http.MethodGet && path == credentialKeyPath:
 			limitCredentialConcurrency(c, keySlots, keyHandler)
 		case c.Request.Method == http.MethodPost && (path == credentialLoginPath || path == credentialRegisterPath):
