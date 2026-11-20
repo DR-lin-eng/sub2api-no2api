@@ -228,6 +228,7 @@ export default {
   },
   // Navigation
   nav: {
+    siteMigration: 'Site migration',
     mcp: 'MCP Connection',
     dashboard: 'Dashboard',
     announcements: 'Announcements',

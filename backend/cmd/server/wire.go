@@ -17,6 +17,7 @@ import (
 	moduleegress "github.com/DR-lin-eng/sub2api-no2api/internal/modules/egress"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/sitemigration"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	clientip "github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler"
@@ -144,8 +145,12 @@ func provideCleanup(
 	cluster *service.ClusterService,
 	clientIPResolver *clientip.Resolver,
 	egressService *moduleegress.Service,
+	migrationPanel *sitemigration.Panel,
 ) func() {
 	return func() {
+		if migrationPanel != nil {
+			migrationPanel.Stop()
+		}
 		if openAIUsageSync != nil {
 			openAIUsageSync.Stop()
 		}

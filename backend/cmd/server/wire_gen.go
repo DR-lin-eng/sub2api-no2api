@@ -15,6 +15,7 @@ import (
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/egress"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/payment"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/securityaudit"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/sitemigration"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/handler"
@@ -376,7 +377,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	stepUpAuthMiddleware := middleware.NewStepUpAuthMiddleware(totpService, userService, settingService)
 	resolver := server.ProvideClientIPResolver(configConfig, settingService)
 	sitemigrationStore := repository.ProvideSiteMigration(db, configConfig)
-	engine := server.ProvideRouter(configConfig, handlers, jwtAuthMiddleware, optionalJWTAuthMiddleware, adminAuthMiddleware, apiKeyAuthMiddleware, auditLogMiddleware, stepUpAuthMiddleware, apiKeyService, subscriptionService, opsService, settingService, compositeRouteResolver, clusterReleaseService, resolver, redisClient, db, sitemigrationStore)
+	panel := repository.ProvideSiteMigrationPanel(sitemigrationStore)
+	engine := server.ProvideRouter(configConfig, handlers, jwtAuthMiddleware, optionalJWTAuthMiddleware, adminAuthMiddleware, apiKeyAuthMiddleware, auditLogMiddleware, stepUpAuthMiddleware, apiKeyService, subscriptionService, opsService, settingService, compositeRouteResolver, clusterReleaseService, resolver, redisClient, db, sitemigrationStore, panel)
 	httpServer := server.ProvideHTTPServer(configConfig, engine)
 	opsMetricsCollector := service.ProvideOpsMetricsCollector(opsRepository, settingRepository, accountRepository, concurrencyService, db, redisClient, configConfig)
 	opsAggregationService := service.ProvideOpsAggregationService(opsRepository, settingRepository, db, redisClient, configConfig)
@@ -398,7 +400,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService, leaderLockCache, db)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService, leaderLockCache, db, configConfig, clusterService)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v := provideCleanup(channelService, client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, settingService, opsIngressRejectAggregator, apiKeyService, invalidAuthEdgeBlocker, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, openAICodexVersionSyncService, proxyExpiryService, proxyHealthService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, supportChatRetentionService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, balanceNotifyService, digestSessionStore, usageBillingRepository, usageBillingQueueRuntimeCoordinator, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, accountInspectionService, accountQualityMonitoringService, oAuthModelSyncService, openAIUsageSyncService, backupService, paymentOrderExpiryService, channelMonitorRunner, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, auditLogService, promptService, contentModerationService, concurrencyService, userMessageQueueService, dashboardAggregationService, deferredService, timingWheelService, clusterReleaseService, clusterService, resolver, egressService)
+	v := provideCleanup(channelService, client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, settingService, opsIngressRejectAggregator, apiKeyService, invalidAuthEdgeBlocker, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, openAICodexVersionSyncService, proxyExpiryService, proxyHealthService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, supportChatRetentionService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, balanceNotifyService, digestSessionStore, usageBillingRepository, usageBillingQueueRuntimeCoordinator, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, accountInspectionService, accountQualityMonitoringService, oAuthModelSyncService, openAIUsageSyncService, backupService, paymentOrderExpiryService, channelMonitorRunner, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, auditLogService, promptService, contentModerationService, concurrencyService, userMessageQueueService, dashboardAggregationService, deferredService, timingWheelService, clusterReleaseService, clusterService, resolver, egressService, panel)
 	application := &Application{
 		Server:      httpServer,
 		PromptAudit: promptService,
@@ -494,8 +496,12 @@ func provideCleanup(
 	cluster *service.ClusterService,
 	clientIPResolver *ip.Resolver,
 	egressService *egress.Service,
+	migrationPanel *sitemigration.Panel,
 ) func() {
 	return func() {
+		if migrationPanel != nil {
+			migrationPanel.Stop()
+		}
 		if openAIUsageSync != nil {
 			openAIUsageSync.Stop()
 		}

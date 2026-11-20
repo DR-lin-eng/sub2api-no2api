@@ -110,6 +110,7 @@ func truncateAuditExtraString(value string, limit int) string {
 
 // auditSensitiveReads 需要审计的敏感 GET 读取（method+FullPath → 动作名）。
 var auditSensitiveReads = map[string]string{
+	"GET /api/v1/admin/migration-console/jobs/:id/report": "admin.migration.download_report",
 	"GET /api/v1/admin/accounts/data":                     "admin.accounts.export",
 	"GET /api/v1/admin/proxies/data":                      "admin.proxies.export",
 	"GET /api/v1/admin/redeem-codes/export":               "admin.redeem_codes.export",
@@ -164,6 +165,8 @@ var auditActionOverrides = map[string]string{
 // binary-upload routes. These bodies either cannot be made safe by key-level
 // redaction or should not be duplicated into the audit store at all.
 var auditBodyOmittedRoutes = map[string]struct{}{
+	"POST /api/v1/admin/migration-console/jobs":                   {},
+	"POST /api/v1/admin/migration-console/jobs/:id/resume":        {},
 	"POST /api/v1/admin/site-migration/:mode/:action":             {},
 	"POST /api/v1/user/mcp/authorize":                             {},
 	"POST /api/v1/auth/passkey/login/finish":                      {},

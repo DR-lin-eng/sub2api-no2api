@@ -1,4 +1,5 @@
 import overview from './overview'
+import migration from './migration'
 import channels from './channels'
 import accounts from './accounts'
 import resources from './resources'
@@ -15,6 +16,7 @@ import stateDiagnostics from './stateDiagnostics'
 
 export default {
   ...overview,
+  migration,
   ...channels,
   ...accounts,
   ...resources,

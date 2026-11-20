@@ -1,0 +1,18 @@
+export default {
+  title: 'Site migration', description: 'Transfer users or business data between sites and review the results here.',
+  newTask: 'New migration', direction: 'Transfer direction', push: 'Push from this site', pull: 'Pull into this site',
+  peer: 'Peer IP or domain', key: 'Peer administrator key', keyPlaceholder: 'Enter a migration key issued by the peer',
+  scope: 'Migration scope', permission: 'Required peer key scope', keyPrivacy: 'The key is used only for this run.', review: 'Review migration',
+  scopes: { all: 'Merge business data', login: 'User logins only', 'login-quota': 'User logins and quotas', clone: 'Full clone into a separate database' },
+  hints: { all: 'Import records that can be safely merged and preserve existing destination accounts.', login: 'Transfer password hashes, identity provider logins, passkeys and two-factor credentials for ordinary users.', 'login-quota': 'Include balance, recharge totals, concurrency and platform quotas alongside login data.', clone: 'Preserve original IDs and site credentials in a new destination database for a manual cutover.' },
+  confirm: 'Confirm migration', confirmRoute: '{direction} · {peer} · {scope}.',
+  mergeNotice: 'Existing data is merged only when it does not conflict. Matching emails are preserved and listed in the CSV.',
+  cloneNotice: 'A full clone contains administrator credentials and signing keys. Confirm that you trust the peer administrator.', start: 'Start migration',
+  tasks: 'My migrations', empty: 'No migrations in the last 24 hours.', loading: 'Loading migrations…', refresh: 'Refresh',
+  resume: 'Resume transfer', resumeKey: 'Enter the original peer key for this task', csv: 'Download conflict CSV', progress: 'Transfer progress',
+  blocks: '{done} of {total} blocks acknowledged', counts: '{inserted} records imported, {issues} conflicts or items to review.',
+  cloneReady: 'For cutover to database {database}, use a separate Redis instance and mount the pages directory {directory}.',
+  phases: { connecting: 'Connecting', preparing: 'Preparing snapshot', transferring: 'Transferring', applying: 'Importing', reporting: 'Preparing report', completed: 'Completed', failed: 'Needs attention', interrupted: 'Interrupted' },
+  errors: { peer_auth: 'The peer denied access. Check the key, expiration, direction and scope.', peer_missing: 'The peer endpoint is unavailable or the checkpoint expired.', peer_locked: 'The peer administrator must acknowledge the deployment terms first.', peer_error: 'The peer could not finish the request. Check the version, database privileges and service health.', limit: 'A size, rate or active task limit was reached.', address: 'Enter a trusted HTTPS origin. Private peers require an explicit origin in the initiating deployment.', connection: 'Check the address, certificate and connectivity before resuming.', checkpoint: 'The checkpoint expired or the key differs from the original.', conflict: 'The job state changed. Refresh for the current status.', interrupted: 'The job stopped. Resume with the original key.', transfer: 'The transfer did not finish. Check the deployment configuration, database and disk space before resuming.' },
+  https: 'Open the admin panel over HTTPS and check the trusted proxy configuration.', requestError: 'The request did not finish. Refresh the task list and check your permissions.',
+}

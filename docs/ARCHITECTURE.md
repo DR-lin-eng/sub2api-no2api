@@ -149,4 +149,4 @@ feature presentation -> common + core services/stores/utils
 
 更具体的文件定位见 [代码地图](CODE_MAP.md)，运行顺序见 [关键请求链路](REQUEST_LIFECYCLES.md)。账号 IPv6 源地址和 Linux 网络命名空间边界见 [账号级 IPv6 出口](IPV6_EGRESS.md)。
 
-站间迁移由主程序的 `migrate` 子命令和独立受限的管理接口组成，PostgreSQL 保存密文断点。完整恢复通过独立数据库交付，运行中两站的合并遵循业务关系映射。参见[双站迁移](SITE_MIGRATION.md)。
+站间迁移由主程序的 `migrate` 子命令、管理员页面和站点协议组成。页面后台执行任务，PostgreSQL 按发起人保存进度与加密报告，PostgreSQL 保存密文断点。完整恢复通过独立数据库交付，运行中两站的合并遵循业务关系映射。参见[双站迁移](SITE_MIGRATION.md)。

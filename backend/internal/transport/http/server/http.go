@@ -67,6 +67,7 @@ func ProvideRouter(
 	redisClient *redis.Client,
 	db *sql.DB,
 	migration sitemigration.Store,
+	migrationPanel *sitemigration.Panel,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -116,7 +117,7 @@ func ProvideRouter(
 		service.SetWebSearchManager(websearch.NewManager(configs, redisClient))
 	})
 
-	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clusterReleaseService, clientIPResolver, cfg, redisClient, db, migration)
+	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, clusterReleaseService, clientIPResolver, cfg, redisClient, db, migration, migrationPanel)
 }
 
 // ProvideHTTPServer 提供 HTTP 服务器
