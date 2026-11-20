@@ -27,11 +27,12 @@ const (
 )
 
 var (
-	ErrDenied   = errors.New("administrator key cannot access this migration profile")
-	ErrInvalid  = errors.New("invalid migration request")
-	ErrConflict = errors.New("migration state conflict")
-	ErrMissing  = errors.New("migration job unavailable or expired")
-	ErrLimit    = errors.New("migration transfer limit exceeded")
+	ErrBillingPending = errors.New("resolve outstanding billing jobs and unreconciled dead letters before migrating balances")
+	ErrDenied         = errors.New("administrator key cannot access this migration profile")
+	ErrInvalid        = errors.New("invalid migration request")
+	ErrConflict       = errors.New("migration state conflict")
+	ErrMissing        = errors.New("migration job unavailable or expired")
+	ErrLimit          = errors.New("migration transfer limit exceeded")
 )
 
 type Store struct {
@@ -43,10 +44,11 @@ type Store struct {
 type Auth struct {
 	Owner, Key string
 	UsersOnly  bool
+	UserKeys   bool
 }
 
 func (a Auth) Allows(profile string) bool {
-	return validProfile(profile) && (!a.UsersOnly || profile == "login" || profile == "login-quota")
+	return validProfile(profile) && (!a.UsersOnly || profile == "login" || profile == "login-quota" || (a.UserKeys && profile == userKeysProfile))
 }
 
 type State struct {
@@ -66,8 +68,14 @@ type session struct {
 	aead          cipher.AEAD
 }
 
+func checkpointScope(p string) []byte {
+	if p == "clone" {
+		return []byte("clone/ordinary-users-v2")
+	}
+	return []byte(p)
+}
 func validProfile(p string) bool {
-	return p == "all" || p == "clone" || p == "login" || p == "login-quota"
+	return p == "all" || p == "clone" || p == "login" || includesUserQuota(p)
 }
 func validID(id string) bool {
 	u, e := uuid.Parse(id)
@@ -132,9 +140,9 @@ func (s Store) Open(ctx context.Context, a Auth, id, mode, profile string, peer 
 	if err != nil {
 		return State{}, err
 	}
-	wrapped := wrap.Seal(nil, nil, key.Bytes(), []byte(profile))
-	_, err = tx.ExecContext(ctx, `INSERT INTO site_migration_jobs(id,owner,mode,profile,local_public,wrapped_private,peer_public)
-        VALUES($1,$2,$3,$4,$5,$6,NULLIF($7::bytea,''::bytea)) ON CONFLICT(id) DO NOTHING`, id, a.Owner, mode, profile, key.PublicKey().Bytes(), wrapped, peer)
+	wrapped := wrap.Seal(nil, nil, key.Bytes(), checkpointScope(profile))
+	_, err = tx.ExecContext(ctx, `INSERT INTO site_migration_jobs(id,owner,mode,profile,local_public,wrapped_private,peer_public,ordinary_users_only)
+        VALUES($1,$2,$3,$4,$5,$6,NULLIF($7::bytea,''::bytea),$8) ON CONFLICT(id) DO NOTHING`, id, a.Owner, mode, profile, key.PublicKey().Bytes(), wrapped, peer, profile == "clone")
 	if err != nil {
 		return State{}, err
 	}
@@ -165,7 +173,7 @@ func loadJob(ctx context.Context, tx *sql.Tx, a Auth, id, mode string) (*session
 	if err != nil {
 		return nil, err
 	}
-	priv, err := wrap.Open(nil, nil, j.wrapped, []byte(j.Profile))
+	priv, err := wrap.Open(nil, nil, j.wrapped, checkpointScope(j.Profile))
 	if err != nil {
 		return nil, ErrMissing
 	}
@@ -432,7 +440,7 @@ func (s Store) Apply(ctx context.Context, a Auth, id string) (State, error) {
 		var err error
 		if j.Profile == "clone" {
 			j.Inserted, err = s.restoreClone(ctx, tx, id, r)
-		} else if j.Profile == "all" && s.BloomEnabled {
+		} else if (j.Profile == "all" || j.Profile == userKeysProfile) && s.BloomEnabled {
 			return errors.New("disable API Key Bloom prefilter on all destination nodes before merging keys")
 		} else {
 			err = importSnapshot(ctx, tx, j, r)

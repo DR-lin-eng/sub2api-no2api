@@ -1,6 +1,6 @@
 # Site migration
 
-站间迁移的快照、合并和会话协议。命令及操作边界见[双站迁移](../../../../docs/SITE_MIGRATION.md)。
+站间迁移的快照、合并和会话协议。`login-quota-keys` 保留普通用户的登录、余额和个人 Key；`clone_policy.go` 在数据离开源站前排除管理账号及凭据。命令及操作边界见[双站迁移](../../../../docs/SITE_MIGRATION.md)。
 
 - `panel*.go` 管理网页任务、恢复租约、对端地址校验以及归属发起管理员的加密 CSV。
 - `session.go` 和 `client.go` 负责临时密钥协商、加密分块、PostgreSQL 检查点与本地报告。

@@ -27,6 +27,9 @@ func TestSiteMigrationOnlyExplicitCredentialAndTLS(t *testing.T) {
 		{"https", "export", "clone", "id", "admin_api_key", "admin.migration.users.export", 403},
 		{"https", "export", "login-quota", "id", "admin_api_key", "admin.migration.users.export", 200},
 		{"https", "export", "login", "id", "admin_api_key", "admin.migration.users.export", 200},
+		{"https", "export", "login-quota-keys", "id", "admin_api_key", "admin.migration.users.export", 403},
+		{"https", "export", "login-quota-keys", "id", "admin_api_key", "admin.migration.userkeys.export", 200},
+		{"https", "export", "clone", "id", "admin_api_key", "admin.migration.userkeys.export", 403},
 		{"https", "export", "clone", "id", "admin_api_key", "admin.migration.export", 200},
 	} {
 		t.Run(strings.Join([]string{tt.protocol, tt.profile, tt.key, tt.method, tt.scope}, "/"), func(t *testing.T) {
@@ -37,6 +40,7 @@ func TestSiteMigrationOnlyExplicitCredentialAndTLS(t *testing.T) {
 				c.Set("admin_api_key_scopes", []string{tt.scope})
 			}, SiteMigration(sitemigration.Store{}))
 			req := httptest.NewRequest(http.MethodPost, tt.protocol+"://example.test/"+tt.mode+"/probe?scope="+tt.profile, nil)
+			req.Header.Set(sitemigration.ClonePolicyHeader, sitemigration.ClonePolicyVersion)
 			req.Header.Set("x-api-key", "synthetic key")
 			req.Header.Set("X-Forwarded-Proto", "https")
 			w := httptest.NewRecorder()
@@ -62,5 +66,21 @@ func TestMigrationConsoleRequiresHumanAdministratorOverTLS(t *testing.T) {
 		r.ServeHTTP(w, httptest.NewRequest("GET", tc.scheme+"://example.test/jobs", nil))
 		require.Equal(t, 403, w.Code, tc)
 		require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+	}
+}
+
+func TestLegacyPeerCannotStartAdminBearingClone(t *testing.T) {
+	r := gin.New()
+	r.POST("/:mode/:action", func(c *gin.Context) {
+		c.Set("auth_method", "admin_api_key")
+		c.Set("admin_api_key_id", "fixture")
+		c.Set("admin_api_key_scopes", []string{"admin.migration.export"})
+		c.Next()
+	}, SiteMigration(sitemigration.Store{}))
+	for _, path := range []string{"/export/probe?scope=clone", "/export/open"} {
+		req := httptest.NewRequest("POST", "https://example.test"+path, strings.NewReader(`{"Profile":"clone","Public":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		require.Equal(t, http.StatusPreconditionFailed, w.Code)
 	}
 }

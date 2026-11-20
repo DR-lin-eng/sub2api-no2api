@@ -27,6 +27,7 @@ func isPortableSetting(key string) bool { return slices.Contains(portableSetting
 // if a later application migration adds another column to one of these tables.
 var loginColumns = map[string][]string{
 	"users":                  strings.Fields(loginFields),
+	"api_keys":               strings.Fields("id user_id key name group_id status created_at updated_at deleted_at ip_whitelist ip_blacklist quota quota_used expires_at last_used_at rate_limit_5h rate_limit_1d rate_limit_7d usage_5h usage_1d usage_7d window_5h_start window_1d_start window_7d_start concurrency_limit group_bindings"),
 	"auth_identities":        strings.Fields("id user_id provider_type provider_key provider_subject verified_at issuer metadata"),
 	"auth_identity_channels": strings.Fields("id identity_id provider_type provider_key channel channel_app_id channel_subject metadata"),
 	"passkey_user_handles":   strings.Fields("user_id user_handle"),
@@ -39,13 +40,13 @@ func selectedColumn(profile, table, column string) bool {
 	if profile == "all" || profile == "clone" {
 		return true
 	}
-	if profile != "login" && profile != "login-quota" {
+	if profile != "login" && !includesUserQuota(profile) {
 		return false
 	}
-	if table == "user_platform_quotas" && profile != "login-quota" {
+	if (table == "user_platform_quotas" && !includesUserQuota(profile)) || (table == "api_keys" && profile != userKeysProfile) {
 		return false
 	}
-	if profile == "login-quota" && table == "users" && slices.Contains(loginQuotaColumns, column) {
+	if includesUserQuota(profile) && table == "users" && slices.Contains(loginQuotaColumns, column) {
 		return true
 	}
 	return slices.Contains(loginColumns[table], column)
@@ -64,7 +65,7 @@ func snapshotRows(ctx context.Context, tx *sql.Tx, t *table, profile string) (*s
 		if profile != "all" {
 			userFilter += " AND deleted_at IS NULL"
 		}
-		if profile == "login-quota" {
+		if includesUserQuota(profile) {
 			userFilter += " AND frozen_balance=0"
 		}
 		users := "SELECT id FROM public.users WHERE " + userFilter
@@ -76,6 +77,9 @@ func snapshotRows(ctx context.Context, tx *sql.Tx, t *table, profile string) (*s
 		default:
 			if slices.Contains(t.cols, "user_id") {
 				where = "user_id IN (" + users + ")"
+				if t.name == "api_keys" && profile == userKeysProfile {
+					where += " AND deleted_at IS NULL"
+				}
 			}
 		}
 	}
@@ -96,7 +100,7 @@ func snapshotRows(ctx context.Context, tx *sql.Tx, t *table, profile string) (*s
 	}
 	included := "SELECT row_to_json(src),false FROM (SELECT " + strings.Join(projection, ",") + base + " WHERE " + where + " ORDER BY " + columns(t.pk) + ") src"
 	if profile != "all" {
-		if profile == "login-quota" && t.name == "users" {
+		if includesUserQuota(profile) && t.name == "users" {
 			included += " UNION ALL SELECT json_build_object('id',id,'email',email),true FROM public.users WHERE role='user' AND deleted_at IS NULL AND frozen_balance<>0"
 		}
 		return tx.QueryContext(ctx, included, args...)
@@ -107,7 +111,7 @@ func snapshotRows(ctx context.Context, tx *sql.Tx, t *table, profile string) (*s
 	}
 	fields := "'id'," + id
 	if t.name == "users" {
-		fields += ",'email',email"
+		fields += ",'email',CASE WHEN role='user' THEN email ELSE '' END"
 	}
 	if t.name == "settings" {
 		// Unrecognized database setting names may themselves encode identifiers.
@@ -131,7 +135,7 @@ func redactSettingReason(key string) string {
 }
 
 func recordPolicySkip(ctx context.Context, tx *sql.Tx, j *session, t *table, rec record) error {
-	quotaUser := j.Profile == "login-quota" && t.name == "users"
+	quotaUser := includesUserQuota(j.Profile) && t.name == "users"
 	if j.Profile != "all" && !quotaUser {
 		return ErrInvalid
 	}
@@ -157,7 +161,7 @@ func recordPolicySkip(ctx context.Context, tx *sql.Tx, j *session, t *table, rec
 	reason := "源记录属于受保护的管理账号"
 	if t.name == "users" {
 		reason = "管理账号和权限组由接收站管理员配置"
-		if j.Profile == "login-quota" {
+		if includesUserQuota(j.Profile) {
 			reason = "用户尚有冻结余额，请在源站完成结算后重试"
 		}
 	}

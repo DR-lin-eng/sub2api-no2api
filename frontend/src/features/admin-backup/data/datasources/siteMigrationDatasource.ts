@@ -1,7 +1,7 @@
 import { apiClient } from '@/core/networks/client'
 
 export type MigrationDirection = 'push' | 'pull'
-export type MigrationScope = 'all' | 'login' | 'login-quota' | 'clone'
+export type MigrationScope = 'all' | 'login' | 'login-quota' | 'login-quota-keys' | 'clone'
 export type MigrationPhase = 'connecting' | 'preparing' | 'transferring' | 'applying' | 'reporting' | 'completed' | 'failed' | 'interrupted'
 export interface MigrationJob {
   id: string

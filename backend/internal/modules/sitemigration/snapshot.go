@@ -52,13 +52,16 @@ func (s Store) exportSnapshot(ctx context.Context, tx *sql.Tx, profile string, o
 	if err != nil {
 		return err
 	}
-	if profile == "all" || profile == "login-quota" {
+	if profile == "all" || includesUserQuota(profile) {
 		var pending bool
-		if err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT FROM usage_billing_jobs)").Scan(&pending); err != nil {
+		if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT FROM usage_billing_jobs) OR EXISTS(
+SELECT FROM usage_billing_dead_letters dl
+WHERE NOT EXISTS(SELECT FROM usage_billing_dedup d WHERE (d.request_id,d.api_key_id,d.request_fingerprint)=(dl.request_id,dl.api_key_id,dl.request_fingerprint))
+AND NOT EXISTS(SELECT FROM usage_billing_dedup_archive d WHERE (d.request_id,d.api_key_id,d.request_fingerprint)=(dl.request_id,dl.api_key_id,dl.request_fingerprint)))`).Scan(&pending); err != nil {
 			return err
 		}
 		if pending {
-			return errors.New("source settlement queue must drain before migrating balances")
+			return ErrBillingPending
 		}
 	}
 	enc := json.NewEncoder(out)

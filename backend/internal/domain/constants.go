@@ -11,6 +11,9 @@ const (
 	StatusExpired    = "expired"
 )
 
+// MediaStudioAPIKeyName identifies the managed key used by Media Studio.
+const MediaStudioAPIKeyName = "Media Studio"
+
 // Role constants
 const (
 	RoleAdmin = "admin"

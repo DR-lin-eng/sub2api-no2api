@@ -14,10 +14,9 @@ import (
 	"strings"
 )
 
-// New-site replication is isolated in a new database. Identifiers, relations
-// and application encryption keys retain their original meaning there.
-const cloneExtraTables = `security_secrets auth_credential_keys identity_adoption_decisions pending_auth_sessions
-mcp_oauth_grants mcp_oauth_codes mcp_oauth_credentials idempotency_records usage_billing_jobs usage_cleanup_tasks
+// New-site replication restores business IDs and relations in a separate database.
+// Portable credentials are rewrapped with a new, receiver-generated key.
+const cloneExtraTables = `site_migration_studio_rebinds usage_billing_jobs usage_cleanup_tasks
 prompt_audit_jobs prompt_audit_queue_state usage_dashboard_aggregation_watermark channel_monitor_aggregation_watermark usage_group_rollup_state`
 
 func cloneTopology(c catalog) ([]string, error) {
@@ -69,14 +68,20 @@ func dumpClone(ctx context.Context, tx *sql.Tx, dataDir string, w io.Writer) err
 		return err
 	}
 	enc := json.NewEncoder(w)
-	if err = enc.Encode(header{1, site, c.hash, "clone"}); err != nil {
+	if err = enc.Encode(header{2, site, c.hash, "clone"}); err != nil {
+		return err
+	}
+	queries, err := cloneQueries(ctx, tx, c)
+	if err != nil {
+		return err
+	}
+	key, err := storageKey(ctx, tx)
+	if err != nil {
 		return err
 	}
 	for _, name := range c.order {
 		t := c.tables[name]
-		// Redis credentials and interactive sessions are not cloned. The references
-		// from identity_adoption_decisions require the corresponding pending rows.
-		q := "SELECT row_to_json(x) FROM (SELECT " + columns(t.cols) + " FROM " + qt(name) + " ORDER BY " + columns(t.pk) + ") x"
+		q := queries[name]
 		rows, e := tx.QueryContext(ctx, q)
 		if e != nil {
 			return e
@@ -87,10 +92,13 @@ func dumpClone(ctx context.Context, tx *sql.Tx, dataDir string, w io.Writer) err
 				if len(b) > maxRow/2 {
 					e = ErrLimit
 				} else {
-					e = enc.Encode(struct {
-						T string          `json:"t"`
-						R json.RawMessage `json:"r"`
-					}{name, b})
+					var record row
+					if e = json.Unmarshal(b, &record); e == nil {
+						e = cloneSecrets(name, record, key, true)
+					}
+					if e == nil {
+						e = enc.Encode(cloneFrame{Table: name, Row: record})
+					}
 				}
 			}
 			if e != nil {
@@ -139,7 +147,7 @@ func (s Store) restoreClone(ctx context.Context, live *sql.Tx, id string, input 
 	scan := bufio.NewScanner(input)
 	scan.Buffer(make([]byte, 64<<10), maxRow)
 	var h header
-	if !scan.Scan() || json.Unmarshal(scan.Bytes(), &h) != nil || h.Version != 1 || h.Profile != "clone" || !validID(h.Site) || h.Schema != local.hash {
+	if !scan.Scan() || json.Unmarshal(scan.Bytes(), &h) != nil || h.Version != 2 || h.Profile != "clone" || !validID(h.Site) || h.Schema != local.hash {
 		return 0, errors.New("clone schema mismatch")
 	}
 	var same bool
@@ -163,7 +171,7 @@ func (s Store) restoreClone(ctx context.Context, live *sql.Tx, id string, input 
 	defer func() { _ = tx.Rollback() }()
 	var done bool
 	var count int64
-	if err = tx.QueryRowContext(ctx, "SELECT finished,inserted FROM private_clone_receipt WHERE job=$1 FOR UPDATE", id).Scan(&done, &count); err != nil {
+	if err = tx.QueryRowContext(ctx, "SELECT finished,inserted FROM private_clone_receipt WHERE job=$1 AND (NOT finished OR ordinary_users_only) FOR UPDATE", id).Scan(&done, &count); err != nil {
 		return 0, err
 	}
 	if done {
@@ -195,6 +203,10 @@ func (s Store) restoreClone(ctx context.Context, live *sql.Tx, id string, input 
 		}
 	}
 	if _, err = tx.ExecContext(ctx, `CREATE TEMP TABLE clone_rows(n bigint GENERATED ALWAYS AS IDENTITY,t text NOT NULL,v jsonb NOT NULL) ON COMMIT DROP`); err != nil {
+		return 0, err
+	}
+	key, err := cloneStorageKey(ctx, tx)
+	if err != nil {
 		return 0, err
 	}
 	pages, err := newPageRestore(s.DataDir, id)
@@ -244,8 +256,18 @@ func (s Store) restoreClone(ctx context.Context, live *sql.Tx, id string, input 
 					return 0, ErrInvalid
 				}
 			}
-			batch = append(batch, scan.Text())
-			size += len(scan.Bytes())
+			if err = validateCloneRecord(t, f.Row); err != nil {
+				return 0, err
+			}
+			if err = cloneSecrets(t.name, f.Row, key, false); err != nil {
+				return 0, err
+			}
+			value, e := json.Marshal(f)
+			if e != nil {
+				return 0, e
+			}
+			batch = append(batch, string(value))
+			size += len(value)
 			count++
 			if size >= BlockSize || len(batch) >= 256 {
 				if err = flush(); err != nil {
@@ -288,6 +310,11 @@ func (s Store) restoreClone(ctx context.Context, live *sql.Tx, id string, input 
 			if v.Called {
 				next++
 			}
+			var maxID int64
+			if err = tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(id),0) FROM "+qt(name)).Scan(&maxID); err != nil {
+				return 0, err
+			}
+			next = max(next, maxID+1)
 			if _, err = tx.ExecContext(ctx, "ALTER SEQUENCE "+seq+" RESTART WITH "+strconv.FormatInt(next, 10)); err != nil {
 				return 0, err
 			}
@@ -299,7 +326,7 @@ func (s Store) restoreClone(ctx context.Context, live *sql.Tx, id string, input 
 	if err = pages.publish(); err != nil {
 		return 0, err
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE private_clone_receipt SET finished=true,inserted=$2 WHERE job=$1", id, count); err != nil {
+	if _, err = tx.ExecContext(ctx, "UPDATE private_clone_receipt SET finished=true,ordinary_users_only=true,inserted=$2 WHERE job=$1", id, count); err != nil {
 		return 0, err
 	}
 	if err = tx.Commit(); err != nil {

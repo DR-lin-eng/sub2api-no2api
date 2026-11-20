@@ -11,4 +11,4 @@
 
 修改 provider 后运行 `go generate ./cmd/server`，并检查 `wire_gen.go` 只包含预期路径变化。
 
-`migrate.go` 提供现有二进制的 `migrate push|pull` 入口。命令示例见[双站迁移](../../../docs/SITE_MIGRATION.md)。
+`migrate.go` 提供现有二进制的 `migrate push|pull` 和新克隆库本地 `migrate init-admin` 入口。命令示例见[双站迁移](../../../docs/SITE_MIGRATION.md)。

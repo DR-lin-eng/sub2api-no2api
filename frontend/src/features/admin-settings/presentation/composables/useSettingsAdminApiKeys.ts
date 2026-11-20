@@ -49,6 +49,8 @@ export function useSettingsAdminApiKeys(
     { value: "admin.write", label: "全部写入" },
     { value: "admin.migration.users.export", label: t("admin.settings.adminApiKey.migrationUsersExportScope") },
     { value: "admin.migration.users.import", label: t("admin.settings.adminApiKey.migrationUsersImportScope") },
+    { value: "admin.migration.userkeys.export", label: t("admin.settings.adminApiKey.migrationUserKeysExportScope") },
+    { value: "admin.migration.userkeys.import", label: t("admin.settings.adminApiKey.migrationUserKeysImportScope") },
     { value: "admin.migration.export", label: t("admin.settings.adminApiKey.migrationExportScope") },
     { value: "admin.migration.import", label: t("admin.settings.adminApiKey.migrationImportScope") },
     { value: "admin.redeem.secrets", label: t("admin.settings.adminApiKey.redeemSecretsScope") },

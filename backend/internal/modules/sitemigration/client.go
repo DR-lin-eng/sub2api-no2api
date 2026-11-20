@@ -55,6 +55,9 @@ func (c *client) request(ctx context.Context, action string, n int, payload []by
 		if err != nil {
 			return nil, err
 		}
+		if c.profile == "clone" {
+			req.Header.Set(ClonePolicyHeader, ClonePolicyVersion)
+		}
 		req.Header.Set("x-api-key", c.key)
 		req.Header.Set("Content-Type", "application/octet-stream")
 		res, err := c.http.Do(req)
@@ -85,6 +88,9 @@ func (c *client) request(ctx context.Context, action string, n int, payload []by
 				continue
 			}
 			return nil, last
+		}
+		if c.profile == "clone" && res.Header.Get(ClonePolicyHeader) != ClonePolicyVersion {
+			return nil, ErrClonePolicy
 		}
 		if len(b) > BlockSize+64 {
 			return nil, ErrLimit
@@ -300,7 +306,7 @@ func (s Store) Transfer(ctx context.Context, o Options) error {
 	}
 	fmt.Fprintf(o.Output, "已导入 %d 条，冲突或需处理 %d 条。冲突报告 %s\n", dst.Inserted, dst.Errors, path)
 	if o.Profile == "clone" {
-		fmt.Fprintf(o.Output, "接收站数据库 %s，页面目录为接收站 pricing.data_dir 下的 %s。切换时停写源站、核对快照后的变动，并把所有接收节点指向克隆库、独立 Redis 及对应页面目录，再重启验证。\n", s.cloneName(id), clonePageDirectory("", id))
+		fmt.Fprintf(o.Output, "接收站数据库 %s，页面目录为接收站 pricing.data_dir 下的 %s。在克隆库本地执行 migrate init-admin 建立新管理员，再将接收节点切换到克隆库、独立 Redis 及页面目录。\n", s.cloneName(id), clonePageDirectory("", id))
 	}
 	// Receipt and checkpoint remain recoverable until the local report exists.
 	if _, err = c.request(ctx, "delete", 0, nil); err != nil {

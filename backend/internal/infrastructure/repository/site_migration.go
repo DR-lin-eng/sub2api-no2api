@@ -96,7 +96,7 @@ func bindMigrationDatabase(ctx context.Context, db *sql.DB, id, name, marker str
 		if occupied {
 			return errors.New("unrecognized non-empty clone database")
 		}
-		if _, err = tx.ExecContext(ctx, `CREATE TABLE public.private_clone_receipt(job uuid PRIMARY KEY, marker uuid NOT NULL, finished boolean NOT NULL DEFAULT false,inserted bigint NOT NULL DEFAULT 0)`); err != nil {
+		if _, err = tx.ExecContext(ctx, `CREATE TABLE public.private_clone_receipt(job uuid PRIMARY KEY, marker uuid NOT NULL, finished boolean NOT NULL DEFAULT false,ordinary_users_only boolean NOT NULL DEFAULT false,admin_initialized boolean NOT NULL DEFAULT false,inserted bigint NOT NULL DEFAULT 0)`); err != nil {
 			return err
 		}
 		if _, err = tx.ExecContext(ctx, "INSERT INTO public.private_clone_receipt(job,marker) VALUES($1,$2)", id, marker); err != nil {
