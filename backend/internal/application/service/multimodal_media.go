@@ -755,7 +755,7 @@ func normalizeMultimodalVideoReferenceBody(endpoint MultimodalMediaEndpoint, bod
 // client receives the same bound task acknowledgement as a JSON client.
 func prepareMultimodalRelayStream(endpoint MultimodalMediaEndpoint, body []byte, contentType string, clientStream bool) ([]byte, string, error) {
 	upstreamStream := endpoint.IsImageRequest()
-	if !upstreamStream && !(endpoint.IsVideoGenerationRequest() && clientStream) {
+	if !upstreamStream && (!endpoint.IsVideoGenerationRequest() || !clientStream) {
 		return body, contentType, nil
 	}
 	if gjson.ValidBytes(body) {

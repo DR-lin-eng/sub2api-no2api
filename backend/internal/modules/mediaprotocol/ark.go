@@ -185,7 +185,7 @@ func (ark) DecodeImages(body []byte, format string) ([]byte, error) {
 		return valid
 	})
 	if count == 0 || !valid {
-		return nil, fmt.Errorf("Ark did not return image data in the requested %s format", format)
+		return nil, fmt.Errorf("missing image data in the requested %s format in Ark response", format)
 	}
 	return body, nil
 }
@@ -211,7 +211,7 @@ func (ark) DecodeTask(op Operation, body []byte, expectedID string) (Task, error
 	switch resp.Status {
 	case "":
 		if op != VideoGenerate {
-			return Task{}, errors.New("Ark video status is missing")
+			return Task{}, errors.New("missing video status in Ark response")
 		}
 		task.Status = "queued"
 	case "queued":
