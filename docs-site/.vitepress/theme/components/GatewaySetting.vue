@@ -10,6 +10,11 @@ watch(gatewayBaseUrl, (value) => {
 })
 
 function save() {
+  // Blurring an untouched field must not persist a value that came from a link.
+  if (draft.value.trim() === gatewayBaseUrl.value) {
+    invalid.value = false
+    return
+  }
   invalid.value = !setGatewayBaseUrl(draft.value)
 }
 

@@ -44,7 +44,7 @@ Pull Request 只构建，不发布。
 
 ## 编写约定
 
-- 示例中的网关地址统一写 `https://api.example.com`。读者在侧边栏填入自己的地址后，页面上的这个占位符会被替换。链接后加 `?base_url=https://你的域名` 可以预先填好。
+- 示例中的网关地址统一写 `https://api.example.com`。读者在侧边栏填入自己的地址后，页面上的这个占位符会被替换。链接后加 `?base_url=https://你的域名` 可以预先填好。来自链接的地址只在当前标签页有效，且只接受不含 shell 特殊字符的 http(s) 地址。
 - 示例中的 Key 写 `sk-your-api-key` 或环境变量，不要写入真实凭据。
 - 端点行为以 `backend/internal/transport/http/server/routes/gateway.go` 和对应 handler 为准。路由或响应格式变化时，在同一个改动里更新这里的页面。
 - 本站只写调用方需要的内容。部署、架构和运维专题留在 `docs/`，需要时从页面链接过去。

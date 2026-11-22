@@ -9,6 +9,8 @@ const QUERY_KEY = 'base_url'
 
 export const gatewayBaseUrl = ref('')
 
+const SAFE_BASE_URL = /^https?:\/\/(?:[a-z0-9.-]+|\[[0-9a-f:.]+\])(?::\d+)?(?:\/[A-Za-z0-9._~-]+)*$/
+
 export function normalizeBaseUrl(input: string): string {
   const value = input.trim()
   if (!value) return ''
@@ -22,15 +24,23 @@ export function normalizeBaseUrl(input: string): string {
   if (url.username || url.password) return ''
   // Keep a sub-path deployment, drop a trailing /v1 so examples do not repeat it.
   const path = url.pathname.replace(/\/+$/, '').replace(/\/v1$/, '')
-  return `${url.origin}${path}`
+  const normalized = `${url.origin}${path}`
+  // The value is pasted into shell examples and can arrive from a shared link,
+  // so anything a shell could expand ($, backticks, quotes, %, ...) is refused.
+  return SAFE_BASE_URL.test(normalized) ? normalized : ''
 }
 
-export function setGatewayBaseUrl(input: string): boolean {
+// A value typed by the reader is kept in localStorage. A value that arrived in
+// a link is kept for this tab only, so a shared link cannot change the examples
+// the reader sees on later visits.
+export function setGatewayBaseUrl(input: string, fromLink = false): boolean {
   const normalized = normalizeBaseUrl(input)
   if (input.trim() && !normalized) return false
   gatewayBaseUrl.value = normalized
   try {
-    if (normalized) localStorage.setItem(STORAGE_KEY, normalized)
+    sessionStorage.removeItem(STORAGE_KEY)
+    if (fromLink) sessionStorage.setItem(STORAGE_KEY, normalized)
+    else if (normalized) localStorage.setItem(STORAGE_KEY, normalized)
     else localStorage.removeItem(STORAGE_KEY)
   } catch {
     // Storage can be blocked; the value still applies to this page view.
@@ -42,11 +52,11 @@ export function setGatewayBaseUrl(input: string): boolean {
 export function loadGatewayBaseUrl(): void {
   const fromQuery = normalizeBaseUrl(new URLSearchParams(location.search).get(QUERY_KEY) ?? '')
   if (fromQuery) {
-    setGatewayBaseUrl(fromQuery)
+    setGatewayBaseUrl(fromQuery, true)
     return
   }
   try {
-    gatewayBaseUrl.value = normalizeBaseUrl(localStorage.getItem(STORAGE_KEY) ?? '')
+    gatewayBaseUrl.value = normalizeBaseUrl(sessionStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(STORAGE_KEY) ?? '')
   } catch {
     gatewayBaseUrl.value = ''
   }
