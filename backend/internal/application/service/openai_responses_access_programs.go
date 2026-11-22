@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -103,6 +104,17 @@ func sanitizeOpenAIResponsesServerOwnedFieldsMap(body map[string]any) bool {
 // sanitizeOpenAIResponsesAccessPrograms keeps the existing call-site name;
 // the actual boundary now covers the complete app-server envelope field set.
 func sanitizeOpenAIResponsesAccessPrograms(body []byte) ([]byte, bool, error) {
+	return sanitizeOpenAIResponsesServerOwnedFields(body)
+}
+
+// sanitizeOpenAIResponsesRequestAccessPrograms is the request-path variant:
+// the body index already lists the top-level member names, so the common body
+// without any server-owned field skips validation and the key scan.
+func sanitizeOpenAIResponsesRequestAccessPrograms(c *gin.Context, body []byte) ([]byte, bool, error) {
+	if c != nil && len(body) > 0 &&
+		!openAIRequestBodyIndexFor(c, body).HasTopLevelKey(isOpenAIResponsesServerOwnedTopLevelField) {
+		return body, false, nil
+	}
 	return sanitizeOpenAIResponsesServerOwnedFields(body)
 }
 

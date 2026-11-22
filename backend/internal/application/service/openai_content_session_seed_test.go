@@ -285,6 +285,7 @@ func TestDeriveOpenAIContentSessionSeed_SingleScanMatchesLegacyBytes(t *testing.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, legacyDeriveOpenAIContentSessionSeed(test.body), deriveOpenAIContentSessionSeed(test.body))
+			require.Equal(t, legacyDeriveOpenAIContentSessionSeed(test.body), deriveOpenAIRequestContentSessionSeed(newOpenAIRequestBodyIndexTestContext(), test.body))
 		})
 	}
 }
@@ -294,10 +295,12 @@ func TestDeriveOpenAIContentSessionSeed_AllTruncationOffsetsMatchLegacyBytes(t *
 		`{"model":"gpt-5.4","tools":[{"type":"function","function":{"name":"lookup"}}],"functions":[{"name":"legacy"}],"instructions":"escaped \" } text","messages":[{"role":"system","content":"System"},{"role":"user","content":[{"type":"text","text":"Hello"}]}],"input":"fallback"}`,
 		`{"model":"gpt-5.4","instructions":"Be concise.","tools":[{"type":"function","name":"lookup"}],"input":[{"role":"system","content":"System"},{"role":"user","content":[{"type":"input_text","text":"Hello"}]}]}`,
 	}
+	requestContext := newOpenAIRequestBodyIndexTestContext()
 	for bodyIndex, body := range bodies {
 		for end := 1; end < len(body); end++ {
 			truncated := []byte(body[:end])
 			require.Equalf(t, legacyDeriveOpenAIContentSessionSeed(truncated), deriveOpenAIContentSessionSeed(truncated), "body %d truncated at byte %d", bodyIndex, end)
+			require.Equalf(t, legacyDeriveOpenAIContentSessionSeed(truncated), deriveOpenAIRequestContentSessionSeed(requestContext, truncated), "indexed body %d truncated at byte %d", bodyIndex, end)
 		}
 	}
 }
@@ -560,5 +563,30 @@ func TestDeriveOpenAIStablePrefixSessionSeed_RequiresMeaningfulPrefix(t *testing
 
 	for _, body := range tests {
 		require.Empty(t, deriveOpenAIStablePrefixSessionSeed(body))
+	}
+}
+
+func TestDeriveOpenAIContentSessionSeed_ResponsesAPI_StopsAfterSeedIsComplete(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "system items after a bare input_text item stay in the prefix",
+			body: `{"model":"gpt-5.4","input":[{"role":"system","type":"input_text","text":"first","content":"S1"},{"role":"system","content":"S2"},{"role":"user","content":"U"},{"role":"system","content":"S3"}]}`,
+			want: `compat_cs_model=gpt-5.4|system="S1"|first_user=first|system="S2"`,
+		},
+		{
+			name: "items after the first user turn are ignored",
+			body: `{"model":"gpt-5.4","input":[{"role":"developer","content":"D"},{"role":"user","content":"U"},{"role":"system","content":"late"},{"type":"input_text","text":"late"},{"role":"user","content":"U2"}]}`,
+			want: `compat_cs_model=gpt-5.4|system="D"|first_user="U"`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, deriveOpenAIContentSessionSeed([]byte(test.body)))
+			require.Equal(t, test.want, deriveOpenAIRequestContentSessionSeed(newOpenAIRequestBodyIndexTestContext(), []byte(test.body)))
+		})
 	}
 }

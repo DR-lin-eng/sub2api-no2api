@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tidwall/gjson"
 )
 
 func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
@@ -78,7 +77,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	body = normalizeNativeCNResponsesRequestBody(account, body)
 	body = normalizeDeepSeekResponsesRequestBody(account, body)
 	if account.Platform == PlatformOpenAI {
-		if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(body); sanitizeErr != nil {
+		if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesRequestAccessPrograms(c, body); sanitizeErr != nil {
 			return nil, sanitizeErr
 		} else if changed {
 			body = sanitized
@@ -104,7 +103,8 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 			return nil, rewriteErr
 		}
 	}
-	s.observeCodexEncryptedContentPayload(ctx, c, account, gjson.GetBytes(outboundBody, "model").String(), outboundBody, "http_request")
+	outboundModel := OpenAIRequestBodyField(c, outboundBody, "model").String()
+	s.observeCodexEncryptedContentPayload(ctx, c, account, outboundModel, outboundBody, "http_request")
 
 	req, err := newOpenAIHTTPUpstreamRequest(ctx, http.MethodPost, targetURL, account, outboundBody)
 	if err != nil {
@@ -155,10 +155,10 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	// A turn-state minted by another account is incompatible with this
 	// attempt's outbound identity. Unknown and same-account values pass through.
 	s.guardOpenAICodexTurnStateEcho(c, account, req.Header)
-	stageOpenAICodexTurnStateModel(c, gjson.GetBytes(outboundBody, "model").String())
+	stageOpenAICodexTurnStateModel(c, outboundModel)
 	s.applyConfiguredCodexTurnStateReplay(c, account, req.Header)
 	if account.Type == AccountTypeOAuth {
-		compatMessagesBridge := isOpenAICompatMessagesBridgeContext(c) || isOpenAICompatMessagesBridgeBody(body)
+		compatMessagesBridge := isOpenAICompatMessagesBridgeContext(c) || isOpenAICompatMessagesBridgeBodyForRequest(c, body)
 		// 清除客户端透传的 session 头，后续用隔离后的值重新设置，防止跨用户会话碰撞。
 		clientConversationID := strings.TrimSpace(req.Header.Get("conversation_id"))
 		req.Header.Del("conversation_id")
@@ -236,7 +236,8 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	account.ApplyHeaderOverrides(req.Header)
 	applyOpenCodeSessionHeader(c, account, targetURL, req.Header, body, openCodeSessionHintBody(promptCacheKey))
 	applyOpenAICodexBetaFeatures(c, account, req.Header)
-	applyOpenAICodexRoutingHintFromBody(ctx, account, "http", req.Header, outboundBody, "not_applicable")
+	applyOpenAICodexRoutingHint(ctx, account, "http", req.Header, outboundModel,
+		OpenAIRequestBodyField(c, outboundBody, "service_tier").String(), "not_applicable")
 	applyCodexSimulationProfileHeaders(req.Header, fingerprintIDs)
 	applyOpenAICodexSemanticRequestHeaders(req.Header, c, account, outboundBody)
 	applyOpenAIWorkspaceRoutingHeader(req.Header, workspaceRouting)

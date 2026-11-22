@@ -81,6 +81,16 @@ func applyOpenAICodexBetaFeatures(c *gin.Context, account *Account, headers http
 // type="compaction_trigger". The handler combines this body signal with the
 // request path and stream flag to distinguish the native remote compaction v2
 // wire from the legacy /responses/compact bridge.
+// HasCompactionTriggerInRequestInput is HasCompactionTriggerInInput for the
+// body of the request behind c; the request body index answers the common
+// "no such item" case without another pass over input.
+func HasCompactionTriggerInRequestInput(c *gin.Context, body []byte) bool {
+	if !OpenAIRequestBodyMayHaveInputItemType(c, body, "compaction_trigger") {
+		return false
+	}
+	return HasCompactionTriggerInInput(body)
+}
+
 func HasCompactionTriggerInInput(body []byte) bool {
 	if len(body) == 0 {
 		return false

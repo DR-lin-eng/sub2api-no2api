@@ -1,13 +1,16 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
+	"unsafe"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
+	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -116,7 +119,7 @@ func (s *OpenAIGatewayService) openAIRequestTimezone() string {
 // normalizeOpenAIRequestTimezone applies the gateway-wide, startup-validated
 // timezone to OpenAI Responses requests. It is deliberately account-agnostic:
 // every OpenAI account behind this gateway receives the same projection.
-func (s *OpenAIGatewayService) normalizeOpenAIRequestTimezone(ctx context.Context, account *Account, body []byte, _ string) []byte {
+func (s *OpenAIGatewayService) normalizeOpenAIRequestTimezone(ctx context.Context, c *gin.Context, account *Account, body []byte, _ string) []byte {
 	if account == nil || !account.IsOpenAI() || len(body) == 0 {
 		return body
 	}
@@ -128,48 +131,92 @@ func (s *OpenAIGatewayService) normalizeOpenAIRequestTimezone(ctx context.Contex
 		}
 		target = configured
 	}
-	return normalizeOpenAIRequestTimezone(body, target)
+	return normalizeOpenAIRequestTimezoneForRequest(c, body, target)
 }
 
 func normalizeOpenAIRequestTimezone(body []byte, target string) []byte {
-	input := gjson.GetBytes(body, "input")
-	if input.IsArray() {
-		for inputIndex, item := range input.Array() {
+	return normalizeOpenAIRequestTimezoneForRequest(nil, body, target)
+}
+
+// openAIRequestTextMayHoldEnvironment reports whether a JSON string value can
+// decode to text containing an environment_context block. Only a \u escape can
+// spell those letters differently, so everything else is decided on the raw
+// bytes without unescaping a large prompt.
+func openAIRequestTextMayHoldEnvironment(value gjson.Result) bool {
+	return strings.Contains(value.Raw, "environment_context") || strings.Contains(value.Raw, `\u`)
+}
+
+// normalizeOpenAIRequestTimezoneForRequest walks read-only views of the
+// original body. Rewrites replace one string value each and leave every array
+// index in place, so the views and their paths stay valid for the whole walk.
+func normalizeOpenAIRequestTimezoneForRequest(c *gin.Context, body []byte, target string) []byte {
+	original := body
+	// No user text can hold an environment_context block unless the body spells
+	// it out or carries a \u escape, so most bodies skip the input walk.
+	mayHoldEnvironment := bytes.Contains(body, []byte(`\u`)) || bytes.Contains(body, []byte("environment_context"))
+	if !mayHoldEnvironment {
+		// Nothing to rewrite in input.
+	} else if input := openAIRequestBodyFieldView(c, original, "input"); input.IsArray() {
+		inputIndex := -1
+		input.ForEach(func(_, item gjson.Result) bool {
+			inputIndex++
 			if item.Get("role").String() != "user" {
-				continue
+				return true
 			}
 			content := item.Get("content")
-			path := "input." + strconv.Itoa(inputIndex) + ".content"
 			if content.Type == gjson.String {
-				body = rewriteOpenAIRequestText(body, path, content.String(), target)
-				continue
+				if openAIRequestTextMayHoldEnvironment(content) {
+					body = rewriteOpenAIRequestText(body, "input."+strconv.Itoa(inputIndex)+".content", content.String(), target)
+				}
+				return true
 			}
 			if !content.IsArray() {
-				continue
+				return true
 			}
-			for contentIndex, part := range content.Array() {
-				if part.Get("type").String() != "input_text" || part.Get("text").Type != gjson.String {
-					continue
+			contentIndex := -1
+			content.ForEach(func(_, part gjson.Result) bool {
+				contentIndex++
+				if part.Get("type").String() != "input_text" {
+					return true
 				}
-				body = rewriteOpenAIRequestText(body, path+"."+strconv.Itoa(contentIndex)+".text", part.Get("text").String(), target)
-			}
-		}
+				text := part.Get("text")
+				if text.Type != gjson.String || !openAIRequestTextMayHoldEnvironment(text) {
+					return true
+				}
+				path := "input." + strconv.Itoa(inputIndex) + ".content." + strconv.Itoa(contentIndex) + ".text"
+				body = rewriteOpenAIRequestText(body, path, text.String(), target)
+				return true
+			})
+			return true
+		})
 	}
 
-	tools := gjson.GetBytes(body, "tools")
+	var tools gjson.Result
+	if unsafe.SliceData(body) == unsafe.SliceData(original) {
+		tools = openAIRequestBodyFieldView(c, original, "tools")
+	} else {
+		tools = gjson.GetBytes(body, "tools")
+	}
 	if !tools.IsArray() {
 		return body
 	}
-	for index, tool := range tools.Array() {
+	toolIndex := -1
+	var timezonePaths []string
+	tools.ForEach(func(_, tool gjson.Result) bool {
+		toolIndex++
 		kind := tool.Get("type").String()
 		if kind != "web_search" && !strings.HasPrefix(kind, "web_search_") {
-			continue
+			return true
 		}
 		value := tool.Get("user_location.timezone")
 		if value.Type != gjson.String || value.String() == target {
-			continue
+			return true
 		}
-		if updated, err := sjson.SetBytes(body, "tools."+strconv.Itoa(index)+".user_location.timezone", target); err == nil {
+		timezonePaths = append(timezonePaths, "tools."+strconv.Itoa(toolIndex)+".user_location.timezone")
+		return true
+	})
+	for _, path := range timezonePaths {
+		if updated, err := sjson.SetBytes(body, path, target); err == nil {
 			body = updated
 		}
 	}

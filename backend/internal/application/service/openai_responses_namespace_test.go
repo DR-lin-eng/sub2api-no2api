@@ -1,9 +1,11 @@
 package service
 
 import (
+	"net/http/httptest"
 	"strconv"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -77,16 +79,28 @@ func TestShouldStripOpenAIResponsesInputNamespaces(t *testing.T) {
 func TestShouldKeepOpenAIResponsesToolCallNamespacesForLiteDeclarations(t *testing.T) {
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
 	body := []byte(`{"input":[{"type":"additional_tools","tools":[{"type":"namespace","name":"collaboration"}]},{"type":"function_call","namespace":"collaboration","name":"spawn_agent"}]}`)
-	require.True(t, shouldKeepOpenAIResponsesToolCallNamespaces(
-		account, OpenAIUpstreamTransportHTTPSSE, false, false, body,
-	))
-	require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(
-		account, OpenAIUpstreamTransportHTTPSSE, false, true, body,
-	))
-	require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(
-		account, OpenAIUpstreamTransportHTTPSSE, false, false,
-		[]byte(`{"tools":[{"type":"function","namespace":"residual"}]}`),
-	))
+	gin.SetMode(gin.TestMode)
+	requestContext, _ := gin.CreateTestContext(httptest.NewRecorder())
+	for _, c := range []*gin.Context{nil, requestContext} {
+		require.True(t, shouldKeepOpenAIResponsesToolCallNamespaces(
+			account, OpenAIUpstreamTransportHTTPSSE, false, false, c, body,
+		))
+		require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(
+			account, OpenAIUpstreamTransportHTTPSSE, false, true, c, body,
+		))
+		require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(
+			account, OpenAIUpstreamTransportHTTPSSE, false, false, c,
+			[]byte(`{"tools":[{"type":"function","namespace":"residual"}]}`),
+		))
+		require.True(t, shouldKeepOpenAIResponsesToolCallNamespaces(
+			account, OpenAIUpstreamTransportHTTPSSE, false, false, c,
+			[]byte(`{"input":[{"type":"message"}],"tools":[{"type":"namespace","name":"top"}]}`),
+		))
+		require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(
+			account, OpenAIUpstreamTransportHTTPSSE, false, false, c,
+			[]byte(`{"input":[{"type":"message","tools":[{"type":"namespace","name":"ignored"}]}]}`),
+		))
+	}
 }
 
 func TestStripOpenAIResponsesInputNamespaces(t *testing.T) {

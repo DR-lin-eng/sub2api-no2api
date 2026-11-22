@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
 
@@ -24,6 +25,13 @@ const contentStablePrefixSessionSeedPrefix = "compat_csp_"
 // deliberately ignored because clients commonly add dynamic context there.
 // Supports both Chat Completions (messages) and Responses API (input).
 func deriveOpenAIContentSessionSeed(body []byte) string {
+	return deriveOpenAIRequestContentSessionSeed(nil, body)
+}
+
+// deriveOpenAIRequestContentSessionSeed is deriveOpenAIContentSessionSeed for
+// the body of the request behind c. The request body index already holds the
+// first occurrence of every top-level member, so the body is not scanned again.
+func deriveOpenAIRequestContentSessionSeed(c *gin.Context, body []byte) string {
 	if len(body) == 0 {
 		return ""
 	}
@@ -40,35 +48,9 @@ func deriveOpenAIContentSessionSeed(body []byte) string {
 	)
 	var fields [contentSessionSeedFieldCount]gjson.Result
 	var seen uint8
-	// Match gjson.GetBytes by starting at the first root container, even when
-	// malformed input has a non-JSON prefix.
-	root := body
-	for i := 0; i < len(body); i++ {
-		switch body[i] {
-		case '{':
-			root = body[i:]
-			goto scanRoot
-		case '[':
-			return ""
-		}
-	}
-	return ""
-
-scanRoot:
-	nextKeyOffset := 1
-	parseRawJSONView(root).ForEach(func(key, value gjson.Result) bool {
-		if key.Index < nextKeyOffset || key.Index > len(root) {
-			return false
-		}
-		// Result.ForEach can continue after the root '}' on malformed input.
-		// The separator range excludes braces inside the preceding parsed value.
-		if bytes.IndexByte(root[nextKeyOffset:key.Index], '}') >= 0 {
-			return false
-		}
-		nextKeyOffset = value.Index + len(value.Raw)
-
+	collect := func(key string, value gjson.Result) bool {
 		field := -1
-		switch key.Str {
+		switch key {
 		case "model":
 			field = modelField
 		case "tools":
@@ -91,7 +73,47 @@ scanRoot:
 			seen |= mask
 		}
 		return seen != allContentSessionSeedFields
-	})
+	}
+	if c != nil {
+		index := openAIRequestBodyIndexFor(c, body)
+		if !index.object {
+			return ""
+		}
+		for i := range index.fields {
+			if !collect(index.fields[i].key, index.fields[i].value) {
+				break
+			}
+		}
+	} else {
+		// Match gjson.GetBytes by starting at the first root container, even when
+		// malformed input has a non-JSON prefix.
+		rootOffset := -1
+		for i := 0; i < len(body) && rootOffset < 0; i++ {
+			switch body[i] {
+			case '{':
+				rootOffset = i
+			case '[':
+				return ""
+			}
+		}
+		if rootOffset < 0 {
+			return ""
+		}
+		root := body[rootOffset:]
+		nextKeyOffset := 1
+		parseRawJSONView(root).ForEach(func(key, value gjson.Result) bool {
+			if key.Index < nextKeyOffset || key.Index > len(root) {
+				return false
+			}
+			// Result.ForEach can continue after the root '}' on malformed input.
+			// The separator range excludes braces inside the preceding parsed value.
+			if bytes.IndexByte(root[nextKeyOffset:key.Index], '}') >= 0 {
+				return false
+			}
+			nextKeyOffset = value.Index + len(value.Raw)
+			return collect(key.Str, value)
+		})
+	}
 
 	var b strings.Builder
 
@@ -142,7 +164,7 @@ scanRoot:
 			default:
 				systemPrefixOpen = false
 			}
-			return true
+			return !firstUserCaptured
 		})
 	} else if inp := fields[inputField]; inp.Exists() {
 		if inp.Type == gjson.String {
@@ -179,7 +201,9 @@ scanRoot:
 					}
 					firstUserCaptured = true
 				}
-				return true
+				// Later items only matter while the first user turn is missing
+				// or a bare input_text item left the system prefix open.
+				return !firstUserCaptured || systemPrefixOpen
 			})
 		}
 	}

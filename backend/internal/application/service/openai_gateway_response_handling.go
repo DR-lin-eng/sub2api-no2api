@@ -521,19 +521,34 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			firstUpstreamDataEvent := !seenUpstreamDataEvent
 			seenUpstreamDataEvent = true
 			dataBytes := []byte(data)
-			normalizedData, normalizedPolicyEvent := normalizeOpenAIResponsesErrorEvent(dataBytes)
-			if normalizedPolicyEvent {
-				dataBytes = normalizedData
-				data = string(normalizedData)
-				line = "data: " + data
+			// A plain text delta carries nothing the per-event normalizers,
+			// restorers and accounting observers act on, so it is classified once
+			// here and skips them instead of being parsed again by each.
+			plainTextDelta, plainTextDeltaValue := false, ""
+			if dataValid {
+				plainTextDeltaValue, plainTextDelta = openAIResponsesPlainOutputTextDelta(data)
 			}
-			trimmedData := strings.TrimSpace(data)
-			MarkOpenAIVerificationRecommendation(c, dataBytes, http.StatusOK)
-			eventTypeRaw := gjson.GetBytes(dataBytes, "type").String()
+			normalizedPolicyEvent := false
+			trimmedData := data
+			eventTypeRaw := openAIResponsesOutputTextDeltaEventType
+			if !plainTextDelta {
+				var normalizedData []byte
+				normalizedData, normalizedPolicyEvent = normalizeOpenAIResponsesErrorEvent(dataBytes)
+				if normalizedPolicyEvent {
+					dataBytes = normalizedData
+					data = string(normalizedData)
+					line = "data: " + data
+				}
+				trimmedData = strings.TrimSpace(data)
+				MarkOpenAIVerificationRecommendation(c, dataBytes, http.StatusOK)
+				eventTypeRaw = gjson.GetBytes(dataBytes, "type").String()
+				captureOpenAICodexTurnStateMetadata(resp.Header, dataBytes)
+			}
 			eventType := strings.TrimSpace(eventTypeRaw)
-			captureOpenAICodexTurnStateMetadata(resp.Header, dataBytes)
 			s.observeCodexEncryptedContentPayload(ctx, c, account, openAICodexTurnStateModel(c), dataBytes, "http_sse")
-			observer.ObserveOpenAI(dataBytes, eventTypeRaw)
+			if !plainTextDelta {
+				observer.ObserveOpenAI(dataBytes, eventTypeRaw)
+			}
 			observeOpenAITiming(c, dataBytes, eventTypeRaw)
 			if openAIStreamDataSignalsOutputProgressTrimmed(trimmedData, eventType) {
 				sawOutputProgressEvent = true
@@ -548,7 +563,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			if openAIStreamEventIsTerminalWithType(data, eventTypeRaw) {
 				sawTerminalEvent = true
 			}
-			if responseID == "" {
+			if responseID == "" && !plainTextDelta {
 				responseID = extractOpenAIResponseIDFromJSONBytes(dataBytes)
 			}
 			forceFlushFailedEvent := false
@@ -604,72 +619,76 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 					sawTerminalEvent = true
 				}
 			}
-			if normalizedData, normalized := normalizeCompletedImageGenerationStatus(dataBytes); normalized {
-				dataBytes = normalizedData
-				data = string(normalizedData)
-				trimmedData = strings.TrimSpace(data)
-				line = "data: " + data
-			}
-			imageCounter.AddSSEData(dataBytes)
-
-			// Correct Codex tool calls if needed (apply_patch -> edit, etc.)
-			if correctedData, corrected := s.toolCorrector.CorrectToolCallsInSSEBytes(dataBytes); corrected {
-				dataBytes = correctedData
-				data = string(correctedData)
-				trimmedData = strings.TrimSpace(data)
-				line = "data: " + data
-				eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
-			}
-			if imageOutput, ok := extractImageGenerationOutputFromSSEData(dataBytes, streamSeenImages); ok {
-				streamImageOutputs = append(streamImageOutputs, imageOutput)
-			}
-			streamDoneItems.Observe(dataBytes)
-			if responsesStreamEventMayContributeToOutput(eventType) {
-				var streamEvent apicompat.ResponsesStreamEvent
-				if err := json.Unmarshal(dataBytes, &streamEvent); err == nil {
-					streamOutputAccumulator.ProcessEvent(&streamEvent)
+			if plainTextDelta {
+				streamOutputAccumulator.ProcessEvent(&apicompat.ResponsesStreamEvent{Type: eventTypeRaw, Delta: plainTextDeltaValue})
+			} else {
+				if normalizedData, normalized := normalizeCompletedImageGenerationStatus(dataBytes); normalized {
+					dataBytes = normalizedData
+					data = string(normalizedData)
+					trimmedData = strings.TrimSpace(data)
+					line = "data: " + data
 				}
-			}
-			if normalizedData, normalized := normalizeResponsesStreamingTerminalOutput(dataBytes, streamOutputAccumulator, streamDoneItems, streamImageOutputs); normalized {
-				dataBytes = normalizedData
-				data = string(normalizedData)
-				trimmedData = strings.TrimSpace(data)
-				line = "data: " + data
-				eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
-			}
-			restoredData, restoreErr := restoreGrokResponsesClientToolPayload(c, dataBytes)
-			if restoreErr != nil {
-				streamEarlyErr = fmt.Errorf("restore Grok Responses client tool response: %w", restoreErr)
-				return
-			}
-			restoredData, restoreErr = restoreOpenAIResponsesNamespacePayload(c, restoredData)
-			if restoreErr != nil {
-				streamEarlyErr = fmt.Errorf("restore OpenAI namespace response: %w", restoreErr)
-				return
-			}
-			restoredData = restoreOpenAIResponsesInstructionsEchoInEvent(c, restoredData, eventType)
-			if !bytes.Equal(restoredData, dataBytes) {
-				dataBytes = restoredData
-				data = string(restoredData)
-				trimmedData = strings.TrimSpace(data)
-				line = "data: " + data
-				eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
-			}
-			if sanitizedData, sanitized := sanitizeOpenAIResponseFailedEventForClient(
-				dataBytes,
-				eventType,
-				openAIStreamClientOutputStarted(c, clientOutputStarted),
-			); sanitized {
-				dataBytes = sanitizedData
-				data = string(sanitizedData)
-				trimmedData = strings.TrimSpace(data)
-				line = "data: " + data
-			}
-			if stampedData, stamped := createdAtStamper.Stamp(dataBytes, eventType); stamped {
-				dataBytes = stampedData
-				data = string(stampedData)
-				trimmedData = strings.TrimSpace(data)
-				line = "data: " + data
+				imageCounter.AddSSEData(dataBytes)
+
+				// Correct Codex tool calls if needed (apply_patch -> edit, etc.)
+				if correctedData, corrected := s.toolCorrector.CorrectToolCallsInSSEBytes(dataBytes); corrected {
+					dataBytes = correctedData
+					data = string(correctedData)
+					trimmedData = strings.TrimSpace(data)
+					line = "data: " + data
+					eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
+				}
+				if imageOutput, ok := extractImageGenerationOutputFromSSEData(dataBytes, streamSeenImages); ok {
+					streamImageOutputs = append(streamImageOutputs, imageOutput)
+				}
+				streamDoneItems.Observe(dataBytes)
+				if responsesStreamEventMayContributeToOutput(eventType) {
+					var streamEvent apicompat.ResponsesStreamEvent
+					if err := json.Unmarshal(dataBytes, &streamEvent); err == nil {
+						streamOutputAccumulator.ProcessEvent(&streamEvent)
+					}
+				}
+				if normalizedData, normalized := normalizeResponsesStreamingTerminalOutput(dataBytes, streamOutputAccumulator, streamDoneItems, streamImageOutputs); normalized {
+					dataBytes = normalizedData
+					data = string(normalizedData)
+					trimmedData = strings.TrimSpace(data)
+					line = "data: " + data
+					eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
+				}
+				restoredData, restoreErr := restoreGrokResponsesClientToolPayload(c, dataBytes)
+				if restoreErr != nil {
+					streamEarlyErr = fmt.Errorf("restore Grok Responses client tool response: %w", restoreErr)
+					return
+				}
+				restoredData, restoreErr = restoreOpenAIResponsesNamespacePayload(c, restoredData)
+				if restoreErr != nil {
+					streamEarlyErr = fmt.Errorf("restore OpenAI namespace response: %w", restoreErr)
+					return
+				}
+				restoredData = restoreOpenAIResponsesInstructionsEchoInEvent(c, restoredData, eventType)
+				if !bytes.Equal(restoredData, dataBytes) {
+					dataBytes = restoredData
+					data = string(restoredData)
+					trimmedData = strings.TrimSpace(data)
+					line = "data: " + data
+					eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
+				}
+				if sanitizedData, sanitized := sanitizeOpenAIResponseFailedEventForClient(
+					dataBytes,
+					eventType,
+					openAIStreamClientOutputStarted(c, clientOutputStarted),
+				); sanitized {
+					dataBytes = sanitizedData
+					data = string(sanitizedData)
+					trimmedData = strings.TrimSpace(data)
+					line = "data: " + data
+				}
+				if stampedData, stamped := createdAtStamper.Stamp(dataBytes, eventType); stamped {
+					dataBytes = stampedData
+					data = string(stampedData)
+					trimmedData = strings.TrimSpace(data)
+					line = "data: " + data
+				}
 			}
 			// Replace model in response if needed.
 			// Fast path: most events do not contain model field values.
@@ -771,7 +790,9 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				}
 				stopFirstOutputTimer()
 			}
-			s.parseSSEUsageBytes(dataBytes, usage)
+			if !plainTextDelta {
+				s.parseSSEUsageBytes(dataBytes, usage)
+			}
 			return
 		}
 

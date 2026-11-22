@@ -1111,9 +1111,13 @@ func isOpenAICodexModel(model string) bool {
 // 非空候选；body 未携带 effort 时的模型后缀推导依次尝试每个候选——OAuth 的
 // normalizeCodexModel 会剥掉 upstreamModel 的 effort 后缀，只有原始模型名还留着。
 func extractOpenAIReasoningEffortFromBody(body []byte, modelCandidates ...string) *string {
-	reasoningEffort := strings.TrimSpace(gjson.GetBytes(body, "reasoning.effort").String())
+	return extractOpenAIReasoningEffortFromRequestBody(nil, body, modelCandidates...)
+}
+
+func extractOpenAIReasoningEffortFromRequestBody(c *gin.Context, body []byte, modelCandidates ...string) *string {
+	reasoningEffort := strings.TrimSpace(OpenAIRequestBodyField(c, body, "reasoning.effort").String())
 	if reasoningEffort == "" {
-		reasoningEffort = strings.TrimSpace(gjson.GetBytes(body, "reasoning_effort").String())
+		reasoningEffort = strings.TrimSpace(OpenAIRequestBodyField(c, body, "reasoning_effort").String())
 	}
 	if reasoningEffort != "" {
 		normalized := normalizeOpenAIReasoningEffortForModel(reasoningEffort, firstNonEmpty(modelCandidates...))
@@ -1142,10 +1146,14 @@ func extractOpenAIServiceTier(reqBody map[string]any) *string {
 }
 
 func extractOpenAIServiceTierFromBody(body []byte) *string {
+	return extractOpenAIServiceTierFromRequestBody(nil, body)
+}
+
+func extractOpenAIServiceTierFromRequestBody(c *gin.Context, body []byte) *string {
 	if len(body) == 0 {
 		return nil
 	}
-	return normalizeOpenAIServiceTier(gjson.GetBytes(body, "service_tier").String())
+	return normalizeOpenAIServiceTier(OpenAIRequestBodyField(c, body, "service_tier").String())
 }
 
 func normalizeOpenAIServiceTier(raw string) *string {

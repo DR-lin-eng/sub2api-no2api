@@ -114,8 +114,18 @@ func applyOpenAICodexRoutingHintFromBody(
 	wsAffinityDecision string,
 ) {
 	fields := gjson.GetManyBytes(body, "model", "service_tier")
-	model := fields[0].String()
-	serviceTier := fields[1].String()
+	applyOpenAICodexRoutingHint(ctx, account, transport, headers, fields[0].String(), fields[1].String(), wsAffinityDecision)
+}
+
+func applyOpenAICodexRoutingHint(
+	ctx context.Context,
+	account *Account,
+	transport string,
+	headers http.Header,
+	model string,
+	serviceTier string,
+	wsAffinityDecision string,
+) {
 	setOpenAICodexRoutingHint(headers, account, model, serviceTier)
 	logOpenAIRoutingDiagnostics(
 		ctx,

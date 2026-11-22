@@ -6,10 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"hash"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // ---------------------------------------------------------------------------
@@ -211,11 +212,76 @@ func FinalizeResponsesChatStream(state *ResponsesEventToChatState) []ChatComplet
 
 // ChatChunkToSSE formats a ChatCompletionsChunk as an SSE data line.
 func ChatChunkToSSE(chunk ChatCompletionsChunk) (string, error) {
+	if sse, ok := chatContentDeltaChunkToSSE(&chunk); ok {
+		return sse, nil
+	}
 	data, err := json.Marshal(chunk)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("data: %s\n\n", data), nil
+	return "data: " + string(data) + "\n\n", nil
+}
+
+// chatContentDeltaChunkToSSE writes the chunk that makes up almost all of a
+// stream, one choice carrying only text content, without reflection. The bytes
+// are exactly what json.Marshal produces; any other chunk shape is declined.
+func chatContentDeltaChunkToSSE(chunk *ChatCompletionsChunk) (string, bool) {
+	if chunk.Usage != nil || chunk.SystemFingerprint != "" || chunk.ServiceTier != "" || len(chunk.Choices) != 1 {
+		return "", false
+	}
+	choice := &chunk.Choices[0]
+	delta := &choice.Delta
+	if choice.FinishReason != nil || delta.Content == nil || delta.Role != "" || delta.Refusal != nil ||
+		delta.ReasoningContent != nil || delta.Reasoning != nil || len(delta.ToolCalls) != 0 {
+		return "", false
+	}
+	buf := make([]byte, 0, 128+len(chunk.ID)+len(chunk.Object)+len(chunk.Model)+len(*delta.Content))
+	buf = append(buf, `data: {"id":`...)
+	buf = appendJSONString(buf, chunk.ID)
+	buf = append(buf, `,"object":`...)
+	buf = appendJSONString(buf, chunk.Object)
+	buf = append(buf, `,"created":`...)
+	buf = strconv.AppendInt(buf, chunk.Created, 10)
+	buf = append(buf, `,"model":`...)
+	buf = appendJSONString(buf, chunk.Model)
+	buf = append(buf, `,"choices":[{"index":`...)
+	buf = strconv.AppendInt(buf, int64(choice.Index), 10)
+	buf = append(buf, `,"delta":{"content":`...)
+	buf = appendJSONString(buf, *delta.Content)
+	buf = append(buf, "},\"finish_reason\":null}]}\n\n"...)
+	return string(buf), true
+}
+
+// appendJSONString appends s as encoding/json would encode it. Strings that
+// need no escaping are copied; the rest are left to encoding/json.
+func appendJSONString(buf []byte, s string) []byte {
+	ascii := true
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= utf8.RuneSelf {
+			ascii = false
+			continue
+		}
+		if c < ' ' || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' {
+			return appendMarshaledJSONString(buf, s)
+		}
+	}
+	// encoding/json also escapes U+2028, U+2029 and invalid UTF-8.
+	if !ascii && (!utf8.ValidString(s) || strings.Contains(s, "\u2028") || strings.Contains(s, "\u2029")) {
+		return appendMarshaledJSONString(buf, s)
+	}
+	buf = append(buf, '"')
+	buf = append(buf, s...)
+	return append(buf, '"')
+}
+
+func appendMarshaledJSONString(buf []byte, s string) []byte {
+	encoded, err := json.Marshal(s)
+	if err != nil {
+		// json.Marshal cannot fail for a string.
+		return append(buf, `""`...)
+	}
+	return append(buf, encoded...)
 }
 
 // --- internal handlers ---

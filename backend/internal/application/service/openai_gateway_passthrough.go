@@ -176,7 +176,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 		}
 	}
 	if account != nil && account.Platform == PlatformOpenAI {
-		if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesAccessPrograms(body); sanitizeErr != nil {
+		if sanitized, changed, sanitizeErr := sanitizeOpenAIResponsesRequestAccessPrograms(c, body); sanitizeErr != nil {
 			return nil, sanitizeErr
 		} else if changed {
 			body = sanitized

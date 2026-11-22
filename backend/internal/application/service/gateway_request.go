@@ -15,6 +15,7 @@ import (
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
+	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -1403,10 +1404,15 @@ func OpenAIBodyHasThinkingEnabled(body []byte) bool {
 //
 // 适用于 OpenAI 网关的多条路径调用方（避免重复的 if-nil 表达式）。
 func ApplyThinkingEnabledFallback(effort *string, body []byte, mappedModel string) *string {
+	return applyThinkingEnabledFallbackForRequest(nil, effort, body, mappedModel)
+}
+
+func applyThinkingEnabledFallbackForRequest(c *gin.Context, effort *string, body []byte, mappedModel string) *string {
 	if effort != nil {
 		return effort
 	}
-	if !OpenAIBodyHasThinkingEnabled(body) {
+	thinkingType := strings.ToLower(strings.TrimSpace(OpenAIRequestBodyField(c, body, "thinking.type").String()))
+	if thinkingType != "enabled" && thinkingType != "adaptive" {
 		return nil
 	}
 	return DefaultEffortForThinkingEnabled(mappedModel)

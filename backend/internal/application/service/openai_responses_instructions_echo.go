@@ -33,7 +33,7 @@ func rememberOpenAIResponsesClientInstructions(c *gin.Context, body []byte) {
 		return
 	}
 	raw := ""
-	if value := gjson.GetBytes(body, "instructions"); value.Exists() {
+	if value := OpenAIRequestBodyField(c, body, "instructions"); value.Exists() {
 		raw = compactOpenAIResponsesInstructionsRaw(value.Raw)
 	}
 	c.Set(openAIResponsesClientInstructionsKey, openAIResponsesClientInstructions{raw: raw})
@@ -55,7 +55,7 @@ func syncOpenAIResponsesInstructionsEcho(c *gin.Context, upstreamBody []byte) {
 		return
 	}
 	upstreamRaw := ""
-	if value := gjson.GetBytes(upstreamBody, "instructions"); value.Exists() {
+	if value := OpenAIRequestBodyField(c, upstreamBody, "instructions"); value.Exists() {
 		upstreamRaw = value.Raw
 	}
 	restore := ""

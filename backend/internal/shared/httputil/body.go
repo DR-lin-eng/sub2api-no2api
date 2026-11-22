@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -242,7 +243,31 @@ func NormalizeLenientJSONRequestBody(body []byte, maxNormalizedBytes int64) ([]b
 	var out []byte
 	inString := false
 	escaped := false
-	for i, b := range body {
+	for i := 0; i < len(body); {
+		// Bytes that cannot change the scanner state are skipped in bulk. The
+		// byte-wise step below still handles every quote, backslash and control
+		// byte, so the result is identical to a plain per-byte scan.
+		if !escaped {
+			run := 0
+			if inString {
+				run = lenientJSONPlainStringRun(body[i:])
+			} else if run = bytes.IndexByte(body[i:], '"'); run < 0 {
+				run = len(body) - i
+			}
+			if run > 0 {
+				if out != nil {
+					if int64(len(out)+run) > maxNormalizedBytes {
+						return nil, &http.MaxBytesError{Limit: maxNormalizedBytes}
+					}
+					out = append(out, body[i:i+run]...)
+				}
+				i += run
+				continue
+			}
+		}
+
+		b := body[i]
+		i++
 		if inString && isJSONControlByte(b) {
 			if out == nil {
 				capHint := len(body) + 6
@@ -250,7 +275,7 @@ func NormalizeLenientJSONRequestBody(body []byte, maxNormalizedBytes int64) ([]b
 					capHint = int(maxNormalizedBytes)
 				}
 				out = make([]byte, 0, capHint)
-				out = append(out, body[:i]...)
+				out = append(out, body[:i-1]...)
 			}
 			if int64(len(out)+6) > maxNormalizedBytes {
 				return nil, &http.MaxBytesError{Limit: maxNormalizedBytes}
@@ -280,6 +305,39 @@ func NormalizeLenientJSONRequestBody(body []byte, maxNormalizedBytes int64) ([]b
 		return out, nil
 	}
 	return body, nil
+}
+
+const (
+	swarLowBits  = 0x0101010101010101
+	swarHighBits = 0x8080808080808080
+)
+
+// lenientJSONPlainStringRun returns how many leading bytes of s are ordinary
+// JSON string content: not a quote, backslash, or control byte.
+func lenientJSONPlainStringRun(s []byte) int {
+	n := 0
+	for len(s)-n >= 8 {
+		word := binary.LittleEndian.Uint64(s[n:])
+		quote := word ^ (swarLowBits * '"')
+		backslash := word ^ (swarLowBits * '\\')
+		del := word ^ (swarLowBits * 0x7f)
+		special := (word-swarLowBits*0x20)&^word |
+			(quote-swarLowBits)&^quote |
+			(backslash-swarLowBits)&^backslash |
+			(del-swarLowBits)&^del
+		if special&swarHighBits != 0 {
+			break
+		}
+		n += 8
+	}
+	for n < len(s) {
+		b := s[n]
+		if b == '"' || b == '\\' || isJSONControlByte(b) {
+			break
+		}
+		n++
+	}
+	return n
 }
 
 func trimUTF8BOM(body []byte) []byte {
