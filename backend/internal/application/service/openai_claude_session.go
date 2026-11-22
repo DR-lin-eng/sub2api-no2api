@@ -3,7 +3,7 @@ package service
 import (
 	"strings"
 
-	"github.com/tidwall/gjson"
+	"github.com/gin-gonic/gin"
 )
 
 const claudeCodeSessionHeader = "X-Claude-Code-Session-Id"
@@ -13,10 +13,14 @@ const claudeCodeSessionHeader = "X-Claude-Code-Session-Id"
 // device/account components when available so two clients reusing the same
 // session UUID do not collapse onto one scheduler key.
 func deriveClaudeCodeMetadataSessionSeed(body []byte) string {
+	return deriveClaudeCodeMetadataRequestSessionSeed(nil, body)
+}
+
+func deriveClaudeCodeMetadataRequestSessionSeed(c *gin.Context, body []byte) string {
 	if len(body) == 0 {
 		return ""
 	}
-	userID := strings.TrimSpace(gjson.GetBytes(body, "metadata.user_id").String())
+	userID := strings.TrimSpace(OpenAIRequestBodyField(c, body, "metadata.user_id").String())
 	if userID != "" {
 		if parsed := ParseMetadataUserID(userID); parsed != nil && strings.TrimSpace(parsed.SessionID) != "" {
 			return strings.Join([]string{
@@ -27,7 +31,7 @@ func deriveClaudeCodeMetadataSessionSeed(body []byte) string {
 			}, "|")
 		}
 	}
-	if sessionID := strings.TrimSpace(gjson.GetBytes(body, "metadata.session_id").String()); sessionID != "" {
+	if sessionID := strings.TrimSpace(OpenAIRequestBodyField(c, body, "metadata.session_id").String()); sessionID != "" {
 		return "claude-code-metadata|" + sessionID
 	}
 	return ""

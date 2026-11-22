@@ -83,6 +83,14 @@ func (d *openAIChatSilentRefusalDetector) ObservePayload(payload []byte) {
 	d.observeResponsesPayload(payload, eventType)
 }
 
+// ObservePlainTextDelta is ObservePayload for an event already classified by
+// openAIResponsesPlainOutputTextDelta, whose only signal is its text.
+func (d *openAIChatSilentRefusalDetector) ObservePlainTextDelta(delta string) {
+	if d != nil && d.enabled && delta != "" {
+		d.sawContent = true
+	}
+}
+
 func (d *openAIChatSilentRefusalDetector) ObserveChatChunk(chunk apicompat.ChatCompletionsChunk) {
 	if d == nil || !d.enabled {
 		return

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"unsafe"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/apicompat"
 	"github.com/gin-gonic/gin"
@@ -42,13 +41,14 @@ func shouldKeepOpenAIResponsesToolCallNamespaces(
 	transport OpenAIUpstreamTransport,
 	passthroughEnabled bool,
 	compactPath bool,
+	c *gin.Context,
 	body []byte,
 ) bool {
 	if account == nil || compactPath {
 		return false
 	}
 	if account.IsOpenAIApiKey() {
-		return hasOpenAIResponsesNamespaceToolDeclaration(body)
+		return hasOpenAIResponsesNamespaceToolDeclaration(c, body)
 	}
 	if !account.IsOpenAIOAuth() {
 		return false
@@ -56,7 +56,7 @@ func shouldKeepOpenAIResponsesToolCallNamespaces(
 	return !shouldFlattenOpenAIResponsesNamespaces(account, transport, passthroughEnabled, compactPath)
 }
 
-func hasOpenAIResponsesNamespaceToolDeclaration(body []byte) bool {
+func hasOpenAIResponsesNamespaceToolDeclaration(c *gin.Context, body []byte) bool {
 	hasNamespaceTool := func(tools gjson.Result) bool {
 		if !tools.IsArray() {
 			return false
@@ -72,14 +72,19 @@ func hasOpenAIResponsesNamespaceToolDeclaration(body []byte) bool {
 		return found
 	}
 
-	if hasNamespaceTool(gjson.GetBytes(body, "tools")) {
+	if hasNamespaceTool(openAIRequestBodyFieldView(c, body, "tools")) {
 		return true
+	}
+	if !openAIRequestBodyInputItemTypeMatches(c, body, func(itemType string) bool {
+		return strings.EqualFold(strings.TrimSpace(itemType), "additional_tools")
+	}) {
+		return false
 	}
 
 	// Responses Lite carries namespace declarations in input.additional_tools.
 	// The view is read-only and stays inside this call. It avoids copying the
 	// full input array before deciding whether any namespace needs deletion.
-	input := gjson.Get(unsafe.String(unsafe.SliceData(body), len(body)), "input")
+	input := openAIRequestBodyFieldView(c, body, "input")
 	if !input.IsArray() {
 		return false
 	}

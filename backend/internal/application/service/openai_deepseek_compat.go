@@ -49,7 +49,16 @@ func isDeepSeekSemanticsChatUpstream(account *Account, upstreamModel string) boo
 // but silently ignores the declarations. Route that specific Lite shape through
 // the existing Responses -> Chat bridge, which promotes them to Chat tools.
 func shouldForwardDeepSeekResponsesLiteViaChatCompletions(account *Account, body []byte) bool {
-	if !deepSeekNativeResponsesCandidate(account, body) {
+	return shouldForwardDeepSeekResponsesLiteRequestViaChatCompletions(nil, account, body)
+}
+
+func shouldForwardDeepSeekResponsesLiteRequestViaChatCompletions(c *gin.Context, account *Account, body []byte) bool {
+	if !deepSeekNativeResponsesCandidate(c, account, body) {
+		return false
+	}
+	if !openAIRequestBodyInputItemTypeMatches(c, body, func(itemType string) bool {
+		return strings.TrimSpace(itemType) == "additional_tools"
+	}) {
 		return false
 	}
 	for _, item := range gjson.GetBytes(body, "input").Array() {
@@ -63,20 +72,20 @@ func shouldForwardDeepSeekResponsesLiteViaChatCompletions(account *Account, body
 // A native compaction trigger has no DeepSeek Responses equivalent. The Chat
 // bridge summarizes the turn and wraps it in a Responses compaction item.
 func shouldForwardDeepSeekResponsesCompactViaChatCompletions(account *Account, body []byte) bool {
-	return deepSeekNativeResponsesCandidate(account, body) && HasCompactionTriggerInInput(body)
+	return deepSeekNativeResponsesCandidate(nil, account, body) && HasCompactionTriggerInInput(body)
 }
 
-func deepSeekNativeResponsesCandidate(account *Account, body []byte) bool {
+func deepSeekNativeResponsesCandidate(c *gin.Context, account *Account, body []byte) bool {
 	if account == nil || account.Type != AccountTypeAPIKey || shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
 		return false
 	}
-	requestedModel := gjson.GetBytes(body, "model").String()
+	requestedModel := OpenAIRequestBodyField(c, body, "model").String()
 	return isDeepSeekSemanticsChatUpstream(account, account.GetMappedModel(requestedModel))
 }
 
 func shouldForwardDeepSeekCompatViaChatCompletions(c *gin.Context, account *Account, body []byte) bool {
-	return shouldForwardDeepSeekResponsesLiteViaChatCompletions(account, body) ||
-		(isOpenAINativeCompactionV2(c) && shouldForwardDeepSeekResponsesCompactViaChatCompletions(account, body))
+	return shouldForwardDeepSeekResponsesLiteRequestViaChatCompletions(c, account, body) ||
+		(isOpenAINativeCompactionV2(c) && deepSeekNativeResponsesCandidate(c, account, body) && HasCompactionTriggerInRequestInput(c, body))
 }
 
 // deepSeekChatReasoningPlaceholderText is the smallest non-empty value accepted

@@ -20,6 +20,8 @@ const (
 	streamResponseHeaderTimeoutRefreshInterval = 10 * time.Second
 	streamResponseHeaderTimeoutDBTimeout       = 3 * time.Second
 	thinkingDisplayModeRefreshInterval         = 10 * time.Second
+	betaPolicyRuntimeRefreshInterval           = 10 * time.Second
+	betaPolicyRuntimeDBTimeout                 = 3 * time.Second
 )
 
 // IsRegistrationEnabled 检查是否开放注册
@@ -1427,7 +1429,79 @@ func (s *SettingService) SetBetaPolicySettings(ctx context.Context, settings *Be
 		return fmt.Errorf("marshal beta policy settings: %w", err)
 	}
 
-	return s.settingRepo.Set(ctx, SettingKeyBetaPolicySettings, string(data))
+	if err := s.settingRepo.Set(ctx, SettingKeyBetaPolicySettings, string(data)); err != nil {
+		return err
+	}
+
+	// Publish to this instance at once. The revision bump keeps an older in-flight
+	// refresh from overwriting what was just persisted. The published value is a
+	// decoded copy, so it never aliases the caller's struct.
+	published := DefaultBetaPolicySettings()
+	var decoded BetaPolicySettings
+	if err := json.Unmarshal(data, &decoded); err == nil {
+		published = &decoded
+	}
+	s.betaPolicyRuntimeMu.Lock()
+	s.betaPolicyRuntimeRevision.Add(1)
+	s.betaPolicyRuntimeCache.Store(published)
+	s.betaPolicyRuntimeLoaded.Store(time.Now().UnixNano())
+	s.betaPolicyRuntimeMu.Unlock()
+	s.betaPolicyRuntimeSF.Forget("refresh")
+	return nil
+}
+
+// GetBetaPolicyRuntimeSettings returns the beta policy for the gateway request
+// path, where it is evaluated on every Anthropic request. Repository reads are
+// bounded to one per refresh interval; a change made on another instance becomes
+// visible within that interval, and one made on this instance is visible at once.
+// When a refresh fails the last loaded policy stays in force, and the error is
+// returned only when nothing was ever loaded. The result is shared: callers must
+// treat it as read-only.
+func (s *SettingService) GetBetaPolicyRuntimeSettings(ctx context.Context) (*BetaPolicySettings, error) {
+	if s == nil || s.settingRepo == nil {
+		return DefaultBetaPolicySettings(), nil
+	}
+	loadedAt := s.betaPolicyRuntimeLoaded.Load()
+	if loadedAt != 0 && time.Since(time.Unix(0, loadedAt)) < betaPolicyRuntimeRefreshInterval {
+		if cached := s.betaPolicyRuntimeCache.Load(); cached != nil {
+			return cached, nil
+		}
+	}
+	_, err, _ := s.betaPolicyRuntimeSF.Do("refresh", func() (any, error) {
+		return nil, s.refreshBetaPolicyRuntimeSettings(ctx)
+	})
+	if cached := s.betaPolicyRuntimeCache.Load(); cached != nil {
+		return cached, nil
+	}
+	if err == nil {
+		err = errors.New("beta policy settings unavailable")
+	}
+	return nil, err
+}
+
+func (s *SettingService) refreshBetaPolicyRuntimeSettings(ctx context.Context) error {
+	revision := s.betaPolicyRuntimeRevision.Load()
+	// The refresh is shared by concurrent requests, so one caller's cancellation
+	// must not fail it for the others.
+	loadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), betaPolicyRuntimeDBTimeout)
+	defer cancel()
+	settings, err := s.GetBetaPolicySettings(loadCtx)
+	s.betaPolicyRuntimeMu.Lock()
+	defer s.betaPolicyRuntimeMu.Unlock()
+	if s.betaPolicyRuntimeRevision.Load() != revision {
+		return nil
+	}
+	if err != nil {
+		if s.betaPolicyRuntimeCache.Load() != nil {
+			// Keep the last loaded policy and retry after the interval rather
+			// than on every request.
+			s.betaPolicyRuntimeLoaded.Store(time.Now().UnixNano())
+		}
+		return err
+	}
+	s.betaPolicyRuntimeCache.Store(settings)
+	s.betaPolicyRuntimeLoaded.Store(time.Now().UnixNano())
+	return nil
 }
 
 // GetOpenAIFastPolicySettings 获取 OpenAI fast 策略配置

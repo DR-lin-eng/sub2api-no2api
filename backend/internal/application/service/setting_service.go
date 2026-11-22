@@ -162,6 +162,12 @@ type SettingService struct {
 	thinkingDisplayModeRevision atomic.Uint64
 	thinkingDisplayModeSF       singleflight.Group
 
+	betaPolicyRuntimeCache    atomic.Pointer[BetaPolicySettings]
+	betaPolicyRuntimeLoaded   atomic.Int64
+	betaPolicyRuntimeRevision atomic.Uint64
+	betaPolicyRuntimeMu       sync.Mutex
+	betaPolicyRuntimeSF       singleflight.Group
+
 	requestPriorityAdmissionSettings     atomic.Pointer[RequestPriorityAdmissionSettings]
 	requestPriorityAdmissionSinkMu       sync.RWMutex
 	requestPriorityAdmissionSettingsSink func(RequestPriorityAdmissionSettings)

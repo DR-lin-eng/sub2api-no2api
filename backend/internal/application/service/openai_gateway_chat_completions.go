@@ -781,9 +781,28 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 		}
 	}
 
+	moreUpstreamQueued := func() bool { return false }
+	clientFlusher := streamFlushCoalescer{
+		enabled: streamPerformanceModeEnabled(s.settingService, c),
+		flush: func() {
+			if !clientDisconnected {
+				c.Writer.Flush()
+			}
+		},
+	}
+	defer clientFlusher.Drain()
+
 	processDataLine := func(payload string) bool {
-		observer.ObserveOpenAI([]byte(payload), strings.TrimSpace(gjson.Get(payload, "type").String()))
-		observeOpenAITiming(c, []byte(payload), gjson.Get(payload, "type").String())
+		// A plain text delta has no model, timing, usage or error member, so it
+		// is decoded once here instead of by each observer and encoding/json.
+		plainTextDelta, plainTextDeltaValue := false, ""
+		if gjson.Valid(payload) {
+			plainTextDeltaValue, plainTextDelta = openAIResponsesPlainOutputTextDelta(payload)
+		}
+		if !plainTextDelta {
+			observer.ObserveOpenAI([]byte(payload), strings.TrimSpace(gjson.Get(payload, "type").String()))
+			observeOpenAITiming(c, []byte(payload), gjson.Get(payload, "type").String())
+		}
 		if firstChunk {
 			firstChunk = false
 			ms := int(time.Since(startTime).Milliseconds())
@@ -791,14 +810,19 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 		}
 
 		var event apicompat.ResponsesStreamEvent
-		if err := json.Unmarshal([]byte(payload), &event); err != nil {
-			logger.L().Warn("openai chat_completions stream: failed to parse event",
-				zap.Error(err),
-				zap.String("request_id", requestID),
-			)
-			return false
+		if plainTextDelta {
+			event.Type, event.Delta = openAIResponsesOutputTextDeltaEventType, plainTextDeltaValue
+			refusalDetector.ObservePlainTextDelta(plainTextDeltaValue)
+		} else {
+			if err := json.Unmarshal([]byte(payload), &event); err != nil {
+				logger.L().Warn("openai chat_completions stream: failed to parse event",
+					zap.Error(err),
+					zap.String("request_id", requestID),
+				)
+				return false
+			}
+			refusalDetector.ObservePayload([]byte(payload))
 		}
-		refusalDetector.ObservePayload([]byte(payload))
 
 		isTerminalEvent := isOpenAICompatResponsesTerminalEvent(event.Type)
 		if isTerminalEvent {
@@ -898,7 +922,7 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 			}
 		}
 		if len(chunks) > 0 && !clientDisconnected && clientOutputStarted {
-			c.Writer.Flush()
+			clientFlusher.Flush(moreUpstreamQueued())
 		}
 		return isTerminalEvent
 	}
@@ -1062,8 +1086,12 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 	}
 	lastDataAt := time.Now()
 	var parser openAICompatSSEFrameParser
+	moreUpstreamQueued = func() bool { return len(events) > 0 }
 
 	for {
+		if len(events) == 0 {
+			clientFlusher.Drain()
+		}
 		select {
 		case ev, ok := <-events:
 			if !ok {

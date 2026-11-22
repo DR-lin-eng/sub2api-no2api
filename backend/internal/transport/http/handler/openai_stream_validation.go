@@ -5,7 +5,10 @@ import "github.com/tidwall/gjson"
 const invalidStreamFieldTypeMessage = "invalid stream field type"
 
 func parseOpenAICompatibleStream(body []byte) (bool, bool) {
-	streamResult := gjson.GetBytes(body, "stream")
+	return parseOpenAICompatibleStreamField(gjson.GetBytes(body, "stream"))
+}
+
+func parseOpenAICompatibleStreamField(streamResult gjson.Result) (bool, bool) {
 	if streamResult.Exists() && streamResult.Type != gjson.True && streamResult.Type != gjson.False {
 		return false, false
 	}

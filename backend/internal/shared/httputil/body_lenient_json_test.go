@@ -182,3 +182,84 @@ func TestNormalizeLenientJSONRequestBody_rejects_expansion_past_limit(t *testing
 		t.Fatalf("limit mismatch: got %d want %d", maxErr.Limit, len(body)+5)
 	}
 }
+
+// referenceNormalizeLenientJSON is the plain per-byte scan the bulk-skipping
+// implementation must stay identical to.
+func referenceNormalizeLenientJSON(body []byte, maxNormalizedBytes int64) ([]byte, bool) {
+	body = trimUTF8BOM(body)
+	if int64(len(body)) > maxNormalizedBytes {
+		return nil, false
+	}
+	out := make([]byte, 0, len(body))
+	inString, escaped := false, false
+	for _, b := range body {
+		if inString && isJSONControlByte(b) {
+			out = appendJSONUnicodeEscape(out, b)
+			escaped = false
+		} else {
+			switch {
+			case escaped:
+				escaped = false
+			case inString && b == '\\':
+				escaped = true
+			case b == '"':
+				inString = !inString
+			}
+			out = append(out, b)
+		}
+		if int64(len(out)) > maxNormalizedBytes {
+			return nil, false
+		}
+	}
+	return out, true
+}
+
+func TestNormalizeLenientJSONRequestBody_matches_per_byte_reference(t *testing.T) {
+	alphabet := []byte("\"\"\"\\\\ab{}[]:, \n\t\x00\x1f\x7f\x80\xff")
+	state := uint64(0x9e3779b97f4a7c15)
+	next := func(n int) int {
+		state ^= state << 13
+		state ^= state >> 7
+		state ^= state << 17
+		return int(state % uint64(n))
+	}
+	for round := 0; round < 4000; round++ {
+		body := make([]byte, next(96))
+		for i := range body {
+			if next(4) == 0 {
+				body[i] = alphabet[next(len(alphabet))]
+			} else {
+				body[i] = byte('a' + next(26))
+			}
+		}
+		for _, limit := range []int64{int64(len(body)), int64(len(body)) + 5, int64(len(body)) + 64, 1 << 20} {
+			if limit == 0 {
+				continue
+			}
+			want, wantOK := referenceNormalizeLenientJSON(body, limit)
+			got, err := NormalizeLenientJSONRequestBody(body, limit)
+			if !wantOK {
+				var maxErr *http.MaxBytesError
+				if !errors.As(err, &maxErr) {
+					t.Fatalf("body=%q limit=%d: err=%v, want MaxBytesError", body, limit, err)
+				}
+				continue
+			}
+			if err != nil || !bytes.Equal(got, want) {
+				t.Fatalf("body=%q limit=%d: got=%q err=%v, want=%q", body, limit, got, err, want)
+			}
+		}
+	}
+}
+
+func BenchmarkNormalizeLenientJSONRequestBody(b *testing.B) {
+	text := bytes.Repeat([]byte("The quick brown fox jumps over the lazy dog. "), 512<<10/45)
+	body := append(append([]byte(`{"model":"gpt-5.5","input":"`), text...), `","stream":true}`...)
+	b.SetBytes(int64(len(body)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := NormalizeLenientJSONRequestBody(body, 0); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

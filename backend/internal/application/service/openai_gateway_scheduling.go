@@ -68,7 +68,7 @@ func explicitOpenAISessionID(c *gin.Context, body []byte) string {
 
 	sessionID := explicitOpenAIHeaderSessionID(c)
 	if sessionID == "" && len(body) > 0 {
-		sessionID = strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String())
+		sessionID = strings.TrimSpace(OpenAIRequestBodyField(c, body, "prompt_cache_key").String())
 	}
 	return sessionID
 }
@@ -100,7 +100,7 @@ func explicitOpenAIRequestSessionID(c *gin.Context, body []byte) string {
 		sessionID = strings.TrimSpace(c.GetHeader(grokConversationIDHeader))
 	}
 	if sessionID == "" && len(body) > 0 {
-		sessionID = strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String())
+		sessionID = strings.TrimSpace(OpenAIRequestBodyField(c, body, "prompt_cache_key").String())
 	}
 	return sessionID
 }
@@ -153,10 +153,10 @@ func (s *OpenAIGatewayService) generateSessionHash(c *gin.Context, groupID *int6
 		// Claude Code's metadata identity is a real conversation signal. It must
 		// win over the content-derived fallback, whose stable-prefix assumptions
 		// are not guaranteed for Claude Code's evolving instructions/tool state.
-		if metadataSeed := deriveClaudeCodeMetadataSessionSeed(body); metadataSeed != "" {
+		if metadataSeed := deriveClaudeCodeMetadataRequestSessionSeed(c, body); metadataSeed != "" {
 			sessionID = metadataSeed
 		} else {
-			sessionID = deriveOpenAIContentSessionSeed(body)
+			sessionID = deriveOpenAIRequestContentSessionSeed(c, body)
 			contentDerived = sessionID != ""
 		}
 	}

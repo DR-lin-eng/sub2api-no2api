@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
-	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/apicompat"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 	middleware2 "github.com/DR-lin-eng/sub2api-no2api/internal/transport/http/server/middleware"
@@ -106,7 +106,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	}
 
 	// 使用 gjson 只读提取字段做校验，避免完整 Unmarshal
-	modelResult := gjson.GetBytes(body, "model")
+	modelResult := service.OpenAIRequestBodyField(c, body, "model")
 	if !modelResult.Exists() || modelResult.Type != gjson.String || modelResult.String() == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return
@@ -124,7 +124,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	if cappedBody, changed := applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, body); changed {
 		body = cappedBody
 	}
-	if normalizedBody, bootstrapKind, changed := apicompat.NormalizeCodexCallOutputBootstrap(body); changed {
+	if normalizedBody, bootstrapKind, changed := service.NormalizeCodexCallOutputBootstrapForRequest(c, body); changed {
 		body = normalizedBody
 		reqLog.Info("openai.codex_bootstrap_normalized",
 			zap.String("kind", bootstrapKind),
@@ -132,14 +132,14 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		)
 	}
 
-	reqStream, ok := parseOpenAICompatibleStream(body)
+	reqStream, ok := parseOpenAICompatibleStreamField(service.OpenAIRequestBodyField(c, body, "stream"))
 	if !ok {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", invalidStreamFieldTypeMessage)
 		return
 	}
 	forceImageTool := groupForcesOpenAIImageTool(c, apiKey) && isBareOpenAIResponsesPath(c)
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
-	previousResponseID := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())
+	previousResponseID := strings.TrimSpace(service.OpenAIRequestBodyField(c, body, "previous_response_id").String())
 	if previousResponseID != "" {
 		previousResponseIDKind := service.ClassifyOpenAIPreviousResponseIDKind(previousResponseID)
 		reqLog = reqLog.With(
@@ -318,6 +318,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	}
 	var failedAccountIDs map[int64]struct{}
 	profitVetoCount := 0
+	// body is final here; hash it at most once per request, and only when a
+	// usage or cyber-policy record needs it.
+	usagePayloadHash := sync.OnceValue(func() string { return service.HashUsageRequestPayload(body) })
 	var sameAccountRetryCount map[int64]int
 	var lastFailoverErr *service.UpstreamFailoverError
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
@@ -476,11 +479,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			}()
 			return h.gatewayService.Forward(c.Request.Context(), c, account, attemptBody)
 		}()
-		cyberBlockKeyHTTP := ""
+		cyberBlockKeyHTTP, cyberPayloadHash := "", ""
 		if service.GetOpsCyberPolicy(c) != nil {
 			cyberBlockKeyHTTP = service.CyberSessionBlockKey(apiKey.ID, c, sessionHashBody)
+			cyberPayloadHash = usagePayloadHash()
 		}
-		h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, reqModel, err != nil, cyberBlockKeyHTTP, clientRequestedUsageFields(c, channelMapping, reqModel, ""), service.HashUsageRequestPayload(body))
+		h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, reqModel, err != nil, cyberBlockKeyHTTP, clientRequestedUsageFields(c, channelMapping, reqModel, ""), cyberPayloadHash)
 		forwardDurationMs := time.Since(forwardStart).Milliseconds()
 		upstreamLatencyMs, _ := getContextInt64(c, service.OpsUpstreamLatencyMsKey)
 		responseLatencyMs := forwardDurationMs
@@ -625,7 +629,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// 捕获请求信息（用于异步记录，避免在 goroutine 中访问 gin.Context）
 		userAgent := c.GetHeader("User-Agent")
 		clientIP := ip.GetClientIP(c)
-		requestPayloadHash := service.HashUsageRequestPayload(body)
+		requestPayloadHash := usagePayloadHash()
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account, result)
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
@@ -706,7 +710,7 @@ func (r openAIResponsesCompactionRoute) requiresResponses() bool {
 // 返回归一化后的 body；ok=false 表示错误响应已写出，调用方应直接 return。
 func (h *OpenAIGatewayHandler) normalizeOpenAIResponsesCompactRequest(c *gin.Context, reqLog *zap.Logger, body []byte) ([]byte, openAIResponsesCompactionRoute, bool) {
 	route := openAIResponsesCompactionRoute{legacyCompact: service.IsOpenAIResponsesCompactPath(c)}
-	if !route.legacyCompact && isBareOpenAIResponsesPath(c) && service.HasCompactionTriggerInInput(body) {
+	if !route.legacyCompact && isBareOpenAIResponsesPath(c) && service.HasCompactionTriggerInRequestInput(c, body) {
 		stream, valid := parseOpenAICompatibleStream(body)
 		if valid && stream {
 			route.nativeV2 = true
@@ -724,7 +728,7 @@ func (h *OpenAIGatewayHandler) normalizeOpenAIResponsesCompactRequest(c *gin.Con
 	if !route.legacyCompact {
 		return body, route, true
 	}
-	if compactSeed := strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String()); compactSeed != "" {
+	if compactSeed := strings.TrimSpace(service.OpenAIRequestBodyField(c, body, "prompt_cache_key").String()); compactSeed != "" {
 		c.Set(service.OpenAICompactSessionSeedKeyForTest(), compactSeed)
 	}
 	normalizedCompactBody, normalizedCompact, compactErr := service.NormalizeOpenAICompactRequestBodyForTest(body)

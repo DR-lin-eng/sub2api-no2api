@@ -21,14 +21,16 @@ var (
 )
 
 type openAIResponsesRejectedFieldRetryState struct {
-	attempts       int
+	attempts int
+	// pendingBodies are remembered bodies whose digest has not been needed yet.
+	// Hashing is deferred to the first Allow call, so requests that never hit a
+	// field rejection do not pay a full-body SHA-256.
+	pendingBodies  [][]byte
 	seenBodyHashes map[[sha256.Size]byte]struct{}
 }
 
 func newOpenAIResponsesRejectedFieldRetryState(initialBody []byte) *openAIResponsesRejectedFieldRetryState {
-	state := &openAIResponsesRejectedFieldRetryState{
-		seenBodyHashes: make(map[[sha256.Size]byte]struct{}, maxOpenAIResponsesRejectedFieldRetries+1),
-	}
+	state := &openAIResponsesRejectedFieldRetryState{}
 	state.remember(initialBody)
 	return state
 }
@@ -37,6 +39,7 @@ func (s *openAIResponsesRejectedFieldRetryState) Allow(nextBody []byte) bool {
 	if s == nil || len(nextBody) == 0 || s.attempts >= maxOpenAIResponsesRejectedFieldRetries {
 		return false
 	}
+	s.hashPendingBodies()
 	bodyHash := sha256.Sum256(nextBody)
 	if _, seen := s.seenBodyHashes[bodyHash]; seen {
 		return false
@@ -46,14 +49,23 @@ func (s *openAIResponsesRejectedFieldRetryState) Allow(nextBody []byte) bool {
 	return true
 }
 
+// remember records a body that was already sent upstream. The caller must not
+// mutate body afterwards.
 func (s *openAIResponsesRejectedFieldRetryState) remember(body []byte) {
 	if s == nil || len(body) == 0 {
 		return
 	}
+	s.pendingBodies = append(s.pendingBodies, body)
+}
+
+func (s *openAIResponsesRejectedFieldRetryState) hashPendingBodies() {
 	if s.seenBodyHashes == nil {
 		s.seenBodyHashes = make(map[[sha256.Size]byte]struct{}, maxOpenAIResponsesRejectedFieldRetries+1)
 	}
-	s.seenBodyHashes[sha256.Sum256(body)] = struct{}{}
+	for _, body := range s.pendingBodies {
+		s.seenBodyHashes[sha256.Sum256(body)] = struct{}{}
+	}
+	s.pendingBodies = nil
 }
 
 func normalizeOpenAIResponsesRejectedFieldRetryBody(statusCode int, body, responseBody []byte) ([]byte, string, bool, error) {

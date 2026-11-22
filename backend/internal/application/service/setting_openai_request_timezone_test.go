@@ -20,7 +20,7 @@ func TestOpenAIRequestTimezoneRuntimePersistsAndChangesWithoutRestart(t *testing
 	account := &Account{Platform: PlatformOpenAI}
 	body := []byte(`{"input":[{"role":"user","content":"<environment_context><timezone>Asia/Shanghai</timezone></environment_context>"}],"tools":[{"type":"web_search","user_location":{"timezone":"Asia/Shanghai"}}]}`)
 	for _, transport := range []string{"http", "ws"} {
-		out := gateway.normalizeOpenAIRequestTimezone(ctx, account, body, transport)
+		out := gateway.normalizeOpenAIRequestTimezone(ctx, nil, account, body, transport)
 		require.Equal(t, "Asia/Singapore", gjson.GetBytes(out, "tools.0.user_location.timezone").String())
 	}
 
@@ -29,7 +29,7 @@ func TestOpenAIRequestTimezoneRuntimePersistsAndChangesWithoutRestart(t *testing
 	require.NoError(t, settings.UpdateSettings(ctx, updated))
 	require.Equal(t, "Asia/Tokyo", repo.data[SettingKeyOpenAIRequestTimezone])
 	for _, transport := range []string{"http", "ws"} {
-		out := gateway.normalizeOpenAIRequestTimezone(ctx, account, body, transport)
+		out := gateway.normalizeOpenAIRequestTimezone(ctx, nil, account, body, transport)
 		require.Contains(t, gjson.GetBytes(out, "input.0.content").String(), "<timezone>Asia/Tokyo</timezone>")
 		require.Equal(t, "Asia/Tokyo", gjson.GetBytes(out, "tools.0.user_location.timezone").String())
 	}
@@ -41,7 +41,7 @@ func TestOpenAIRequestTimezoneRuntimePersistsAndChangesWithoutRestart(t *testing
 	updated.OpenAIRequestTimezoneEnabled = false
 	require.NoError(t, settings.UpdateSettings(ctx, updated))
 	for _, transport := range []string{"http", "ws"} {
-		require.Equal(t, body, gateway.normalizeOpenAIRequestTimezone(ctx, account, body, transport))
+		require.Equal(t, body, gateway.normalizeOpenAIRequestTimezone(ctx, nil, account, body, transport))
 	}
 	updated.OpenAIRequestTimezoneEnabled = true
 	updated.OpenAIRequestTimezone = ""

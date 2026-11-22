@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 	"strings"
@@ -23,11 +24,25 @@ func setOpenAIStreamReplaySafe(c *gin.Context, replaySafe bool) {
 	}
 }
 
+// setOpenAIStreamReplaySafeLazy defers the replay-safety probe until a stream
+// failure actually asks for it; a successful stream never scans the body.
+// probe must only read data that stays immutable for the attempt.
+func setOpenAIStreamReplaySafeLazy(c *gin.Context, probe func() bool) {
+	if c != nil && probe != nil {
+		c.Set(openAIStreamReplaySafeContextKey, probe)
+	}
+}
+
 func openAIStreamReplaySafe(c *gin.Context) bool {
 	if c == nil {
 		return false
 	}
 	value, _ := c.Get(openAIStreamReplaySafeContextKey)
+	if probe, ok := value.(func() bool); ok {
+		replaySafe := probe()
+		c.Set(openAIStreamReplaySafeContextKey, replaySafe)
+		return replaySafe
+	}
 	replaySafe, _ := value.(bool)
 	return replaySafe
 }
@@ -189,69 +204,85 @@ func normalizeOpenAIPassthroughRetrySafety(err error, replaySafe bool) error {
 }
 
 func openAIPassthroughRequestReplaySafe(c *gin.Context, reqModel string, body, canonicalBody []byte, attemptImageIntentInvalidated bool) bool {
-	if gjson.GetBytes(body, "store").Bool() || gjson.GetBytes(canonicalBody, "store").Bool() {
-		return false
-	}
+	// The attempt body usually equals the canonical body; probe it once then.
+	sameBody := bytes.Equal(body, canonicalBody)
 	// Do not use resolveOpenAIPassthroughImageIntent here: that helper writes
 	// the request's canonical image-intent hint, and this retry-safety probe must
 	// never alter the routing decision made by the handler.
 	if IsExplicitImageGenerationIntent(openAIResponsesEndpoint, reqModel, canonicalBody) ||
-		(!attemptImageIntentInvalidated && IsExplicitImageGenerationIntent(openAIResponsesEndpoint, reqModel, body)) {
+		(!sameBody && !attemptImageIntentInvalidated && IsExplicitImageGenerationIntent(openAIResponsesEndpoint, reqModel, body)) {
 		return false
 	}
-	for _, candidate := range [][]byte{canonicalBody, body} {
-		if openAIInputContainsNativeImageGeneration(candidate) {
-			return false
-		}
-		if openAIRequestContainsNonReplayableHostedTool(candidate) {
-			return false
-		}
-	}
-	if strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String()) != "" ||
-		strings.TrimSpace(gjson.GetBytes(canonicalBody, "previous_response_id").String()) != "" {
+	if !openAIRequestBodyReplaySafe(canonicalBody) {
 		return false
 	}
-	for _, input := range []gjson.Result{gjson.GetBytes(body, "input"), gjson.GetBytes(canonicalBody, "input")} {
-		if !input.Exists() || !input.IsArray() {
-			continue
-		}
-		for _, item := range input.Array() {
-			typeName := strings.ToLower(strings.TrimSpace(item.Get("type").String()))
-			if strings.HasSuffix(typeName, "_output") || typeName == "function_call_output" {
-				return false
-			}
-		}
-	}
-	return true
+	return sameBody || openAIRequestBodyReplaySafe(body)
 }
 
-func openAIRequestContainsNonReplayableHostedTool(body []byte) bool {
-	tools := gjson.GetBytes(body, "tools")
+// openAIRequestBodyReplaySafe reports whether one request body can be sent
+// again without repeating a stored response, hosted tool call, or tool output.
+// It walks the top-level object and the input array once.
+func openAIRequestBodyReplaySafe(body []byte) bool {
+	var storeSeen, previousSeen, toolsSeen, inputSeen bool
+	safe := true
+	parseRawJSONView(body).ForEach(func(key, value gjson.Result) bool {
+		switch key.Str {
+		case "store":
+			if !storeSeen {
+				storeSeen = true
+				safe = !value.Bool()
+			}
+		case "previous_response_id":
+			if !previousSeen {
+				previousSeen = true
+				safe = strings.TrimSpace(value.String()) == ""
+			}
+		case "tools":
+			if !toolsSeen {
+				toolsSeen = true
+				safe = !openAIJSONToolsContainNonReplayableHostedTool(value)
+			}
+		case "input":
+			if !inputSeen {
+				inputSeen = true
+				safe = openAIJSONInputReplaySafe(value)
+			}
+		}
+		return safe
+	})
+	return safe
+}
+
+func openAIJSONInputReplaySafe(input gjson.Result) bool {
+	if !input.IsArray() {
+		return true
+	}
+	safe := true
+	input.ForEach(func(_, item gjson.Result) bool {
+		rawType := item.Get("type").String()
+		typeName := strings.ToLower(strings.TrimSpace(rawType))
+		if strings.HasSuffix(typeName, "_output") {
+			safe = false
+		} else if strings.TrimSpace(rawType) == "additional_tools" &&
+			openAIJSONToolsContainNativeImageGeneration(item.Get("tools")) {
+			safe = false
+		}
+		return safe
+	})
+	return safe
+}
+
+func openAIJSONToolsContainNonReplayableHostedTool(tools gjson.Result) bool {
 	if !tools.IsArray() {
 		return false
 	}
-	for _, tool := range tools.Array() {
-		typeName := strings.ToLower(strings.TrimSpace(tool.Get("type").String()))
-		switch typeName {
+	found := false
+	tools.ForEach(func(_, tool gjson.Result) bool {
+		switch strings.ToLower(strings.TrimSpace(tool.Get("type").String())) {
 		case "code_interpreter", "computer_use_preview", "file_search", "web_search_preview", "web_search", "mcp":
-			return true
+			found = true
 		}
-	}
-	return false
-}
-
-func openAIInputContainsNativeImageGeneration(body []byte) bool {
-	input := gjson.GetBytes(body, "input")
-	if !input.IsArray() {
-		return false
-	}
-	for _, item := range input.Array() {
-		if strings.TrimSpace(item.Get("type").String()) != "additional_tools" {
-			continue
-		}
-		if openAIJSONToolsContainNativeImageGeneration(item.Get("tools")) {
-			return true
-		}
-	}
-	return false
+		return !found
+	})
+	return found
 }

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/apicompat"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/openai"
 	"github.com/gin-gonic/gin"
@@ -26,7 +25,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		body = stripDistillationCacheFields(body)
 	}
 	integrityOriginalBody := s.captureOpenAIRequestIntegritySnapshot(ctx, account, body)
-	body = s.normalizeOpenAIRequestTimezone(ctx, account, body, "http")
+	body = s.normalizeOpenAIRequestTimezone(ctx, c, account, body, "http")
 	ctx = s.withOpenAIStreamRuntimeSettingsForRequest(ctx, c)
 	beginAccountUpstreamResponseModelObservation(c, account)
 	beginOpenAITimingObservation(c)
@@ -37,7 +36,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	clearGrokResponsesClientToolMapping(c)
 	clearOpenAIResponsesNamespaceNames(c)
 	startTime := time.Now()
-	if normalizedBody, _, changed := apicompat.NormalizeCodexCallOutputBootstrap(body); changed {
+	if normalizedBody, _, changed := NormalizeCodexCallOutputBootstrapForRequest(c, body); changed {
 		body = normalizedBody
 	}
 	// 固定渠道映射后的请求级 canonical body；账号 normalize/strip 不得改写跨 failover hint。
@@ -106,9 +105,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 	if shouldStripOpenAIResponsesInputNamespaces(account, wsDecision.Transport, passthroughEnabled) {
-		keepToolCallNamespaces := shouldKeepOpenAIResponsesToolCallNamespaces(
-			account, wsDecision.Transport, passthroughEnabled, compactPath, body,
-		)
+		keepToolCallNamespaces := shouldKeepOpenAIResponsesToolCallNamespaces(account, wsDecision.Transport, passthroughEnabled, compactPath, c, body)
 		body, err = stripOpenAIResponsesInputNamespaces(body, keepToolCallNamespaces)
 		if err != nil {
 			setOpsUpstreamError(c, http.StatusBadRequest, err.Error(), "")
@@ -197,7 +194,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body, startTime)
 	}
 
-	compatMessagesBridge := isOpenAICompatMessagesBridgeBody(body)
+	compatMessagesBridge := isOpenAICompatMessagesBridgeBodyForRequest(c, body)
 	setOpenAICompatMessagesBridgeContext(c, compatMessagesBridge)
 
 	isCodexCLI := openai.IsCodexOfficialClientByHeaders(c.GetHeader("User-Agent"), c.GetHeader("originator")) || (s.cfg != nil && s.cfg.Gateway.ForceCodexCLI)
@@ -396,7 +393,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 	patchGPT62ResponsesParameters(body, upstreamModel, markPatchSet, markPatchDelete)
-	if rawEffort := gjson.GetBytes(body, "reasoning.effort").String(); rawEffort != "" {
+	if rawEffort := OpenAIRequestBodyField(c, body, "reasoning.effort").String(); rawEffort != "" {
 		if normalizedEffort, changed := normalizeOpenAIReasoningEffortForUpstream(rawEffort, upstreamModel); changed {
 			markPatchSet("reasoning.effort", normalizedEffort)
 			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Normalized reasoning.effort: %s -> %s (model: %s, account: %s)", rawEffort, normalizedEffort, upstreamModel, account.Name)
@@ -508,7 +505,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	if !isCodexCLI {
-		maxOutputTokens := gjson.GetBytes(body, "max_output_tokens")
+		maxOutputTokens := OpenAIRequestBodyField(c, body, "max_output_tokens")
 		if maxOutputTokens.Exists() {
 			switch account.Platform {
 			case PlatformOpenAI:
@@ -535,19 +532,19 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// 仅对 OpenAI 平台归一化：Anthropic 合法使用 max_tokens，其 max_output_tokens
 		// 反向转换已在上方 switch 中处理。
 		if account.Platform == PlatformOpenAI {
-			if maxTokens := gjson.GetBytes(body, "max_tokens"); maxTokens.Exists() {
+			if maxTokens := OpenAIRequestBodyField(c, body, "max_tokens"); maxTokens.Exists() {
 				// OAuth preparation has already removed unsupported output limits.
-				if account.Type != AccountTypeOAuth && !gjson.GetBytes(body, "max_output_tokens").Exists() {
+				if account.Type != AccountTypeOAuth && !OpenAIRequestBodyField(c, body, "max_output_tokens").Exists() {
 					markPatchSet("max_output_tokens", maxTokens.Value())
 				}
 				markPatchDelete("max_tokens")
 			}
 		}
-		if gjson.GetBytes(body, "max_completion_tokens").Exists() && (account.Type == AccountTypeAPIKey || account.Platform != PlatformOpenAI) {
+		if OpenAIRequestBodyField(c, body, "max_completion_tokens").Exists() && (account.Type == AccountTypeAPIKey || account.Platform != PlatformOpenAI) {
 			markPatchDelete("max_completion_tokens")
 		}
 		for _, unsupportedField := range []string{"prompt_cache_retention", "safety_identifier", "prompt_cache_options"} {
-			if gjson.GetBytes(body, unsupportedField).Exists() {
+			if OpenAIRequestBodyField(c, body, unsupportedField).Exists() {
 				markPatchDelete(unsupportedField)
 			}
 		}
@@ -559,7 +556,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		)
 	}
 	if wsDecision.Transport != OpenAIUpstreamTransportResponsesWebsocketV2 &&
-		gjson.GetBytes(body, "previous_response_id").Exists() && !codexContinuationRecoveryForbidden(c) {
+		OpenAIRequestBodyField(c, body, "previous_response_id").Exists() && !codexContinuationRecoveryForbidden(c) {
 		markPatchDelete("previous_response_id")
 	}
 	if openAIRequestBodyMayContainEmptyBase64InputImage(body) {
@@ -939,9 +936,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 
-	reasoningEffort := extractOpenAIReasoningEffortFromBody(body, upstreamModel, billingModel, originalModel)
+	reasoningEffort := extractOpenAIReasoningEffortFromRequestBody(c, body, upstreamModel, billingModel, originalModel)
 	// 国产模型默认 effort 补充：此处 reqModel 已被 mapping 重写为 billingModel。
-	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, reqModel)
+	reasoningEffort = applyThinkingEnabledFallbackForRequest(c, reasoningEffort, body, reqModel)
 	reasoningEffortValue := ""
 	if reasoningEffort != nil {
 		reasoningEffortValue = *reasoningEffort
@@ -1120,7 +1117,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 		defer func() { _ = resp.Body.Close() }()
 
-		serviceTier := extractOpenAIServiceTierFromBody(body)
+		serviceTier := extractOpenAIServiceTierFromRequestBody(c, body)
 		// 上游接受后只保留计费需要的标量，避免响应处理期间继续保活完整 input/tools map。
 		reqBody = nil
 
@@ -1135,7 +1132,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			// Keep the replay decision with this request so a body-read timeout
 			// from the experimental client cannot be mistaken for a downstream
 			// disconnect or replay an unsafe tool request.
-			setOpenAIStreamReplaySafe(c, openAIPassthroughRequestReplaySafe(c, reqModel, body, canonicalImageIntentBody, false))
+			replayModel, replayBody := reqModel, body
+			setOpenAIStreamReplaySafeLazy(c, func() bool {
+				return openAIPassthroughRequestReplaySafe(c, replayModel, replayBody, canonicalImageIntentBody, false)
+			})
 			streamResult, streamErr := s.handleStreamingResponseWithReasoning(ctx, resp, c, account, startTime, originalModel, upstreamModel, reasoningEffortValue)
 			responseErr = streamErr
 			if streamResult != nil {

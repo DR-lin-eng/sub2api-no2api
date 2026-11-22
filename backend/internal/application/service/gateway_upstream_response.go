@@ -1107,7 +1107,20 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 		return []string{block}, string(newData), usagePatch, nil
 	}
 
+	clientFlusher := streamFlushCoalescer{
+		enabled: s.settingService.IsStreamModePerformanceEnabled(ctx),
+		flush: func() {
+			if !clientDisconnected {
+				flusher.Flush()
+			}
+		},
+	}
+	defer clientFlusher.Drain()
+
 	for {
+		if len(events) == 0 {
+			clientFlusher.Drain()
+		}
 		select {
 		case ev, ok := <-events:
 			if !ok {
@@ -1188,7 +1201,7 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 							// 否则会漏计当前事件携带的 usage 导致少计费。后续写入由
 							// clientDisconnected 守卫跳过。
 						} else {
-							flusher.Flush()
+							clientFlusher.Flush(len(events) > 0)
 							lastDataAt = time.Now()
 							resetKeepaliveTimer()
 						}
