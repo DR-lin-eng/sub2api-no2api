@@ -547,6 +547,26 @@ func TestGetIntervalPricing_WithChannelIntervals(t *testing.T) {
 	require.InDelta(t, 10e-6, pricing2.OutputPricePerToken, 1e-12)
 }
 
+func TestGetIntervalPricing_UsesConfiguredDefaultOutsideTier(t *testing.T) {
+	r := newResolverWithChannel(t, []ChannelModelPricing{{
+		Platform: PlatformAnthropic, Models: []string{"claude-sonnet-4"}, BillingMode: BillingModeToken,
+		InputPrice: testPtrFloat64(2.25e-6), CacheWritePrice: testPtrFloat64(0),
+		Intervals: []PricingInterval{
+			{MinTokens: 100, MaxTokens: testPtrInt(200), InputPrice: testPtrFloat64(4e-6)},
+		},
+	}})
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", GroupID: groupIDPtr()})
+	for _, tc := range []struct {
+		tokens int
+		want   float64
+	}{{100, 2.25e-6}, {101, 4e-6}, {200, 4e-6}, {201, 2.25e-6}} {
+		require.InDelta(t, tc.want, r.GetIntervalPricing(resolved, tc.tokens).InputPricePerToken, 1e-12)
+	}
+	require.True(t, resolved.BasePricing.CacheCreationPriceExplicit)
+	require.Zero(t, resolved.BasePricing.CacheCreationPricePerToken)
+	require.InDelta(t, 15e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
+}
+
 func TestGetIntervalPricing_ChannelIntervalsNoMatch(t *testing.T) {
 	// Channel intervals don't match token count → falls back to BasePricing.
 	r := newResolverWithChannel(t, []ChannelModelPricing{{
