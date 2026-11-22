@@ -1,6 +1,15 @@
-import type { AccountUsageInfo } from '@/types'
+import type { Account, AccountUsageInfo } from '@/types'
 
 interface AntigravityUsageResult { utilization: number; resetTime: string | null }
+
+export function getAntigravityTier(account: Account): string | null {
+  if (account.platform !== 'antigravity') return null
+  const loadCodeAssist = account.extra?.load_code_assist as Record<string, unknown> | undefined
+  const paid = loadCodeAssist?.paidTier as { id?: unknown } | undefined
+  if (typeof paid?.id === 'string') return paid.id
+  const current = loadCodeAssist?.currentTier as { id?: unknown } | undefined
+  return typeof current?.id === 'string' ? current.id : null
+}
 
 export function resolveAntigravityQuotaGroupBars(groups: AccountUsageInfo['antigravity_quota_groups'], t: (key: string) => string) {
   if (!groups || groups.length === 0) return []

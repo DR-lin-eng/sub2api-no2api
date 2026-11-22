@@ -593,7 +593,7 @@ import { formatCompactNumber, formatRelativeTime } from '@/core/utils/format'
 import { useOpenAIQuotaDisplayState } from '@/features/admin-accounts/presentation/composables/useOpenAIQuotaDisplayState'
 import type { OpenAIQuotaRefreshResult, OpenAIQuotaUsage } from '@/features/admin-accounts/data/dtos/openAIQuotaDtos'
 import type { OpenAIUsageLiveTransport } from '../composables/useAccountsOpenAIUsagePush'
-import { resolveAntigravityModelUsage, resolveAntigravityQuotaGroupBars } from '../antigravityQuotaDisplay'
+import { getAntigravityTier, resolveAntigravityModelUsage, resolveAntigravityQuotaGroupBars } from '../antigravityQuotaDisplay'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
@@ -755,27 +755,7 @@ const aiCreditsDisplay = computed(() => {
   return total.toFixed(0)
 })
 
-// Antigravity 账户类型（从 load_code_assist 响应中提取）
-const antigravityTier = computed(() => {
-  const extra = props.account.extra as Record<string, unknown> | undefined
-  if (!extra) return null
-
-  const loadCodeAssist = extra.load_code_assist as Record<string, unknown> | undefined
-  if (!loadCodeAssist) return null
-
-  // 优先取 paidTier，否则取 currentTier
-  const paidTier = loadCodeAssist.paidTier as Record<string, unknown> | undefined
-  if (paidTier && typeof paidTier.id === 'string') {
-    return paidTier.id
-  }
-
-  const currentTier = loadCodeAssist.currentTier as Record<string, unknown> | undefined
-  if (currentTier && typeof currentTier.id === 'string') {
-    return currentTier.id
-  }
-
-  return null
-})
+const antigravityTier = computed(() => getAntigravityTier(props.account))
 
 // Gemini 账户类型（从 credentials 中提取）
 const geminiTier = computed(() => {
