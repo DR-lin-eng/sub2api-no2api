@@ -50,16 +50,16 @@ func (s *OpenAIGatewayService) ResolveMultimodalVideoTaskOwner(ctx context.Conte
 	return accountID, err
 }
 
-// Composite subscription/simple requests have no PostgreSQL hold. Their
-// owner-scoped cache binding must succeed before returning an accepted task.
-func (s *OpenAIGatewayService) bindCompositeMultimodalVideoOwner(ctx context.Context, c *gin.Context, account *Account, responseBody []byte) error {
+// Composite and native submissions without a PostgreSQL hold need an
+// owner-scoped cache binding before the public task can be delivered.
+func (s *OpenAIGatewayService) bindMultimodalVideoOwnerBeforeDelivery(ctx context.Context, c *gin.Context, account *Account, responseBody []byte, native bool) error {
 	apiKey := getAPIKeyFromContext(c)
-	if apiKey == nil || apiKey.Group == nil || apiKey.Group.Platform != PlatformComposite {
+	if !native && (apiKey == nil || apiKey.Group == nil || apiKey.Group.Platform != PlatformComposite) {
 		return nil
 	}
 	requestID := extractGrokMediaVideoRequestID(responseBody)
-	if apiKey.GroupID == nil || account == nil || requestID == "" {
-		return ErrBalanceHoldFailed.WithCause(fmt.Errorf("composite multimodal video response has no recoverable owner"))
+	if apiKey == nil || apiKey.GroupID == nil || account == nil || requestID == "" {
+		return ErrBalanceHoldFailed.WithCause(fmt.Errorf("multimodal video response has no recoverable owner"))
 	}
 	if err := s.BindMultimodalMediaVideoRequestAccount(ctx, apiKey.GroupID, requestID, apiKey.UserID, apiKey.ID, account.ID); err != nil {
 		return ErrBalanceHoldFailed.WithCause(err)

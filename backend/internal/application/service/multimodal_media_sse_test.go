@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
 	"github.com/gin-gonic/gin"
@@ -110,6 +111,58 @@ func TestForwardMultimodalMediaImageSSEFlushesBeforeNextRead(t *testing.T) {
 	result, err := svc.ForwardMultimodalMedia(context.Background(), c, account, MultimodalMediaEndpointImagesGenerations, "", body, "application/json", nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, result.ImageCount)
+}
+
+func TestMultimodalStreamHeartbeatDuringUpstreamGaps(t *testing.T) {
+	reader := &multimodalChunkReader{chunks: []string{
+		": upstream heartbeat\n\n",
+		"data: {\"data\":[{\"b64_json\":\"one\"}]}\n\n",
+		"data: [DONE]\n\n",
+	}}
+	body := []byte(`{"model":"seedream","stream":true}`)
+	svc, c, rec, _, account := multimodalImageForwardFixture(t, body, "application/json", reader)
+	stop := StartOpenAIImagesSSEKeepalive(c, time.Hour)
+	defer stop()
+	k := openAIImagesJSONKeepaliveFromContext(c)
+	reader.beforeRead = func() {
+		switch len(reader.chunks) {
+		case 2:
+			require.Equal(t, -1, OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c))
+			require.False(t, IsResponseCommitted(c))
+		case 1:
+			require.True(t, IsResponseCommitted(c))
+			require.True(t, k.beat(), "a slow next frame still needs downstream heartbeats")
+		case 0:
+			require.False(t, k.beat(), "no bytes may follow DONE")
+		}
+	}
+	result, err := svc.ForwardMultimodalMedia(context.Background(), c, account, MultimodalMediaEndpointImagesGenerations, "", body, "application/json", nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ImageCount)
+	require.Contains(t, rec.Body.String(), "data: {\"data\":[{\"b64_json\":\"one\"}]}\n\ndata: {}\n\ndata: [DONE]\n\n")
+}
+
+func TestMultimodalNativeImageStreamRequiresCompletion(t *testing.T) {
+	for _, complete := range []bool{false, true} {
+		wire := "data: {\"type\":\"image_generation.partial_succeeded\",\"image_index\":0,\"b64_json\":\"aW1n\"}\n\n"
+		if complete {
+			wire += "data: {\"type\":\"image_generation.completed\",\"usage\":{\"output_tokens\":5}}\n\ndata: [DONE]\n\n"
+		}
+		body := []byte(`{"model":"doubao-seedream-4-5-fixture","prompt":"draw","response_format":"b64_json","stream":true}`)
+		svc, c, rec, upstream, account := multimodalImageForwardFixture(t, body, "application/json", strings.NewReader(wire))
+		account.Credentials["media_protocol"] = "ark"
+		result, err := svc.ForwardMultimodalMedia(context.Background(), c, account, MultimodalMediaEndpointImagesGenerations, "", body, "application/json", nil)
+		require.True(t, gjson.GetBytes(upstream.lastBody, "stream").Bool())
+		if !complete {
+			require.Error(t, err)
+			require.Empty(t, rec.Body.String())
+			continue
+		}
+		require.NoError(t, err)
+		require.Equal(t, 1, result.ImageCount)
+		require.Equal(t, 5, result.Usage.OutputTokens)
+		require.True(t, strings.HasSuffix(rec.Body.String(), "\n\ndata: [DONE]\n\n"))
+	}
 }
 
 func TestForwardMultimodalMediaImageSSEKeepsUsageAfterReadFailure(t *testing.T) {
@@ -228,10 +281,10 @@ func TestMultimodalImageMultipartStreamIntent(t *testing.T) {
 		require.NoError(t, writer.WriteField("stream", value))
 		require.NoError(t, writer.Close())
 		original := append([]byte(nil), body.Bytes()...)
-		require.Equal(t, value == "true", multimodalMediaClientWantsStream(original, writer.FormDataContentType()))
-		upstream, contentType, err := forceMultimodalImageUpstreamStream(MultimodalMediaEndpointImagesEdits, original, writer.FormDataContentType())
+		require.Equal(t, value == "true", ParseGrokMediaRequest(writer.FormDataContentType(), original).Stream)
+		upstream, contentType, err := prepareMultimodalRelayStream(MultimodalMediaEndpointImagesEdits, original, writer.FormDataContentType(), value == "true")
 		require.NoError(t, err)
-		require.True(t, multimodalMediaClientWantsStream(upstream, contentType))
+		require.True(t, ParseGrokMediaRequest(contentType, upstream).Stream)
 	}
 }
 

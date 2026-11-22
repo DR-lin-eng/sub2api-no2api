@@ -344,26 +344,31 @@ func TestReproP0_3_PollingFallsBackToBalanceHoldOwner(t *testing.T) {
 
 	// 归属缓存不可用时，冻结记录仍是权威来源。
 	recovered, err := svc.ResolveMultimodalVideoBalanceAccountID(
-		context.Background(), record.UpstreamRequestID, 42, 7,
+		context.Background(), record.UpstreamRequestID, &APIKey{UserID: 42, ID: 7, GroupID: &record.GroupID},
 	)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), recovered)
 
+	otherGroupID := record.GroupID + 1
+	otherGroup, err := svc.ResolveMultimodalVideoBalanceAccountID(context.Background(), record.UpstreamRequestID,
+		&APIKey{UserID: record.UserID, ID: record.APIKeyID, GroupID: &otherGroupID})
+	require.NoError(t, err)
+	require.Zero(t, otherGroup)
 	otherUser, err := svc.ResolveMultimodalVideoBalanceAccountID(
-		context.Background(), record.UpstreamRequestID, 43, 7,
+		context.Background(), record.UpstreamRequestID, &APIKey{UserID: 43, ID: 7, GroupID: &record.GroupID},
 	)
 	require.NoError(t, err)
 	require.Zero(t, otherUser, "其它用户不能借用该任务的归属")
 
 	otherKey, err := svc.ResolveMultimodalVideoBalanceAccountID(
-		context.Background(), record.UpstreamRequestID, 42, 8,
+		context.Background(), record.UpstreamRequestID, &APIKey{UserID: 42, ID: 8, GroupID: &record.GroupID},
 	)
 	require.NoError(t, err)
 	require.Zero(t, otherKey, "其它 API Key 不能借用该任务的归属")
 
 	record.Status = BalanceHoldStatusReleased
 	released, err := svc.ResolveMultimodalVideoBalanceAccountID(
-		context.Background(), record.UpstreamRequestID, 42, 7,
+		context.Background(), record.UpstreamRequestID, &APIKey{UserID: 42, ID: 7, GroupID: &record.GroupID},
 	)
 	require.NoError(t, err)
 	require.Zero(t, released, "已释放的冻结不再提供归属")
@@ -371,7 +376,7 @@ func TestReproP0_3_PollingFallsBackToBalanceHoldOwner(t *testing.T) {
 	// 查询失败必须与「确认无记录」区分：前者返回错误，不能被当成任务不存在。
 	repo.lookupErr = errors.New("database unavailable")
 	_, lookupErr := svc.ResolveMultimodalVideoBalanceAccountID(
-		context.Background(), record.UpstreamRequestID, 42, 7,
+		context.Background(), record.UpstreamRequestID, &APIKey{UserID: 42, ID: 7, GroupID: &record.GroupID},
 	)
 	require.Error(t, lookupErr, "查询失败必须向上暴露")
 }
@@ -414,7 +419,7 @@ func TestReproP0_4_FailoverPersistsFinalOwnerAccount(t *testing.T) {
 	require.Zero(t, missingAccountID, "缓存缺失时缓存侧查不到归属")
 
 	recoveredAccountID, err := svc.ResolveMultimodalVideoBalanceAccountID(
-		ctx, record.UpstreamRequestID, 42, 7,
+		ctx, record.UpstreamRequestID, &APIKey{UserID: 42, ID: 7, GroupID: &record.GroupID},
 	)
 	require.NoError(t, err)
 	require.Equal(t, int64(202), recoveredAccountID, "缓存缺失时必须从冻结记录恢复为账号 B")

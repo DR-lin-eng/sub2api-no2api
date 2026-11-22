@@ -20,11 +20,12 @@ import (
 // Keep only the latest output for an explicit image identity. A shared PNG/JPEG
 // base64 prefix is not an identity: unrelated images routinely share it.
 type multimodalImageSSECollector struct {
-	created  json.RawMessage
-	usage    OpenAIUsage
-	usageRaw json.RawMessage
-	images   []json.RawMessage
-	indices  map[string]int
+	completed bool
+	created   json.RawMessage
+	usage     OpenAIUsage
+	usageRaw  json.RawMessage
+	images    []json.RawMessage
+	indices   map[string]int
 }
 
 func newMultimodalImageSSECollector() *multimodalImageSSECollector {
@@ -44,7 +45,10 @@ func (a *multimodalImageSSECollector) addFrame(frame []byte) error {
 		root := gjson.ParseBytes(payload)
 		errorValue := root.Get("error")
 		eventType := root.Get("type").String()
-		if (errorValue.Exists() && errorValue.Type != gjson.Null) || eventType == "error" || strings.HasSuffix(eventType, ".failed") {
+		if eventType == "image_generation.completed" {
+			a.completed = true
+		}
+		if (errorValue.Exists() && errorValue.Type != gjson.Null) || eventType == "error" || eventType == "image_generation.partial_failed" || strings.HasSuffix(eventType, ".failed") {
 			parseErr = fmt.Errorf("multimodal upstream image generation failed")
 			return
 		}
@@ -219,26 +223,20 @@ func (s *OpenAIGatewayService) readMultimodalImageSSE(ctx context.Context, c *gi
 		if c == nil || clientDisconnected {
 			return nil
 		}
-		if !IsResponseCommitted(c) {
-			writeOpenAIPassthroughResponseHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-			c.Writer.Header().Del("Content-Length")
-			c.Header("Content-Type", "text/event-stream")
-			c.Header("Cache-Control", "no-cache")
-			c.Header("X-Accel-Buffering", "no")
-			c.Status(resp.StatusCode)
+		trimmed := bytes.TrimSpace(frame)
+		done := bytes.Equal(trimmed, []byte("data: [DONE]"))
+		if done && meta.ImageCount == 0 {
+			return fmt.Errorf("multimodal upstream returned no image output")
 		}
-		if firstTokenMs == nil {
+		control := isMultimodalKeepaliveFrame(trimmed)
+		if firstTokenMs == nil && !control {
 			elapsed := int(time.Since(startTime).Milliseconds())
 			firstTokenMs = &elapsed
 		}
-		MarkResponseCommitted(c)
-		if _, err := c.Writer.Write(frame); err != nil {
-			// Continue reading accepted upstream work so a disconnected browser
-			// cannot discard its generated-image accounting.
+		if err := s.writeMultimodalImageFrame(c, resp, frame, control, done); err != nil {
+			// Keep draining accepted work after the browser disconnects.
 			clientDisconnected = true
-			return nil
 		}
-		c.Writer.Flush()
 		return nil
 	})
 	if err == nil && len(collector.images) == 0 {
@@ -261,4 +259,22 @@ func (s *OpenAIGatewayService) readMultimodalImageSSE(ctx context.Context, c *gi
 	}
 	body, err := collector.response()
 	return body, meta, firstTokenMs, err
+}
+
+// Only empty data and comment-only frames are transport keepalives. An event
+// name, an image, an error or a terminal marker is semantic output.
+func isMultimodalKeepaliveFrame(frame []byte) bool {
+	for len(frame) > 0 {
+		line, rest, _ := bytes.Cut(frame, []byte{'\n'})
+		frame = rest
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 || line[0] == ':' {
+			continue
+		}
+		if data, ok := bytes.CutPrefix(line, []byte("data:")); ok && bytes.Equal(bytes.TrimSpace(data), []byte("{}")) {
+			continue
+		}
+		return false
+	}
+	return true
 }

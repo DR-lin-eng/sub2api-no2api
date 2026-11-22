@@ -21,6 +21,7 @@
 | [活动中心](ACTIVITY_CENTER.md) | 抽奖、签到、兑换膨胀、资格与奖励记录 |
 | [在线客服](SUPPORT_CHAT.md) | 会话、图片、已读、转账、保留清理与多实例边界 |
 | [自定义模型与媒体工坊](CUSTOM_MODELS_AND_MEDIA.md) | 能力配置、请求模板、媒体生成与分组路由 |
+| [生图与视频接口互转计划](MEDIA_PROTOCOL_CONVERSION_PLAN.md) | 与 New API 的源码对比、首批厂商和双向转换验收 |
 | [PR #169 媒体工坊同步审查](../diagnostics/pr169-media-studio/VERIFICATION.md) | 浏览器历史边界、原子视频计费、性能、范围关闭与升级回退 |
 
 ## 接口与集成

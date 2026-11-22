@@ -9,6 +9,7 @@
 | [codexremotecontrol](codexremotecontrol/README.md) | Codex controller 注册、step-up、设备密钥 challenge 与会话生命周期 |
 | [chat](chat/README.md) | 在线客服会话、消息、未读状态、撤回事件、保留清理和实时广播 |
 | [chatgptimages](chatgptimages/README.md) | ChatGPT App Images 请求、v1 多通道增量和最终图像结果纯解析 |
+| [mediaprotocol](mediaprotocol/README.md) | 多模态账号的上游请求、视频任务状态和产物协议转换 |
 | [egress](egress/README.md) | 账号 IPv6 出口池、绑定、探测和 HE 隧道管理 |
 | [qualityrender](qualityrender/README.md) | HTML/SVG 代码匹配（预览由前端浏览器渲染） |
 | [lenovoattribution](lenovoattribution/README.md) | Lenovo 归因 JSON、204 响应契约和账号持久重试状态 |

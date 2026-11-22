@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/mediaprotocol"
 	pkghttputil "github.com/DR-lin-eng/sub2api-no2api/internal/shared/httputil"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ip"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
@@ -55,15 +56,18 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 	streamStarted := false
 	defer h.recoverResponsesPanic(c, &streamStarted)
 
+	writeError := func(status int, typ, message string) {
+		h.handleStreamingAwareError(c, status, typ, message, streamStarted)
+	}
 	requestStart := time.Now()
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
 	if !ok {
-		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
+		writeError(http.StatusUnauthorized, "authentication_error", "Invalid API key")
 		return
 	}
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
-		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
+		writeError(http.StatusInternalServerError, "api_error", "User context not found")
 		return
 	}
 
@@ -88,18 +92,18 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		}
 		if err != nil {
 			if maxErr, ok := extractMaxBytesError(err); ok {
-				h.errorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
+				writeError(http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
 				return
 			}
 			if handleRequestBodyReadError(c, err) {
 				return
 			}
 			status, message := requestBodyReadFailure(requestLogger(c, "handler.request_body"), c.Request, err)
-			h.errorResponse(c, status, "invalid_request_error", message)
+			writeError(status, "invalid_request_error", message)
 			return
 		}
 		if len(body) == 0 {
-			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
+			writeError(http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 			return
 		}
 		h.concurrencyHelper.SetPriorityAdmissionPendingBytes(c, int64(len(body)))
@@ -110,17 +114,18 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 	requestModel := requestInfo.Model
 	routingModel := requestModel
 	if endpoint.IsGenerationRequest() && strings.TrimSpace(requestModel) == "" {
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
+		writeError(http.StatusBadRequest, "invalid_request_error", "model is required")
 		return
 	}
 	if endpoint.IsVideoLookupRequest() && strings.TrimSpace(requestID) == "" {
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "request_id is required")
+		writeError(http.StatusBadRequest, "invalid_request_error", "request_id is required")
 		return
 	}
 
 	reqLog = reqLog.With(zap.String("model", requestModel))
-	setOpsRequestContext(c, requestModel, false)
-	setOpsEndpointContext(c, "", int16(service.RequestTypeSync))
+	wantsStream := endpoint.IsGenerationRequest() && requestInfo.Stream
+	setOpsRequestContext(c, requestModel, wantsStream)
+	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(wantsStream, false)))
 
 	if endpoint.IsGenerationRequest() {
 		mediaType := "video"
@@ -128,7 +133,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			mediaType = "image"
 		}
 		if !service.GroupAllowsMediaStudioGeneration(apiKey, mediaType) {
-			h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
+			writeError(http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
 			return
 		}
 		if moderationBody := requestInfo.ModerationBody(); len(moderationBody) > 0 {
@@ -137,6 +142,15 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				h.openAISecurityAuditError(c, decision)
 				return
 			}
+		}
+		// One writer owns the heartbeat through admission, account switches and
+		// the upstream read. Slot waiters do not start a second ping loop.
+		if wantsStream {
+			stop := service.StartOpenAIImagesSSEKeepalive(c, h.openAIImagesStreamKeepaliveInterval())
+			defer stop()
+			streamStarted = service.OpenAIImagesSSEKeepalivePresent(c)
+		} else {
+			defer service.StartOpenAIImagesJSONKeepalive(c, h.openAIImagesJSONKeepaliveInterval())()
 		}
 		imageReleaseFunc, acquired := h.acquireImageGenerationSlot(c, streamStarted)
 		if !acquired {
@@ -172,7 +186,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
-			h.errorResponse(c, status, code, message)
+			writeError(status, code, message)
 			return
 		}
 	}
@@ -196,7 +210,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			// 归属缓存可能因 Redis 故障或 TTL 过期丢失；已冻结或已结算的任务
 			// 必须仍能用冻结记录里的账号恢复轮询与取片，直接 404 等于白拿视频。
 			recovered, recoverErr := h.gatewayService.ResolveMultimodalVideoBalanceAccountID(
-				c.Request.Context(), requestID, subject.UserID, apiKey.ID,
+				c.Request.Context(), requestID, apiKey,
 			)
 			if recoverErr != nil {
 				// 冻结记录查询失败时任务是否存在未知：返回可重试错误，
@@ -205,13 +219,13 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 					zap.String("request_id", requestID),
 					zap.Error(recoverErr),
 				)
-				h.errorResponse(c, http.StatusBadGateway, "billing_service_error",
+				writeError(http.StatusBadGateway, "billing_service_error",
 					"Failed to verify the billing state of this video request, please retry later")
 				return
 			}
 			if recovered <= 0 {
 				reqLog.Info("multimodal_media.video_lookup_owner_binding_missing", zap.Error(err))
-				h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
+				writeError(http.StatusNotFound, "not_found_error", "Video request not found")
 				return
 			}
 			boundLookupAccountID = recovered
@@ -227,10 +241,15 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			}
 		}
 	}
+	if endpoint == service.MultimodalMediaEndpointVideoStatus {
+		// Only a verified task owner can start a padded status response.
+		defer service.StartOpenAIImagesJSONKeepalive(c, h.openAIImagesJSONKeepaliveInterval())()
+	}
 	requestCtx := c.Request.Context()
 	var failedAccountIDs map[int64]struct{}
 	var sameAccountRetryCount map[int64]int
 	var lastFailoverErr *service.UpstreamFailoverError
+	var lastCapabilityErr error
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
 	switchCount := 0
 	maxAccountSwitches := h.maxAccountSwitches
@@ -281,7 +300,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				if retryAfter > 0 {
 					c.Header("Retry-After", strconv.Itoa(retryAfter))
 				}
-				h.errorResponse(c, status, code, message)
+				writeError(status, code, message)
 				return
 			}
 		}
@@ -318,7 +337,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
-			h.errorResponse(c, status, code, message)
+			writeError(status, code, message)
 			return
 		}
 	}
@@ -347,7 +366,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
-			h.errorResponse(c, status, code, message)
+			writeError(status, code, message)
 			return
 		}
 	}
@@ -390,7 +409,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				return
 			}
 			if boundLookupAccountID > 0 && errors.Is(err, service.ErrNoAvailableAccounts) {
-				h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
+				writeError(http.StatusNotFound, "not_found_error", "Video request not found")
 				return
 			}
 			reqLog.Warn("multimodal_media.account_select_failed",
@@ -398,12 +417,16 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if errors.Is(err, service.ErrPriorityAdmissionUnavailable) {
-				h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable, please retry later")
+				writeError(http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable, please retry later")
+				return
+			}
+			if lastCapabilityErr != nil && lastFailoverErr == nil && errors.Is(err, service.ErrNoAvailableAccounts) {
+				writeError(http.StatusBadRequest, "invalid_request_error", lastCapabilityErr.Error())
 				return
 			}
 			if endpoint.IsGenerationRequest() && errors.Is(err, service.ErrNoAvailableAccounts) && len(failedAccountIDs) == 0 {
 				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
-				h.errorResponse(c, http.StatusServiceUnavailable, "multimodal_media_no_eligible_account", "No eligible multimodal media accounts")
+				writeError(http.StatusServiceUnavailable, "multimodal_media_no_eligible_account", "No eligible multimodal media accounts")
 				return
 			}
 			if len(failedAccountIDs) == 0 {
@@ -411,27 +434,31 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
-				h.errorResponse(c, cls.Status, cls.ErrType, cls.Message)
+				writeError(cls.Status, cls.ErrType, cls.Message)
 				return
 			}
 			if lastFailoverErr != nil {
-				h.handleFailoverExhausted(c, lastFailoverErr, false)
+				h.handleFailoverExhausted(c, lastFailoverErr, streamStarted)
 			} else {
-				h.errorResponse(c, http.StatusBadGateway, "api_error", "Upstream request failed")
+				writeError(http.StatusBadGateway, "api_error", "Upstream request failed")
 			}
 			return
 		}
 		if selection == nil || selection.Account == nil {
+			if lastCapabilityErr != nil && lastFailoverErr == nil {
+				writeError(http.StatusBadRequest, "invalid_request_error", lastCapabilityErr.Error())
+				return
+			}
 			if endpoint.IsGenerationRequest() {
 				markOpsRoutingCapacityLimited(c)
-				h.errorResponse(c, http.StatusServiceUnavailable, "multimodal_media_no_eligible_account", "No eligible multimodal media accounts")
+				writeError(http.StatusServiceUnavailable, "multimodal_media_no_eligible_account", "No eligible multimodal media accounts")
 				return
 			}
 			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestModel, routingModel, service.PlatformMultimodal)
 			if !cls.ModelNotFound {
 				markOpsRoutingCapacityLimited(c)
 			}
-			h.errorResponse(c, cls.Status, cls.ErrType, cls.Message)
+			writeError(cls.Status, cls.ErrType, cls.Message)
 			return
 		}
 		if failoverClientGone(c) {
@@ -442,7 +469,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				zap.Int64("bound_account_id", boundLookupAccountID),
 				zap.Int64("selected_account_id", selection.Account.ID),
 			)
-			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
+			writeError(http.StatusNotFound, "not_found_error", "Video request not found")
 			return
 		}
 
@@ -506,13 +533,13 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				if retryAfter > 0 {
 					c.Header("Retry-After", strconv.Itoa(retryAfter))
 				}
-				h.errorResponse(c, status, code, message)
+				writeError(status, code, message)
 				return
 			}
 			videoHold = hold
 		}
 		forwardStart := time.Now()
-		writerSizeBeforeForward := c.Writer.Size()
+		writerSizeBeforeForward := service.OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c)
 		result, err := func() (*service.OpenAIForwardResult, error) {
 			defer releaseAccount()
 			return h.gatewayService.ForwardMultimodalMediaWithResolutionTierBilling(requestCtx, c, account, endpoint, requestID, body, contentType, videoHold, requestInfo.ResolutionTierLocked)
@@ -527,6 +554,18 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		service.SetOpsLatencyMs(c, service.OpsResponseLatencyMsKey, responseLatencyMs)
 
 		if err != nil {
+			if errors.Is(err, mediaprotocol.ErrUnsupported) {
+				// The driver rejected this request locally. Another eligible
+				// account may support it, and no upstream work has started.
+				if endpoint.IsGenerationRequest() && switchCount < maxAccountSwitches {
+					lastCapabilityErr = err
+					addFailedAccountID(&failedAccountIDs, account.ID)
+					switchCount++
+					continue
+				}
+				writeError(http.StatusBadRequest, "invalid_request_error", err.Error())
+				return
+			}
 			if endpoint.IsImageRequest() && result != nil && result.ImageCount > 0 && service.IsResponseCommitted(c) {
 				// A later stream read can fail after images were delivered. Keep
 				// their usage and never retry accepted work on another account.
@@ -546,16 +585,16 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				if failoverErr.ShouldReportAccountScheduleFailure() {
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, multimodalMediaScheduleModel(account, routingModel, nil), false, nil)
 				}
-				if c.Writer.Size() != writerSizeBeforeForward {
+				if service.OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c) != writerSizeBeforeForward {
 					h.handleFailoverExhausted(c, failoverErr, true)
 					return
 				}
 				if !failoverErr.ShouldRetryNextAccount() {
-					h.handleFailoverExhausted(c, failoverErr, false)
+					h.handleFailoverExhausted(c, failoverErr, streamStarted)
 					return
 				}
 				if endpoint.IsVideoLookupRequest() {
-					h.handleFailoverExhausted(c, failoverErr, false)
+					h.handleFailoverExhausted(c, failoverErr, streamStarted)
 					return
 				}
 				if failoverErr.RetryableOnSameAccount {
@@ -579,12 +618,12 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				addFailedAccountID(&failedAccountIDs, account.ID)
 				lastFailoverErr = failoverErr
 				if switchCount >= maxAccountSwitches {
-					h.handleFailoverExhausted(c, failoverErr, false)
+					h.handleFailoverExhausted(c, failoverErr, streamStarted)
 					return
 				}
 				switchCount++
 				if !failoverErr.IsOpenAIOAuthGatewayRateLimit() && h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
-					h.handleFailoverExhausted(c, failoverErr, false)
+					h.handleFailoverExhausted(c, failoverErr, streamStarted)
 					return
 				}
 				reqLog.Warn("multimodal_media.upstream_failover_switching",
@@ -596,7 +635,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 				continue
 			}
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, multimodalMediaScheduleModel(account, routingModel, nil), false, nil)
-			if !service.IsResponseCommitted(c) && c.Writer.Size() == writerSizeBeforeForward {
+			if !service.IsResponseCommitted(c) && service.OpenAIImagesJSONKeepaliveAdjustedWrittenSize(c) == writerSizeBeforeForward {
 				// 上游已成功但实际输出档位缺价：按计费错误返回，让客户端看到明确原因，
 				// 而不是被包装成上游故障。
 				if errors.Is(err, service.ErrImagePriceNotConfigured) {
@@ -604,9 +643,9 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 					if retryAfter > 0 {
 						c.Header("Retry-After", strconv.Itoa(retryAfter))
 					}
-					h.errorResponse(c, status, code, message)
+					writeError(status, code, message)
 				} else {
-					h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")
+					writeError(http.StatusBadGateway, "upstream_error", "Upstream request failed")
 				}
 			}
 			reqLog.Warn("multimodal_media.forward_failed",
@@ -622,6 +661,7 @@ func (h *OpenAIGatewayHandler) handleMultimodalMedia(c *gin.Context, endpoint se
 		// 两段式计费路径已在服务内、写响应前完成归属绑定（失败会直接返回错误）。
 		// 只有没有冻结记录的路径（订阅制、简单模式）才在这里补写，失败仅记录日志。
 		if videoHold == nil && endpoint.IsGenerationRequest() && strings.TrimSpace(result.ResponseID) != "" &&
+			mediaprotocol.IsRelay(account.GetCredential("media_protocol")) &&
 			(apiKey.Group == nil || apiKey.Group.Platform != service.PlatformComposite) {
 			if err := h.gatewayService.BindMultimodalMediaVideoRequestAccount(
 				requestCtx, apiKey.GroupID, result.ResponseID, subject.UserID, apiKey.ID, account.ID,

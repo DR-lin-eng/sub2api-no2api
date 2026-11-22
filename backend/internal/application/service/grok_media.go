@@ -61,6 +61,7 @@ func (e GrokMediaEndpoint) IsVideoGenerationRequest() bool {
 }
 
 type GrokMediaRequestInfo struct {
+	Stream          bool
 	Model           string
 	Prompt          string
 	N               int
@@ -159,6 +160,7 @@ func parseGrokMediaJSONRequest(body []byte, info *GrokMediaRequestInfo) {
 	}
 	info.Model = strings.TrimSpace(gjson.GetBytes(body, "model").String())
 	info.Prompt = strings.TrimSpace(gjson.GetBytes(body, "prompt").String())
+	info.Stream = gjson.GetBytes(body, "stream").Bool()
 	info.Size = strings.TrimSpace(gjson.GetBytes(body, "size").String())
 	info.AspectRatio = strings.TrimSpace(gjson.GetBytes(body, "aspect_ratio").String())
 	assignGrokMediaResolution(strings.TrimSpace(gjson.GetBytes(body, "resolution").String()), info)
@@ -272,6 +274,8 @@ func parseGrokMediaMultipartRequest(contentType string, body []byte, info *GrokM
 			info.Model = value
 		case "prompt":
 			info.Prompt = value
+		case "stream":
+			info.Stream = strings.EqualFold(value, "true")
 		case "size":
 			info.Size = value
 		case "aspect_ratio":
