@@ -591,6 +591,7 @@ Antigravity 账户支持可选的**混合调度**功能。开启后，通用端�
 
 ## 开发文档
 
+- [API 文档站](https://dr-lin-eng.github.io/sub2api-no2api/)（源码在 [docs-site/](docs-site/README.md)）
 - [文档中心](docs/README.md)
 - [开发指南](DEV_GUIDE.md)
 - [架构总览](docs/ARCHITECTURE.md)

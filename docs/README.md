@@ -30,6 +30,7 @@
 | --- | --- |
 | [权限组与客服账号教程](PERMISSION_GROUPS.md) | 启用客服、自定义权限组、分配员工账号、验收和回退 |
 | [Admin API](ADMIN_API.md) | Admin API Key、权限范围和管理接口调用方式 |
+| [公开文档站](../docs-site/README.md) | 面向调用方的独立 API 文档站，源码在 `docs-site/`，发布到 [GitHub Pages](https://dr-lin-eng.github.io/sub2api-no2api/) |
 | [生图与视频 API 调用指南](MEDIA_API.md) | 用网关 Key 生成或编辑图片、处理 SSE、提交视频、轮询与下载 |
 | [批量同步账号上游模型](ACCOUNT_UPSTREAM_MODELS_SYNC.md) | OAuth/API Key 账号的一键模型同步、保留规则、逐账号结果与验证 |
 | [OpenAI SIWC 账号授权](OPENAI_SIWC.md) | 管理端 Sign in with ChatGPT 入口、完整回调、动态客户端、token 刷新与模型请求 |
