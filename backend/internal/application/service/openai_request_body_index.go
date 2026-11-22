@@ -33,6 +33,8 @@ type openAIRequestBodyIndex struct {
 	inputItemTypes     []string
 }
 
+const openAIRequestBodyIndexLinearTypeLimit = 16
+
 type openAIRequestBodyIndexField struct {
 	key   string
 	value gjson.Result
@@ -128,14 +130,32 @@ func (x *openAIRequestBodyIndex) InputItemTypes() []string {
 		if !input.IsArray() {
 			return
 		}
+		// A body may carry a distinct type per item, so past a handful of
+		// types the duplicate check moves to a set to stay linear.
+		var seenSet map[string]struct{}
 		input.ForEach(func(_, item gjson.Result) bool {
 			itemType := item.Get("type").String()
-			for _, seen := range x.inputItemTypes {
-				if seen == itemType {
+			if seenSet != nil {
+				if _, ok := seenSet[itemType]; ok {
 					return true
 				}
+			} else {
+				for _, seen := range x.inputItemTypes {
+					if seen == itemType {
+						return true
+					}
+				}
 			}
-			x.inputItemTypes = append(x.inputItemTypes, strings.Clone(itemType))
+			itemType = strings.Clone(itemType)
+			x.inputItemTypes = append(x.inputItemTypes, itemType)
+			if seenSet != nil {
+				seenSet[itemType] = struct{}{}
+			} else if len(x.inputItemTypes) > openAIRequestBodyIndexLinearTypeLimit {
+				seenSet = make(map[string]struct{}, 2*len(x.inputItemTypes))
+				for _, seen := range x.inputItemTypes {
+					seenSet[seen] = struct{}{}
+				}
+			}
 			return true
 		})
 	})

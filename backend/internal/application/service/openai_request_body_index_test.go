@@ -2,7 +2,10 @@ package service
 
 import (
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -69,6 +72,32 @@ func TestOpenAIRequestBodyIndexInputItemTypes(t *testing.T) {
 
 	require.Empty(t, newOpenAIRequestBodyIndex([]byte(`{"input":"text"}`)).InputItemTypes())
 	require.Empty(t, newOpenAIRequestBodyIndex([]byte(`{"model":"m"}`)).InputItemTypes())
+}
+
+func TestOpenAIRequestBodyIndexInputItemTypesManyDistinct(t *testing.T) {
+	const distinct = 200000
+	var body strings.Builder
+	want := make([]string, 0, distinct)
+	_, _ = body.WriteString(`{"input":[`)
+	for i := 0; i < distinct; i++ {
+		itemType := "t" + strconv.Itoa(i)
+		want = append(want, itemType)
+		if i > 0 {
+			_ = body.WriteByte(',')
+		}
+		// Every type appears twice so the duplicate check runs on both sides
+		// of the switch to the set.
+		_, _ = body.WriteString(`{"type":"` + itemType + `"},{"type":"` + itemType + `"}`)
+	}
+	_, _ = body.WriteString(`]}`)
+
+	start := time.Now()
+	got := newOpenAIRequestBodyIndex([]byte(body.String())).InputItemTypes()
+	elapsed := time.Since(start)
+
+	require.Equal(t, want, got)
+	// The quadratic duplicate check needed about 2e10 comparisons here.
+	require.Less(t, elapsed, 5*time.Second)
 }
 
 func TestOpenAIRequestBodyIndexForFollowsBodyRewrites(t *testing.T) {
