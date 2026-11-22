@@ -68,3 +68,5 @@ DeepSeek 原实现对每条 assistant 消息在完整请求上执行一次 JSON 
 未采用的预占系统、渠道独立倍率与额外 TTL 单价不因关闭新补丁而被视为已经实现。
 
 2026-11-20 的 39 个 PR、直接合并和版本提交见[增量审查](UPSTREAM_SYNC_20261120.md)。继承五份台账的 276 个历史 PR，按净补丁和当前能力边界继续跟踪。
+
+项目内 PR #231 的网关热路径性能审查见[审查记录](PR231_GATEWAY_HOTPATH_REVIEW.md)。该 head 已完成性能、Docker、升级回退和 CI 核对，并标记 `diff_review_closed=true`、`capability_complete=true`。同一 head 和同一范围不重复检查，只有 head、owner 或能力边界变化时重开。
