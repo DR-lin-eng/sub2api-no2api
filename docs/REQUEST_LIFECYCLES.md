@@ -99,6 +99,8 @@ GIF 请求与 OAuth 账号测试共用 App 动画指令和实际文件校验，�
 GIF 编辑显式填写默认复杂度/审核级别与省略保持同一选路；参考 PNG 在生成前经过有界、无账号凭据的 HTTPS PUT 上传，保留独立的公共目的地校验和 DNS 固定。
 协议能力、原生参数和显式 token 定价的限制见 [App 生图与旧版回退](CHATGPT_APP_IMAGES.md)。
 
+多模态账号选择原生媒体协议后，网关先按公开模型准入和计价，再由该账号的驱动转换上游请求。视频查询与取片先核对原任务归属，再从任务号恢复提交协议，完成结算后交付成片。配置与可用操作见[多模态账号与火山方舟](CUSTOM_MODELS_AND_MEDIA.md#多模态账号与火山方舟)。
+
 ## 站内会话刷新
 
 `POST /api/v1/auth/refresh` 从请求或 HttpOnly cookie 读取 refresh credential，应用层先校验期限、用户状态、

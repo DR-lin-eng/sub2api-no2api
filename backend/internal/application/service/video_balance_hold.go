@@ -297,6 +297,7 @@ func (s *OpenAIGatewayService) applyMultimodalVideoBilling(
 						zap.String("hold_key", record.HoldKey),
 						zap.Error(err),
 					)
+					return responseBody, err
 				}
 				cost = 0
 			default:
@@ -444,8 +445,11 @@ func (s *OpenAIGatewayService) multimodalVideoHoldRequiredForDelivery(c *gin.Con
 func (s *OpenAIGatewayService) ResolveMultimodalVideoBalanceAccountID(
 	ctx context.Context,
 	upstreamRequestID string,
-	userID, apiKeyID int64,
+	apiKey *APIKey,
 ) (int64, error) {
+	if apiKey == nil || apiKey.GroupID == nil {
+		return 0, nil
+	}
 	record, err := s.lookupMultimodalVideoBalance(ctx, upstreamRequestID)
 	if err != nil {
 		return 0, err
@@ -453,7 +457,7 @@ func (s *OpenAIGatewayService) ResolveMultimodalVideoBalanceAccountID(
 	if record == nil {
 		return 0, nil
 	}
-	if record.UserID != userID || record.APIKeyID != apiKeyID {
+	if record.UserID != apiKey.UserID || record.APIKeyID != apiKey.ID || record.GroupID != *apiKey.GroupID {
 		return 0, nil
 	}
 	if record.Status != BalanceHoldStatusPending && record.Status != BalanceHoldStatusSettled {

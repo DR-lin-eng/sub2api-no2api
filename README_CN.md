@@ -34,6 +34,7 @@ Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的
 
 - **多账号管理** - 支持多种上游账号类型（OAuth、API Key）
 - **API Key 分发** - 为用户生成和管理 API Key
+- **生图与视频 API** - 使用网关 Key 生成或编辑图片、提交视频任务和下载成片。[调用示例](docs/MEDIA_API.md)
 - **精确计费** - Token 级别的用量追踪和成本计算
 - **智能调度** - 智能账号选择，支持粘性会话和 [CPA 多号池动态负载分配](docs/CPA_POOL_DYNAMIC_LOAD_BALANCING_CN.md)
 - **并发控制** - 用户级和账号级并发限制

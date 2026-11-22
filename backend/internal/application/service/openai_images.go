@@ -1248,29 +1248,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesPseudoStreamingResponse(resp *h
 			return OpenAIUsage{}, 0, nil, err
 		}
 	}
-	if !gjson.ValidBytes(body) {
-		return OpenAIUsage{}, 0, nil, fmt.Errorf("upstream returned invalid JSON for image pseudo-stream")
-	}
-	var compact bytes.Buffer
-	if err := json.Compact(&compact, body); err != nil {
-		return OpenAIUsage{}, 0, nil, fmt.Errorf("compact image pseudo-stream JSON: %w", err)
-	}
-	body = compact.Bytes()
-
-	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("X-Accel-Buffering", "no")
-	c.Status(resp.StatusCode)
-	flusher, ok := c.Writer.(http.Flusher)
-	if !ok {
-		return OpenAIUsage{}, 0, nil, fmt.Errorf("streaming is not supported by response writer")
-	}
-	if _, err := fmt.Fprintf(c.Writer, "data: %s\n\ndata: [DONE]\n\n", body); err != nil {
+	if err := s.writeMediaJSONAsSSE(c, resp, body); err != nil {
 		return OpenAIUsage{}, 0, nil, err
 	}
-	flusher.Flush()
-
 	usage, _ := codexDirectImagesUsage(body)
 	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
 }

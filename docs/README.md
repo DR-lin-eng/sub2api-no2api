@@ -21,6 +21,7 @@
 | [活动中心](ACTIVITY_CENTER.md) | 抽奖、签到、兑换膨胀、资格与奖励记录 |
 | [在线客服](SUPPORT_CHAT.md) | 会话、图片、已读、转账、保留清理与多实例边界 |
 | [自定义模型与媒体工坊](CUSTOM_MODELS_AND_MEDIA.md) | 能力配置、请求模板、媒体生成与分组路由 |
+| [生图与视频接口互转计划](MEDIA_PROTOCOL_CONVERSION_PLAN.md) | 与 New API 的源码对比、首批厂商和双向转换验收 |
 | [PR #169 媒体工坊同步审查](../diagnostics/pr169-media-studio/VERIFICATION.md) | 浏览器历史边界、原子视频计费、性能、范围关闭与升级回退 |
 
 ## 接口与集成
@@ -29,6 +30,7 @@
 | --- | --- |
 | [权限组与客服账号教程](PERMISSION_GROUPS.md) | 启用客服、自定义权限组、分配员工账号、验收和回退 |
 | [Admin API](ADMIN_API.md) | Admin API Key、权限范围和管理接口调用方式 |
+| [生图与视频 API 调用指南](MEDIA_API.md) | 用网关 Key 生成或编辑图片、处理 SSE、提交视频、轮询与下载 |
 | [批量同步账号上游模型](ACCOUNT_UPSTREAM_MODELS_SYNC.md) | OAuth/API Key 账号的一键模型同步、保留规则、逐账号结果与验证 |
 | [OpenAI SIWC 账号授权](OPENAI_SIWC.md) | 管理端 Sign in with ChatGPT 入口、完整回调、动态客户端、token 刷新与模型请求 |
 | [OpenAI 实时额度与用量详情](OPENAI_USAGE.md) | WS 推送、原刷新回退、账号级模型/会话/余额/额度历史查询与缓存边界 |

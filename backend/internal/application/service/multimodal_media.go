@@ -13,31 +13,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/mediaprotocol"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
-// Multimodal 平台是独立的媒体直通链路：同一 API Key 覆盖图片与视频全部端点，
-// 上游以 OpenAI 兼容的媒体协议暴露 /v1/images/* 与 /v1/videos/*。
-// 与 Grok 媒体链路的差异：
-//   - base_url 完全由账号配置决定，不走 xAI 专用校验器；
-//   - 生图必须强制 stream=true 绕过 Cloudflare 100 秒硬超时，因此需要把 SSE
-//     聚合回普通 JSON（客户端显式要求流式时原样透传）；
-//   - 取片端点允许上游 302 跳转 CDN，Location 直接回写给客户端；
-//   - 错误处理复用 OpenAI 账号运行时，不做 Grok 内容策略特判。
-
-type MultimodalMediaEndpoint string
+// Unconfigured accounts use the compatible media relay. Native drivers share
+// its scheduling, pricing, owner binding and settlement.
+type MultimodalMediaEndpoint = mediaprotocol.Operation
 
 const (
-	MultimodalMediaEndpointImagesGenerations MultimodalMediaEndpoint = "images_generations"
-	MultimodalMediaEndpointImagesEdits       MultimodalMediaEndpoint = "images_edits"
-	MultimodalMediaEndpointVideosGenerations MultimodalMediaEndpoint = "videos_generations"
-	MultimodalMediaEndpointVideosEdits       MultimodalMediaEndpoint = "videos_edits"
-	MultimodalMediaEndpointVideosExtensions  MultimodalMediaEndpoint = "videos_extensions"
-	MultimodalMediaEndpointVideoStatus       MultimodalMediaEndpoint = "video_status"
-	MultimodalMediaEndpointVideoContent      MultimodalMediaEndpoint = "video_content"
+	MultimodalMediaEndpointImagesGenerations = mediaprotocol.ImageGenerate
+	MultimodalMediaEndpointImagesEdits       = mediaprotocol.ImageEdit
+	MultimodalMediaEndpointVideosGenerations = mediaprotocol.VideoGenerate
+	MultimodalMediaEndpointVideosEdits       = mediaprotocol.VideoEdit
+	MultimodalMediaEndpointVideosExtensions  = mediaprotocol.VideoExtend
+	MultimodalMediaEndpointVideoStatus       = mediaprotocol.VideoStatus
+	MultimodalMediaEndpointVideoContent      = mediaprotocol.VideoContent
 )
 
 const (
@@ -47,46 +41,6 @@ const (
 
 	multimodalVideoRequestSessionPrefix = "multimodal-video:"
 )
-
-func (e MultimodalMediaEndpoint) RequiresRequestBody() bool {
-	return !e.IsVideoLookupRequest()
-}
-
-func (e MultimodalMediaEndpoint) IsVideoLookupRequest() bool {
-	return e == MultimodalMediaEndpointVideoStatus || e == MultimodalMediaEndpointVideoContent
-}
-
-func (e MultimodalMediaEndpoint) IsGenerationRequest() bool {
-	switch e {
-	case MultimodalMediaEndpointImagesGenerations, MultimodalMediaEndpointImagesEdits,
-		MultimodalMediaEndpointVideosGenerations, MultimodalMediaEndpointVideosEdits,
-		MultimodalMediaEndpointVideosExtensions:
-		return true
-	default:
-		return false
-	}
-}
-
-func (e MultimodalMediaEndpoint) IsImageRequest() bool {
-	return e == MultimodalMediaEndpointImagesGenerations || e == MultimodalMediaEndpointImagesEdits
-}
-
-func (e MultimodalMediaEndpoint) IsVideoGenerationRequest() bool {
-	switch e {
-	case MultimodalMediaEndpointVideosGenerations, MultimodalMediaEndpointVideosEdits,
-		MultimodalMediaEndpointVideosExtensions:
-		return true
-	default:
-		return false
-	}
-}
-
-func (e MultimodalMediaEndpoint) httpMethod() string {
-	if e.IsVideoLookupRequest() {
-		return http.MethodGet
-	}
-	return http.MethodPost
-}
 
 // multimodalMediaClientEndpointPath 返回媒体端点对应的客户端 API 路径，
 // 用于自定义模型 request_adapter 的 match.endpoint 判定与 {{request.endpoint}} 变量。
@@ -325,42 +279,45 @@ func (s *OpenAIGatewayService) forwardMultimodalMedia(
 	if account.Platform != PlatformMultimodal {
 		return nil, fmt.Errorf("account platform %s is not supported for multimodal media", account.Platform)
 	}
-	targetURL, err := buildMultimodalMediaURL(account, endpoint, requestID)
+	route, err := resolveMultimodalUpstream(account, endpoint, requestID)
 	if err != nil {
 		return nil, err
 	}
-
-	token, _, err := s.getRequestCredential(ctx, c, account)
-	if err != nil {
-		return nil, err
-	}
-	if endpoint == MultimodalMediaEndpointVideoContent {
+	targetURL := route.url
+	if endpoint == MultimodalMediaEndpointVideoContent && route.driver == nil {
+		token, _, err := s.getRequestCredential(ctx, c, account)
+		if err != nil {
+			return nil, err
+		}
 		return s.forwardMultimodalMediaVideoContent(ctx, c, account, token, requestID, startTime)
 	}
+	originalBody := body
 
 	// Preserve client parameters before the upstream adapter forces SSE or maps
 	// fields. Response format and billing must use the original request intent.
 	requestInfo := ParseGrokMediaRequest(contentType, body)
-	clientWantsStream := endpoint.IsImageRequest() && multimodalMediaClientWantsStream(body, contentType)
+	clientWantsStream := endpoint.IsGenerationRequest() && requestInfo.Stream
 	if endpoint.IsVideoGenerationRequest() {
 		if err := ValidateMultimodalVideoResolution(requestInfo.ResolutionRaw, resolutionTierBilling); err != nil {
 			return nil, err
 		}
 	}
-	body, contentType, err = forceMultimodalImageUpstreamStream(endpoint, body, contentType)
-	if err != nil {
-		return nil, err
-	}
-	body, err = normalizeMultimodalVideoReferenceBody(endpoint, body)
-	if err != nil {
-		return nil, err
+	if route.driver == nil {
+		body, contentType, err = prepareMultimodalRelayStream(endpoint, body, contentType, clientWantsStream)
+		if err != nil {
+			return nil, err
+		}
+		body, err = normalizeMultimodalVideoReferenceBody(endpoint, body)
+		if err != nil {
+			return nil, err
+		}
 	}
 	upstreamModel := requestInfo.Model
-	if endpoint.RequiresRequestBody() && gjson.ValidBytes(body) {
+	if endpoint.RequiresRequestBody() && (route.driver != nil || gjson.ValidBytes(body)) {
 		if mappedModel := strings.TrimSpace(account.GetMappedModel(requestInfo.Model)); mappedModel != "" {
 			upstreamModel = mappedModel
 		}
-		if upstreamModel != requestInfo.Model {
+		if upstreamModel != requestInfo.Model && gjson.ValidBytes(body) {
 			body, err = sjson.SetBytes(body, "model", upstreamModel)
 			if err != nil {
 				return nil, fmt.Errorf("rewrite multimodal media account mapped model: %w", err)
@@ -386,7 +343,7 @@ func (s *OpenAIGatewayService) forwardMultimodalMedia(
 		}
 	}
 	var adapterHeaders map[string]string
-	if endpoint.RequiresRequestBody() && s.customModelCapabilities != nil {
+	if route.driver == nil && endpoint.RequiresRequestBody() && s.customModelCapabilities != nil {
 		requestAdapter, configured, resolveErr := s.resolveCustomModelRequestAdapter(
 			ctx,
 			requestInfo.Model,
@@ -420,15 +377,42 @@ func (s *OpenAIGatewayService) forwardMultimodalMedia(
 		}
 	}
 
+	if route.driver != nil && endpoint.RequiresRequestBody() {
+		body, err = encodeNativeMediaRequest(route.driver, endpoint, upstreamModel, body, contentType, requestInfo)
+		if err != nil {
+			return nil, err
+		}
+		contentType = "application/json"
+	}
+	token, _, err := s.getRequestCredential(ctx, c, account)
+	if err != nil {
+		return nil, err
+	}
 	var bodyReader io.Reader
 	if endpoint.RequiresRequestBody() {
 		bodyReader = bytes.NewReader(body)
 	}
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	defer releaseUpstreamCtx()
-	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, endpoint.httpMethod(), targetURL, bodyReader)
+	method := http.MethodPost
+	if endpoint.IsVideoLookupRequest() {
+		method = http.MethodGet
+	}
+	if route.driver != nil {
+		upstreamCtx = WithHTTPUpstreamRedirectsDisabled(upstreamCtx)
+	}
+	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, method, targetURL, bodyReader)
 	if err != nil {
 		return nil, err
+	}
+	if route.driver != nil {
+		path := upstreamReq.URL.Path
+		if route.rawID != "" {
+			path = strings.TrimSuffix(path, "/"+route.rawID) + "/{task_id}"
+		}
+		SetActualOpenAIUpstreamEndpoint(c, path)
+	} else {
+		ClearActualOpenAIUpstreamEndpoint(c)
 	}
 	upstreamReq.Header.Set("Authorization", "Bearer "+token)
 	upstreamReq.Header.Set("Accept", "application/json")
@@ -453,20 +437,47 @@ func (s *OpenAIGatewayService) forwardMultimodalMedia(
 	resp, err := doAccountHTTPUpstream(s.httpUpstream, upstreamReq, proxyURL, account)
 	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 	if err != nil {
+		if route.driver != nil && endpoint.IsGenerationRequest() {
+			// A native task may already have been accepted. Its outcome is
+			// unknown and the submission has no upstream idempotency key.
+			return nil, fmt.Errorf("native media submission outcome unknown: %w", err)
+		}
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	requestIDHeader := firstNonEmpty(resp.Header.Get("x-request-id"), resp.Header.Get("xai-request-id"))
+	if route.driver != nil && endpoint.IsGenerationRequest() && (resp.StatusCode >= 500 || resp.StatusCode == http.StatusRequestTimeout) {
+		setOpsUpstreamError(c, resp.StatusCode, "native media submission outcome unknown", "")
+		return nil, fmt.Errorf("native media submission outcome unknown (HTTP %d)", resp.StatusCode)
+	}
+	if route.driver != nil && resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return nil, fmt.Errorf("unexpected native media redirect (HTTP %d)", resp.StatusCode)
+	}
 	if resp.StatusCode >= 400 {
 		return s.handleMultimodalMediaErrorResponse(ctx, resp, c, account, requestIDHeader, upstreamModel)
 	}
 
 	responseContentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if route.driver != nil && !endpoint.IsImageRequest() && multimodalMediaIsEventStream(responseContentType) {
+		return nil, fmt.Errorf("native media upstream returned an unexpected event stream")
+	}
 	var respBody []byte
 	var imageSSEUsage *multimodalMediaUsageMetadata
 	var firstTokenMs *int
-	if endpoint.IsImageRequest() && multimodalMediaIsEventStream(responseContentType) {
+	if route.driver != nil && endpoint.IsImageRequest() && multimodalMediaIsEventStream(responseContentType) {
+		collector := newMultimodalImageSSECollector()
+		if err := readMultimodalSSEFrames(resp.Body, resolveUpstreamResponseReadLimit(s.cfg), collector.addFrame); err != nil {
+			return nil, err
+		}
+		if !collector.completed {
+			return nil, fmt.Errorf("incomplete native image generation stream")
+		}
+		respBody, err = collector.response()
+		if err != nil {
+			return nil, err
+		}
+	} else if endpoint.IsImageRequest() && multimodalMediaIsEventStream(responseContentType) {
 		var usage multimodalMediaUsageMetadata
 		respBody, usage, firstTokenMs, err = s.readMultimodalImageSSE(ctx, c, resp, requestInfo, clientWantsStream, startTime)
 		if err != nil {
@@ -484,10 +495,38 @@ func (s *OpenAIGatewayService) forwardMultimodalMedia(
 			responseContentType = "application/json"
 		}
 	} else {
-		respBody, err = ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
+		respBody, err = ReadUpstreamResponseBody(resp.Body, s.cfg, c, func(c *gin.Context) {
+			writeMultimodalMediaErrorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream response too large")
+		})
 		if err != nil {
 			return nil, err
 		}
+	}
+	if route.driver != nil {
+		// Prices, duration and usage are based on the client request even when
+		// the native protocol moves the corresponding fields.
+		if endpoint.IsImageRequest() {
+			respBody, err = route.driver.DecodeImages(respBody, gjson.GetBytes(body, "response_format").String())
+			if err != nil {
+				return nil, err
+			}
+			responseContentType = "application/json"
+		} else {
+			var task mediaprotocol.Task
+			task, err = route.driver.DecodeTask(endpoint, respBody, route.rawID)
+			if err != nil {
+				return nil, err
+			}
+			respBody, err = nativeVideoResponse(route.driver, account.ID, task, c)
+			if err != nil {
+				return nil, err
+			}
+			responseContentType = "application/json"
+			if endpoint == MultimodalMediaEndpointVideoContent {
+				return s.deliverNativeVideo(ctx, c, account, requestID, task, respBody, startTime)
+			}
+		}
+		body = originalBody
 	}
 	if endpoint.IsVideoGenerationRequest() || endpoint == MultimodalMediaEndpointVideoStatus {
 		respBody = renderMultimodalVideoResponse(endpoint, requestInfo, body, respBody)
@@ -506,13 +545,16 @@ func (s *OpenAIGatewayService) forwardMultimodalMedia(
 		respBody = rendered
 	}
 	if endpoint.IsVideoGenerationRequest() && videoHold == nil {
-		if err := s.bindCompositeMultimodalVideoOwner(ctx, c, account, respBody); err != nil {
+		if err := s.bindMultimodalVideoOwnerBeforeDelivery(ctx, c, account, respBody, route.driver != nil); err != nil {
 			return nil, err
 		}
 	}
 	if endpoint.IsImageRequest() {
 		if countOpenAIResponseImageOutputsFromJSONBytes(respBody) <= 0 {
 			setOpsUpstreamError(c, http.StatusBadGateway, "multimodal upstream returned no image output", truncateString(string(respBody), 512))
+			if route.driver != nil {
+				return nil, fmt.Errorf("native media returned no image output")
+			}
 			return nil, &UpstreamFailoverError{
 				StatusCode:      http.StatusBadGateway,
 				ResponseBody:    respBody,
@@ -531,7 +573,18 @@ func (s *OpenAIGatewayService) forwardMultimodalMedia(
 			return nil, priceErr
 		}
 	}
-	writeMultimodalMediaResponse(c, resp.StatusCode, responseContentType, respBody, resp.Header, s.responseHeaderFilter)
+	if clientWantsStream {
+		if err := s.writeMediaJSONAsSSE(c, resp, respBody); err != nil {
+			if !IsResponseCommitted(c) {
+				return nil, err
+			}
+			// The accepted task or generated image still needs settlement when
+			// the client disconnects while receiving the final event.
+			_ = c.Error(err)
+		}
+	} else {
+		writeMultimodalMediaResponse(c, resp.StatusCode, responseContentType, respBody, resp.Header, s.responseHeaderFilter)
+	}
 	return multimodalMediaForwardResult(requestIDHeader, upstreamModel, requestInfo, usage, resp.Header, startTime, clientWantsStream, firstTokenMs), nil
 }
 
@@ -698,44 +751,18 @@ func normalizeMultimodalVideoReferenceBody(endpoint MultimodalMediaEndpoint, bod
 	return updated, nil
 }
 
-func multimodalMediaClientWantsStream(body []byte, contentType string) bool {
-	if gjson.ValidBytes(body) {
-		return gjson.GetBytes(body, "stream").Bool()
-	}
-	mediaType, params, err := mime.ParseMediaType(contentType)
-	if err != nil || !strings.EqualFold(mediaType, "multipart/form-data") {
-		return false
-	}
-	reader := multipart.NewReader(bytes.NewReader(body), params["boundary"])
-	for {
-		part, err := reader.NextPart()
-		if err != nil {
-			return false
-		}
-		if part.FormName() == "stream" && part.FileName() == "" {
-			value, err := io.ReadAll(io.LimitReader(part, 16))
-			return err == nil && strings.EqualFold(strings.TrimSpace(string(value)), "true")
-		}
-		_ = part.Close()
-	}
-}
-
-// forceMultimodalImageUpstreamStream 为生图请求强制 stream=true。
-// 上游公网域名经 Cloudflare，单请求 100 秒硬超时；同步生图（seedream 90~130s）
-// 必须走 SSE 才不会中途被掐断。客户端是否要流式由后续响应阶段决定。
-func forceMultimodalImageUpstreamStream(
-	endpoint MultimodalMediaEndpoint,
-	body []byte,
-	contentType string,
-) ([]byte, string, error) {
-	if !endpoint.IsImageRequest() {
+// Images use upstream SSE even when the client wants JSON. A streaming video
+// client receives the same bound task acknowledgement as a JSON client.
+func prepareMultimodalRelayStream(endpoint MultimodalMediaEndpoint, body []byte, contentType string, clientStream bool) ([]byte, string, error) {
+	upstreamStream := endpoint.IsImageRequest()
+	if !upstreamStream && (!endpoint.IsVideoGenerationRequest() || !clientStream) {
 		return body, contentType, nil
 	}
 	if gjson.ValidBytes(body) {
-		if gjson.GetBytes(body, "stream").Bool() {
+		if gjson.GetBytes(body, "stream").Bool() == upstreamStream {
 			return body, contentType, nil
 		}
-		updated, err := sjson.SetBytes(body, "stream", true)
+		updated, err := sjson.SetBytes(body, "stream", upstreamStream)
 		if err != nil {
 			return body, contentType, err
 		}
@@ -749,7 +776,7 @@ func forceMultimodalImageUpstreamStream(
 	if boundary == "" {
 		return body, contentType, nil
 	}
-	rewritten, rewrittenType, err := appendMultipartFormField(body, boundary, "stream", "true")
+	rewritten, rewrittenType, err := appendMultipartFormField(body, boundary, "stream", strconv.FormatBool(upstreamStream))
 	if err != nil {
 		return body, contentType, nil
 	}
@@ -945,6 +972,10 @@ func multimodalMediaErrorType(statusCode int) string {
 }
 
 func writeMultimodalMediaErrorResponse(c *gin.Context, statusCode int, errType, message string) {
+	if OpenAIImagesJSONKeepalivePresent(c) {
+		writeOpenAIImagesUpstreamErrorResponse(c, &OpenAIImagesUpstreamError{StatusCode: statusCode, ErrorType: errType, Message: message})
+		return
+	}
 	if c == nil || c.Writer == nil || c.Writer.Written() {
 		return
 	}
