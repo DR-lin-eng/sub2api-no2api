@@ -1,4 +1,4 @@
-.PHONY: build build-backend build-frontend test test-backend test-frontend test-frontend-critical check-docs
+.PHONY: build build-backend build-frontend build-docs-site test test-backend test-frontend test-frontend-critical check-docs
 
 FRONTEND_CRITICAL_VITEST := \
 	src/common/widgets/data/__tests__/GroupOptionItem.spec.ts \
@@ -43,6 +43,11 @@ build-backend:
 # 编译前端（需要已安装依赖）
 build-frontend:
 	@pnpm --dir frontend run build
+
+# 编译独立文档站（不属于 build，产物由 GitHub Actions 发布到 GitHub Pages）
+build-docs-site:
+	@pnpm --dir docs-site install --frozen-lockfile
+	@pnpm --dir docs-site run build
 
 # 运行测试（后端 + 前端）
 test: check-docs test-backend test-frontend
