@@ -183,6 +183,7 @@ docs/*
 !docs/SUPPORT_CHAT.md
 !docs/CUSTOM_MODELS_AND_MEDIA.md
 !docs/MEDIA_PROTOCOL_CONVERSION_PLAN.md
+!docs/MEDIA_API.md
 !docs/codex/
 !docs/codex/intentional-divergences.md
 !docs/legal/

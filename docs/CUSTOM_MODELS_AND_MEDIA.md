@@ -32,6 +32,8 @@
 
 ## 多模态账号与火山方舟
 
+调用方可以从列出分组模型开始，依次验证生图、参考图编辑、视频轮询和下载。[媒体 API 调用示例](MEDIA_API.md)
+
 在管理 API 创建或更新 `platform=multimodal`、`type=apikey` 账号时，可在 `credentials` 中设置 `media_protocol: "ark"`、方舟的 `api_key` 和 `base_url`（例如 `https://ark.cn-beijing.volces.com/api/v3`）。在现有 `model_mapping` 中把公开模型别名映射到有权调用的模型或推理接入点，给分组配置相应价格。旧账号默认使用 `relay`。方舟驱动负责原生请求体和路径，模型属性校验、账号请求头覆盖、分组准入和原有计费继续生效；自定义 `request_adapter` 用于兼容中转通道。
 
 | 客户端操作 | 方舟通道的首批能力 |
