@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref } from 'vue'
+import { acquireBodyScrollLock } from '@/core/utils/bodyScrollLock'
 import { useOnboardingTour } from '../useOnboardingTour'
 
 const mocks = vi.hoisted(() => ({
@@ -89,4 +90,25 @@ describe('useOnboardingTour auto start gate', () => {
 
     wrapper.unmount()
   })
+  it('defers the delayed welcome overlay when a form opens before the timer fires', async () => {
+    const wrapper = mount(defineComponent({
+      setup() {
+        useOnboardingTour({ autoStart: true })
+        return () => h('div')
+      },
+    }))
+    await vi.advanceTimersByTimeAsync(850)
+    const closeForm = acquireBodyScrollLock()
+    try {
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(mocks.drive).not.toHaveBeenCalled()
+      closeForm()
+      await vi.advanceTimersByTimeAsync(1001)
+      expect(mocks.drive).toHaveBeenCalledTimes(1)
+    } finally {
+      closeForm()
+      wrapper.unmount()
+    }
+  })
+
 })

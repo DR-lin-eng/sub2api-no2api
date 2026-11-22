@@ -12,6 +12,7 @@ import { useAuthStore as useUserStore } from '@/features/auth'
 import { useOnboardingStore } from '@/core/stores/onboardingStore'
 import { useI18n } from 'vue-i18n'
 import { getAdminSteps, getUserSteps } from '@/core/services/guide/steps'
+import { bodyScrollLocked } from '@/core/utils/bodyScrollLock'
 import { safeLocalStorage } from '@/core/utils/safeStorage'
 
 export interface OnboardingOptions {
@@ -101,7 +102,9 @@ export function useOnboardingTour(options: OnboardingOptions) {
     return false
   }
 
-  const startTour = async (startIndex = 0) => {
+  const canAutoStart = () => toValue(options.autoStartReady ?? true) && !bodyScrollLocked.value
+
+  const startTour = async (startIndex = 0, automatic = false) => {
     // 动态获取当前用户角色和步骤
     const isAdmin = userStore.isAdmin
     const isSimpleMode = userStore.isSimpleMode
@@ -109,6 +112,8 @@ export function useOnboardingTour(options: OnboardingOptions) {
 
     // 确保 DOM 就绪
     await nextTick()
+
+    if (automatic && !canAutoStart()) return
 
     // 如果指定了起始步骤，确保元素可见
     const currentStep = steps[startIndex]
@@ -283,6 +288,15 @@ export function useOnboardingTour(options: OnboardingOptions) {
       onHighlightStarted: async (element, step) => {
         // 清理之前的监听器
         cleanupClickListener()
+
+        // Returning through the account tour may need to reopen the picker or a hidden tab.
+        if (!element && step.element === '[data-tour="account-form-platform"]') {
+          document.querySelector<HTMLButtonElement>('[data-tour="account-change-provider"]')?.click()
+        }
+        const accountPanel = element?.closest<HTMLElement>('[data-account-tab]')
+        if (accountPanel && !accountPanel.getClientRects().length) {
+          document.querySelector<HTMLButtonElement>(`[data-tour="account-tab-${accountPanel.dataset.accountTab}"]`)?.click()
+        }
 
         // 尝试等待元素
         if (!element && step.element && typeof step.element === 'string') {
@@ -553,7 +567,7 @@ export function useOnboardingTour(options: OnboardingOptions) {
     }
 
     stopAutoStartReadyWatch = watch(
-      () => toValue(options.autoStartReady ?? true),
+      canAutoStart,
       (ready) => {
         if (autoStartTimer) {
           clearTimeout(autoStartTimer)
@@ -566,10 +580,10 @@ export function useOnboardingTour(options: OnboardingOptions) {
 
         autoStartTimer = setTimeout(() => {
           autoStartTimer = null
-          if (!toValue(options.autoStartReady ?? true) || hasSeen()) {
+          if (!canAutoStart() || hasSeen()) {
             return
           }
-          void startTour()
+          void startTour(0, true)
         }, TIMING.AUTO_START_DELAY_MS)
       },
       { immediate: true }

@@ -207,11 +207,9 @@
           </div>
         </div>
 
-        <!-- Image mode -->
-        <div v-else-if="entry.billing_mode === 'image'">
-          <!-- Default image price (per-request, same as per_request mode) -->
+        <div v-else-if="entry.billing_mode === 'image' || entry.billing_mode === 'video'">
           <label class="mt-3 block text-xs font-medium text-gray-500 dark:text-gray-400">
-            {{ t('admin.channels.form.defaultImagePrice') }}
+            {{ entry.billing_mode === 'video' ? t('admin.channels.form.defaultVideoPrice') : t('admin.channels.form.defaultImagePrice') }}
             <span class="ml-1 font-normal text-gray-400">$</span>
           </label>
           <div class="mt-1 w-48">
@@ -219,12 +217,11 @@
               type="number" step="any" min="0" class="input text-sm" :placeholder="t('admin.channels.form.pricePlaceholder')" />
           </div>
 
-          <!-- Image tiers -->
           <div class="mt-3 flex items-center justify-between">
             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">
-              {{ t('admin.channels.form.imageTiers') }}
+              {{ entry.billing_mode === 'video' ? t('admin.channels.form.videoTiers') : t('admin.channels.form.imageTiers') }}
             </label>
-            <button type="button" @click="addImageTier" class="text-xs text-primary-600 hover:text-primary-700">
+            <button type="button" @click="addResolutionTier" class="text-xs text-primary-600 hover:text-primary-700">
               + {{ t('admin.channels.form.addTier') }}
             </button>
           </div>
@@ -245,7 +242,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Select from '@/common/widgets/forms/Select.vue'
 import Icon from '@/common/widgets/icons/Icon.vue'
@@ -276,7 +273,8 @@ const collapsed = ref(props.entry.models.length > 0)
 const billingModeOptions = computed(() => [
   { value: 'token', label: t('admin.channels.billingMode.token') },
   { value: 'per_request', label: t('admin.channels.billingMode.perRequest') },
-  { value: 'image', label: t('admin.channels.billingMode.image') }
+  { value: 'image', label: t('admin.channels.billingMode.image') },
+  { value: 'video', label: t('admin.channels.billingMode.video') }
 ])
 
 const billingModeLabel = computed(() => {
@@ -301,11 +299,11 @@ function addInterval() {
   emit('update', { ...props.entry, intervals })
 }
 
-function addImageTier() {
+function addResolutionTier() {
   const intervals = [...(props.entry.intervals || [])]
-  const labels = ['1K', '2K', '4K', 'HD']
+  const labels = props.entry.billing_mode === 'video' ? videoResolutionTiers : ['1K', '2K', '4K', 'HD']
   intervals.push({
-    min_tokens: 0, max_tokens: null, tier_label: labels[intervals.length] || '',
+    min_tokens: 0, max_tokens: null, tier_label: labels.find(label => !intervals.some(iv => iv.tier_label === label)) || '',
     input_price: null, output_price: null, cache_write_price: null,
     cache_read_price: null, per_request_price: null,
     sort_order: intervals.length
@@ -340,36 +338,28 @@ function removeInterval(idx: number) {
 }
 
 async function onModelsUpdate(newModels: string[]) {
-  const oldModels = props.entry.models
-  emit('update', { ...props.entry, models: newModels })
+  const previous = props.entry
+  const draft = { ...previous, models: newModels }
+  emit('update', draft)
 
-  // 仅在「空条目首次加入单个模型」时自动填充默认价：
-  // 条目已有模型时（即使价格留空、按各模型的官方默认价回退）追加模型不应改写整条价格，
-  // 一次加入多个模型也不应把第一个模型的价格套用到整条，否则条目内所有模型都会被静默改价。
-  const addedModels = newModels.filter(m => !oldModels.includes(m))
-  if (oldModels.length !== 0 || addedModels.length !== 1) return
+  if (previous.billing_mode !== 'token' || previous.models.length || newModels.length !== 1) return
+  const prices = [previous.input_price, previous.output_price, previous.cache_write_price,
+    previous.cache_read_price, previous.image_input_price, previous.image_output_price]
+  if (prices.some(price => price != null && price !== '')) return
 
-  // 检查是否所有价格字段都为空
-  const e = props.entry
-  const hasPrice = e.input_price != null || e.output_price != null ||
-                   e.cache_write_price != null || e.cache_read_price != null
-  if (hasPrice) return
-
-  // 查询第一个新增模型的默认价格
   try {
-    const result = await channelsAPI.getModelDefaultPricing(addedModels[0])
-    if (result.found) {
-      emit('update', {
-        ...props.entry,
-        models: newModels,
-        input_price: perTokenToMTok(result.input_price ?? null),
-        output_price: perTokenToMTok(result.output_price ?? null),
-        cache_write_price: perTokenToMTok(result.cache_write_price ?? null),
-        cache_read_price: perTokenToMTok(result.cache_read_price ?? null),
-        image_input_price: perTokenToMTok(result.image_input_price ?? null),
-        image_output_price: perTokenToMTok(result.image_output_price ?? null),
-      })
-    }
+    const result = await channelsAPI.getModelDefaultPricing(newModels[0])
+    // The parent replaces the entry on every edit. Apply only to the draft that requested these prices.
+    if (!result.found || toRaw(props.entry) !== draft) return
+    emit('update', {
+      ...draft,
+      input_price: perTokenToMTok(result.input_price ?? null),
+      output_price: perTokenToMTok(result.output_price ?? null),
+      cache_write_price: perTokenToMTok(result.cache_write_price ?? null),
+      cache_read_price: perTokenToMTok(result.cache_read_price ?? null),
+      image_input_price: perTokenToMTok(result.image_input_price ?? null),
+      image_output_price: perTokenToMTok(result.image_output_price ?? null),
+    })
   } catch {
     // 查询失败不影响用户操作
   }

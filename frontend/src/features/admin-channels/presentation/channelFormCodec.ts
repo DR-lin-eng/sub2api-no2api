@@ -11,6 +11,7 @@ import {
   type PricingFormEntry,
 } from '@/features/admin-channels/presentation/adminChannelSignals'
 import type { AdminGroup, GroupPlatform } from '@/types'
+import { channelPlatformOrder, supportsChannelOption, type ChannelPlatform } from './channelProviders'
 
 export interface FormPricingRule {
   name: string
@@ -20,7 +21,7 @@ export interface FormPricingRule {
 }
 
 export interface PlatformSection {
-  platform: GroupPlatform
+  platform: ChannelPlatform
   enabled: boolean
   collapsed: boolean
   group_ids: number[]
@@ -38,28 +39,6 @@ export interface ChannelAPIFields {
   model_mapping: Record<string, Record<string, string>>
   features_config: Record<string, unknown>
 }
-
-export const channelPlatformOrder: GroupPlatform[] = [
-  'anthropic',
-  'openai',
-  'gemini',
-  'antigravity',
-    'grok',
-    'kimi',
-    'zhipu',
-    'deepseek',
-    'minimax',
-    'opencode_go',
-    'multimodal',
-]
-
-// Keep the channel editor aligned with the platform dimensions it currently
-// renders. Unknown dimensions remain preserved in features_config so an older
-// UI cannot erase settings written by a newer API client.
-export const WEB_SEARCH_EMULATION_PLATFORMS: ReadonlySet<GroupPlatform> = new Set([
-  'anthropic',
-  'openai',
-])
 
 function pricingFormEntryToAPI(
   entry: PricingFormEntry,
@@ -172,12 +151,12 @@ export function buildChannelAPIFields(
   let webSearchTouched = false
   const codexImageGenerationBridge: Record<string, boolean> = {}
   for (const section of sections) {
-    if (WEB_SEARCH_EMULATION_PLATFORMS.has(section.platform)) {
+    if (supportsChannelOption(section.platform, 'web_search_emulation')) {
       webSearchEmulation[section.platform] = section.enabled ? !!section.web_search_emulation : false
       webSearchTouched = true
     }
     if (!section.enabled) continue
-    if (section.platform === 'openai') {
+    if (supportsChannelOption(section.platform, 'codex_image_generation_bridge')) {
       codexImageGenerationBridge[section.platform] = !!section.codex_image_generation_bridge
     }
   }
@@ -191,7 +170,7 @@ export function buildChannelAPIFields(
     delete featuresConfig.codex_image_generation_bridge
   }
   featuresConfig.bedrock_cc_compat = sections.some(
-    section => section.enabled && section.platform === 'anthropic' && section.bedrock_cc_compat
+    section => section.enabled && supportsChannelOption(section.platform, 'bedrock_cc_compat') && section.bedrock_cc_compat
   )
 
   return {
@@ -205,7 +184,7 @@ export function buildChannelAPIFields(
 export function channelToPlatformSections(
   channel: Channel,
   groups: AdminGroup[],
-  platformOrder: GroupPlatform[] = channelPlatformOrder,
+  platformOrder: readonly ChannelPlatform[] = channelPlatformOrder,
 ): PlatformSection[] {
   const groupPlatformMap = new Map<number, GroupPlatform>()
   for (const group of groups) {
@@ -225,7 +204,7 @@ export function channelToPlatformSections(
     if (pricing.platform) activePlatforms.add(pricing.platform as GroupPlatform)
   }
   for (const platform of Object.keys(channel.model_mapping || {})) {
-    if (platformOrder.includes(platform as GroupPlatform)) {
+    if (platformOrder.includes(platform as ChannelPlatform)) {
       activePlatforms.add(platform as GroupPlatform)
     }
   }

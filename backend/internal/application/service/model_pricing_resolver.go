@@ -203,28 +203,10 @@ func (r *ModelPricingResolver) applyTokenOverrides(chPricing *ChannelModelPricin
 	// 过滤掉所有价格字段都为空的无效 interval
 	validIntervals := filterValidIntervals(chPricing.Intervals)
 
-	// 如果有有效的区间定价，使用区间
+	// Matching intervals have priority; outside them the explicit flat channel/group prices still apply.
 	if len(validIntervals) > 0 {
 		resolved.Intervals = validIntervals
-		// 区间不匹配时回退到 BasePricing，也需要覆盖图片价格
-		if resolved.BasePricing == nil {
-			resolved.BasePricing = &ModelPricing{}
-		} else {
-			// 防止修改 fallbackPrices 中的共享指针
-			cloned := *resolved.BasePricing
-			resolved.BasePricing = &cloned
-		}
-		if chPricing.ImageOutputPrice != nil {
-			resolved.BasePricing.ImageOutputPricePerToken = *chPricing.ImageOutputPrice
-		} else {
-			resolved.BasePricing.ImageOutputPricePerToken = 0
-		}
-		resolved.BasePricing.ImageOutputPriceExplicit = true
-		applyChannelImageInputPrice(chPricing, resolved.BasePricing)
-		return
 	}
-
-	// 否则用 flat 字段覆盖 BasePricing
 	if resolved.BasePricing == nil {
 		resolved.BasePricing = &ModelPricing{}
 	} else {
@@ -234,7 +216,10 @@ func (r *ModelPricingResolver) applyTokenOverrides(chPricing *ChannelModelPricin
 	}
 
 	// 渠道仅配置 Standard 价格；保留上游价格元数据，由计费核心在最终成本上应用档位倍率。
-	resolved.BasePricing.ApplyServiceTierMultiplier = true
+	if len(validIntervals) == 0 || chPricing.InputPrice != nil || chPricing.OutputPrice != nil ||
+		chPricing.CacheWritePrice != nil || chPricing.CacheReadPrice != nil {
+		resolved.BasePricing.ApplyServiceTierMultiplier = true
+	}
 
 	if chPricing.InputPrice != nil {
 		resolved.BasePricing.InputPricePerToken = *chPricing.InputPrice

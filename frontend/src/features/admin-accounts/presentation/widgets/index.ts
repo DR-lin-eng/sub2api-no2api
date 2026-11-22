@@ -1,4 +1,4 @@
-export { default as CreateAccountModal } from './CreateAccountDialog.vue'
+export { default as CreateAccountModal } from './CreateAccountWizard.vue'
 export { default as EditAccountModal } from './EditAccountDialog.vue'
 export { default as BulkEditAccountModal } from './BulkEditAccountDialog.vue'
 export { default as ReAuthAccountModal } from './ReAuthAccountDialog.vue'

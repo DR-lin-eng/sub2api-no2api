@@ -13,6 +13,7 @@ import {
   type PlatformSection,
 } from '../presentation/channelFormCodec'
 import type { AdminGroup, GroupPlatform } from '@/types'
+import type { ChannelPlatform } from '../presentation/channelProviders'
 
 function makePricing(overrides: Partial<PricingFormEntry> = {}): PricingFormEntry {
   return {
@@ -31,7 +32,7 @@ function makePricing(overrides: Partial<PricingFormEntry> = {}): PricingFormEntr
 }
 
 function makeSection(
-  platform: GroupPlatform,
+  platform: ChannelPlatform,
   overrides: Partial<PlatformSection> = {},
 ): PlatformSection {
   return {
@@ -291,22 +292,24 @@ describe('channel form codec', () => {
       'openai',
       'gemini',
       'antigravity',
-        'grok',
-        'kimi',
-        'zhipu',
-        'deepseek',
-        'minimax',
-        'opencode_go',
-        'multimodal',
+      'grok',
+      'kimi',
+      'zhipu',
+      'deepseek',
+      'minimax',
+      'opencode_go',
+      'typesafe',
+      'multimodal',
     ])
     expect(sections.map(section => section.group_ids)).toStrictEqual([
       [1, 3],
       [2, 1],
-        [1],
-        [1],
-        [1],
-        [1],
-        [1],
+      [1],
+      [1],
+      [1],
+      [1],
+      [1],
+      [1],
       [1],
       [1],
       [1],

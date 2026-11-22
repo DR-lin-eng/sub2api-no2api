@@ -2,6 +2,8 @@
 
 管理账号 feature 负责账号列表、创建/编辑、批量更新、授权和用量展示。
 
+「添加账号」先从可搜索的厂商目录选择平台，再填写「连接与凭证」和「调度与策略」。OpenAI 新增及编辑表单通过「OpenAI 专属设置」配置 WS、Compact、图片工具和额度暂停策略；普通 OAuth 还可配置 Codex、TLS、订阅档位与 Excel BPS。API Key 是新表单的初始认证方式，Antigravity 默认使用上游地址和密钥。厂商支持的 OAuth、Bedrock、服务账号和其他授权入口在原有认证控件中选择。返回同一厂商保留草稿，更换厂商重新初始化凭证。编辑已有账号直接打开其配置，替换密钥通过原账号更新接口提交。选择厂商和填写账号复用同一个弹窗。首次使用导览等当前弹窗关闭后再自动启动。厂商清单在 `src/core/constants/modelProviders.ts`，与账号列表筛选和渠道创建共用。
+
 `useAccountsOpenAIUsagePush.ts` 在账号列表页面按当前加载页观察后台额度快照；浏览器连接只接收结果，不创建上游 WS。上游同步由服务启动后的后台 owner 管理，首次模型调用激活 active 账号，连续 10 分钟未调用后释放；页面关闭不影响后台同步。`openAIUsageDatasource.ts`、`useOpenAIUsagePush.ts`、`useOpenAIUsageDetails.ts` 与 `OpenAIUsageDetails*` 维护单行回退和“使用统计”的上游详情。后台页面释放推送/停止查询，切换账号或凭据后忽略旧响应；上游不可用继续原刷新路径。资源范围、刷新频率、曲线近似值和会话 ID 边界见 [用量说明](../../../../docs/OPENAI_USAGE.md)。
 
 OpenAI OAuth 授权步骤可选择 Sign in with ChatGPT（SIWC）。完整回调 URL 必须保留已签发 `client_id`；切换认证方式会清空已有授权会话，重新授权 SIWC 账号继续使用该协议。入口、刷新和模型请求边界见 [SIWC 说明](../../../../docs/OPENAI_SIWC.md)。

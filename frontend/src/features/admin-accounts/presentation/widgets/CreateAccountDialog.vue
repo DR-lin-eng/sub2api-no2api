@@ -1,27 +1,50 @@
 <template>
-  <BaseDialog
-    :show="show"
-    :title="t('admin.accounts.createAccount')"
-    width="wide"
-    @close="handleClose"
-  >
     <CreateAccountStepIndicator :context="createAccountStepIndicatorContext" />
+
+    <AccountFormTabs v-if="step === 1" :openai="form.platform === 'openai'" v-model="tab" class="mx-auto max-w-7xl" />
 
     <!-- Step 1: Basic Info -->
     <form
       v-if="step === 1"
       id="create-account-form"
       @submit.prevent="handleSubmit"
-      class="space-y-5"
+      class="mx-auto max-w-7xl"
+      @invalid.capture="revealInvalid"
     >
-      <CreateAccountPlatformFields :context="createAccountPlatformContext" />
-
-      <CreateAccountCredentialFields :context="createAccountCredentialContext" />
-
-      <OpenAIImageSizeTiersField v-if="form.platform === 'openai'" v-model="openAIImageSizeTiers" />
-
-      <CreateAccountAdvancedFields :context="createAccountAdvancedContext" />
-
+      <div v-show="tab === 'connection'" data-account-tab="connection" class="grid items-start gap-5 lg:grid-cols-2">
+        <section class="min-w-0 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-dark-600 sm:p-5">
+          <CreateAccountPlatformFields :context="createAccountPlatformContext" />
+        </section>
+        <section class="min-w-0 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-dark-600 sm:p-5">
+          <h4 class="font-semibold text-gray-900 dark:text-white">{{ t('admin.accounts.providerSetup.credentials') }}</h4>
+          <CreateAccountCredentialFields :context="createAccountCredentialContext" />
+          <p v-if="isOAuthFlow && form.platform !== 'anthropic' && form.platform !== 'grok'" class="text-sm text-gray-500">{{ t('admin.accounts.providerSetup.oauthHint') }}</p>
+        </section>
+      </div>
+      <div v-if="form.platform === 'openai'" v-show="tab === 'openai'" data-account-tab="openai" class="mx-auto max-w-4xl space-y-4">
+        <CreateOpenAISettings :context="createAccountAdvancedContext" />
+        <OpenAIImageToolPolicy v-model="codexImageToolMode" />
+        <OpenAIImageSizeTiersField v-model="openAIImageSizeTiers" />
+        <OpenAIQuotaPauseFields
+          v-model:auto-pause5h-disabled="autoPause5hDisabled" v-model:auto-pause7d-disabled="autoPause7dDisabled"
+          v-model:auto-pause5h-threshold="autoPause5hThreshold" v-model:auto-pause7d-threshold="autoPause7dThreshold"
+        />
+        <div v-if="form.type === 'oauth'" class="space-y-2 border-t border-gray-200 py-4 dark:border-dark-600">
+          <label class="input-label">{{ t('admin.accounts.openai.planType') }}</label>
+          <Select v-model="planType" :aria-label="t('admin.accounts.openai.planType')" :options="planTypeOptions" />
+          <p class="input-hint">{{ t('admin.accounts.providerSetup.oauthPlanHint') }}</p>
+        </div>
+        <label v-if="form.type === 'oauth'" class="flex items-start justify-between gap-4 border-t border-gray-200 py-4 dark:border-dark-600">
+          <span>
+            <span class="input-label">{{ t('admin.accounts.openai.excelBpsEnabled') }}</span>
+            <span class="input-hint">{{ t('admin.accounts.openai.excelBpsEnabledDesc') }}</span>
+          </span>
+          <input v-model="excelBpsEnabled" type="checkbox" data-testid="create-excel-bps" class="mt-1 rounded border-gray-300 text-primary-600" />
+        </label>
+      </div>
+      <div v-show="tab === 'scheduling'" data-account-tab="scheduling" class="mx-auto max-w-4xl space-y-5">
+        <CreateAccountAdvancedFields :context="createAccountAdvancedContext" />
+      </div>
     </form>
 
     <!-- Step 2: OAuth Authorization -->
@@ -63,11 +86,6 @@
 
     </div>
 
-    <template #footer>
-      <CreateAccountDialogFooter :context="createAccountFooterContext" />
-    </template>
-  </BaseDialog>
-
       <GeminiAccountHelpDialog :context="geminiAccountHelpContext" />
 
   <!-- Mixed Channel Warning Dialog -->
@@ -86,13 +104,13 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AccountFormTabs from './AccountFormTabs.vue'
+import { useAccountFormTab } from '../composables/useAccountFormTab'
 import { useAppStore } from '@/core/stores/appStore'
 import {
-  claudeModels,
   getPresetMappingsByPlatform,
   commonErrorCodes,
   buildModelMappingObject,
-  fetchAntigravityDefaultMappings,
   isValidWildcardPattern
 } from '@/features/admin-accounts/presentation/composables/useModelWhitelist'
 import { useAuthStore } from '@/features/auth'
@@ -134,9 +152,9 @@ import type {
   CheckMixedChannelResponse,
   CreateAccountRequest
 } from '@/features/admin-accounts/data/dtos/adminAccountDtos'
-import BaseDialog from '@/common/widgets/feedback/BaseDialog.vue'
 import ConfirmDialog from '@/common/widgets/feedback/ConfirmDialog.vue'
 import {
+  buildPlanTypeOptions,
   applyHeaderOverride,
   applyInterceptWarmup,
   isHeaderOverrideCapable,
@@ -161,11 +179,14 @@ import {
 import OAuthAuthorizationFlow from './OAuthAuthorizationFlow.vue'
 import CreateAccountPlatformFields from './create/CreateAccountPlatformFields.vue'
 import CreateAccountCredentialFields from './create/CreateAccountCredentialFields.vue'
+import OpenAIImageToolPolicy from './OpenAIImageToolPolicy.vue'
+import Select from '@/common/widgets/forms/Select.vue'
+import OpenAIQuotaPauseFields from './OpenAIQuotaPauseFields.vue'
+import CreateOpenAISettings from './create/CreateOpenAISettings.vue'
 import CreateAccountAdvancedFields from './create/CreateAccountAdvancedFields.vue'
 import OpenAIImageSizeTiersField from './OpenAIImageSizeTiersField.vue'
 import { buildCreateOpenAIExtra } from '../accountCreateOpenAIExtra'
 import { OPENAI_IMAGE_SIZE_TIERS, type OpenAIImageSizeTier } from '../openaiImageSizeTiers'
-import CreateAccountDialogFooter from './create/CreateAccountDialogFooter.vue'
 import CreateAccountStepIndicator from './create/CreateAccountStepIndicator.vue'
 import GeminiAccountHelpDialog from './create/GeminiAccountHelpDialog.vue'
 import {
@@ -182,6 +203,7 @@ import {
 } from '@/features/admin-accounts/presentation/accountFormPolicy'
 import type {
   CreateAccountAdvancedContext,
+  CodexImageToolMode,
   CreateAccountCredentialContext,
   CreateAccountFooterContext,
   CreateAccountPlatformContext,
@@ -209,12 +231,14 @@ const baseUrlHint = computed(() => accountAPIKeyFieldHint(t, form.platform, 'bas
 const apiKeyHint = computed(() => accountAPIKeyFieldHint(t, form.platform, 'apiKey'))
 
 interface Props {
+  platform: AccountPlatform
   show: boolean
   proxies: Proxy[]
   groups: AdminGroup[]
 }
 
 const props = defineProps<Props>()
+const { tab, revealInvalid } = useAccountFormTab()
 const availableGroups = computed(() => props.groups)
 const availableProxies = computed(() => props.proxies)
 const emit = defineEmits<{
@@ -276,9 +300,9 @@ const oauthFlowRef = ref<OAuthFlowExposed | null>(null)
 // State
 const step = ref(1)
 const submitting = ref(false)
-const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_account'>('oauth-based') // UI selection for account category
+const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_account'>('apikey') // UI selection for account category
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
-const apiKeyBaseUrl = ref('https://api.anthropic.com')
+const apiKeyBaseUrl = ref(defaultAPIKeyBaseURL(props.platform))
 const apiKeyValue = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
 const autoDisableOnUpstreamInsufficientBalance = ref(false)
@@ -644,7 +668,7 @@ const tempUnschedPresets = computed(() => [
 const form = reactive({
   name: '',
   notes: '',
-  platform: 'anthropic' as AccountPlatform,
+  platform: props.platform,
   type: 'oauth' as AccountType, // Will be 'oauth', 'setup-token', or 'apikey'
   credentials: {} as Record<string, unknown>,
   proxy_id: null as number | null,
@@ -658,7 +682,7 @@ const form = reactive({
 
 const {
   cnAccountMode, cnAPIProtocol, cnAdaptiveBaseURLs, openCodeAccountMode,
-  openCodeProtocolRules, resetCNAccountEditorState, zhipuOrganization, zhipuProject,
+  openCodeProtocolRules, zhipuOrganization, zhipuProject,
 } = useCNAccountEditorState(() => form.platform)
 
 // Helper to check if current type needs OAuth flow
@@ -735,7 +759,7 @@ const {
   modelMappings, modelRestrictionMode, notifications, oauth,
   openAICompactModelMappings, openAIEndpointCapabilities, openAIForceImageAPIEnabled,
   openaiAPIKeyResponsesWebSocketV2Mode, openaiOAuth, openaiOAuthResponsesWebSocketV2Mode,
-  openaiFlattenNamespacesEnabled, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, resetForm: () => resetForm(),
+  openaiFlattenNamespacesEnabled, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled,
   selectedErrorCodes,
   show: () => props.show, t, tempUnschedEnabled, tempUnschedRules, tlsFingerprintProfiles,
   vertexClientEmail, vertexLocation, vertexProjectId, vertexServiceAccountJson,
@@ -851,131 +875,24 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
 }
 
 // Methods
-const resetForm = () => {
-  step.value = 1
-  form.name = ''
-  form.notes = ''
-  form.platform = 'anthropic'
-  form.type = 'oauth'
-  form.credentials = {}
-  form.proxy_id = null
-  form.concurrency = 10
-  form.load_factor = null
-  form.priority = 1
-  form.rate_multiplier = 1
-  form.group_ids = []
-  form.expires_at = null
-  accountCategory.value = 'oauth-based'
-  addMethod.value = 'oauth'
-  apiKeyBaseUrl.value = 'https://api.anthropic.com'
-  apiKeyValue.value = ''
-  resetCNAccountEditorState()
-  upstreamBillingAutoProbeEnabled.value = true
-  autoDisableOnUpstreamInsufficientBalance.value = false
-  editQuotaLimit.value = null
-  editQuotaDailyLimit.value = null
-  editQuotaWeeklyLimit.value = null
-  editDailyResetMode.value = null
-  editDailyResetHour.value = null
-  editWeeklyResetMode.value = null
-  editWeeklyResetDay.value = null
-  editWeeklyResetHour.value = null
-  editResetTimezone.value = null
-  modelMappings.value = []
-  openAICompactModelMappings.value = []
-  modelRestrictionMode.value = 'whitelist'
-  allowedModels.value = [...claudeModels] // Default fill related models
-
-  antigravityModelRestrictionMode.value = 'mapping'
-  antigravityWhitelistModels.value = []
-  fetchAntigravityDefaultMappings().then(mappings => {
-    antigravityModelMappings.value = [...mappings]
-  })
-  poolModeEnabled.value = false
-  poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
-  poolModeRetryStatusCodesInput.value = ''
-  customErrorCodesEnabled.value = false
-  selectedErrorCodes.value = []
-  customErrorCodeInput.value = null
-  headerOverrideEnabled.value = false
-  headerOverrideRows.value = []
-  grokOAuthCustomBaseUrlEnabled.value = false
-  grokOAuthBaseUrl.value = ''
-  interceptWarmupRequests.value = false
-  autoPauseOnExpired.value = true
-  openaiPassthroughEnabled.value = false
-  openaiPassthroughModelFilterEnabled.value = false
-  openAIImageSizeTiers.value = [...OPENAI_IMAGE_SIZE_TIERS]
-  openaiFlattenNamespacesEnabled.value = false
-  openAILongContextBillingEnabled.value = false
-  openAILongContextBillingTouched.value = false
-  openAICompactMode.value = 'auto'
-  openAIResponsesMode.value = 'auto'
-  openAIEndpointCapabilities.value = ['chat_completions', 'embeddings', 'decisions']
-  openAIForceImageAPIEnabled.value = false
-  openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-  openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-  codexFingerprintMode.value = 'off'
-  codexPrewarmContinuationEnabled.value = false
-  codexThinkingTagNormalizationEnabled.value = false
-  codexCLIOnlyEnabled.value = false
-  codexCLIOnlyAppServerEnabled.value = false
-  anthropicPassthroughEnabled.value = false
-  anthropicAPIKeyAuthScheme.value = 'x_api_key'
-  webSearchEmulationMode.value = 'default'
-  // Reset quota control state
-  windowCostEnabled.value = false
-  windowCostLimit.value = null
-  windowCostStickyReserve.value = null
-  sessionLimitEnabled.value = false
-  maxSessions.value = null
-  sessionIdleTimeout.value = null
-  rpmLimitEnabled.value = false
-  baseRpm.value = null
-  rpmStrategy.value = 'tiered'
-  rpmStickyBuffer.value = null
-  userMsgQueueMode.value = ''
-  tlsFingerprintEnabled.value = false
-  tlsFingerprintProfileId.value = null
-  sessionIdMaskingEnabled.value = false
-  cacheTTLOverrideEnabled.value = false
-  cacheTTLOverrideTarget.value = '5m'
-  customBaseUrlEnabled.value = false
-  customBaseUrl.value = ''
-  allowOverages.value = false
-  antigravityAccountType.value = 'oauth'
-  antigravityProjectId.value = ''
-  upstreamBaseUrl.value = ''
-  upstreamApiKey.value = ''
-  vertexServiceAccountJson.value = ''
-  vertexProjectId.value = ''
-  vertexClientEmail.value = ''
-  vertexLocation.value = 'global'
-  tempUnschedEnabled.value = false
-  tempUnschedRules.value = []
-  geminiOAuthType.value = 'code_assist'
-  geminiTierGoogleOne.value = 'google_one_free'
-  geminiTierGcp.value = 'gcp_standard'
-  geminiTierAIStudio.value = 'aistudio_free'
-  oauth.resetState()
-  openaiOAuth.resetState()
-  geminiOAuth.resetState()
-  antigravityOAuth.resetState()
-  grokOAuth.resetState()
-  oauthFlowRef.value?.reset()
-  antigravityMixedChannelConfirmed.value = false
-  clearMixedChannelDialog()
-}
-
 const handleClose = () => {
   antigravityMixedChannelConfirmed.value = false
   clearMixedChannelDialog()
   emit('close')
 }
 
+const codexImageToolMode = ref<CodexImageToolMode>('inherit')
+const autoPause5hDisabled = ref(false)
+const autoPause7dDisabled = ref(false)
+const autoPause5hThreshold = ref<number | null>(null)
+const autoPause7dThreshold = ref<number | null>(null)
+const excelBpsEnabled = ref(false)
+const planType = ref('')
+const planTypeOptions = computed(() => buildPlanTypeOptions(planType.value, t('admin.accounts.openai.planTypeClear')))
+
 const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined =>
   buildCreateOpenAIExtra({
-    form,
+    form, codexImageToolMode, tlsFingerprintEnabled, tlsFingerprintProfileId, autoPause5hDisabled, autoPause7dDisabled, autoPause5hThreshold, autoPause7dThreshold, excelBpsEnabled,
     openAIImageSizeTiers, accountCategory, openaiOAuthResponsesWebSocketV2Mode,
     openaiAPIKeyResponsesWebSocketV2Mode, openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, openaiFlattenNamespacesEnabled,
     codexPrewarmContinuationEnabled, codexFingerprintMode, customBaseUrlEnabled,
@@ -989,6 +906,8 @@ const buildOpenAICodexImportExtra = (): Record<string, unknown> | undefined => {
   if (!extra) {
     return undefined
   }
+  // Session imports can contain PAT or Agent Identity accounts. These use their own capabilities.
+  delete extra.excel_bps_enabled
   if (!openAILongContextBillingTouched.value) {
     delete extra.openai_long_context_billing_enabled
   }
@@ -1339,7 +1258,7 @@ const {
   addMethod, allowedModels, antigravityModelMappings, antigravityOAuth, antigravityProjectId,
   apiKeyBaseUrl, applyGrokOAuthUpstreamConfig, applyOpenAIEndpointCapabilities,
   applyTempUnschedConfig, autoPauseOnExpired, baseRpm, buildAntigravityExtra,
-  buildOpenAICodexImportExtra, buildOpenAICompactModelMapping, buildOpenAIExtra,
+  planType, buildOpenAICodexImportExtra, buildOpenAICompactModelMapping, buildOpenAIExtra,
   cacheTTLOverrideEnabled, cacheTTLOverrideTarget, customBaseUrl, customBaseUrlEnabled,
   doCreateAccount, editDailyResetHour, editDailyResetMode, editQuotaDailyLimit,
   editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone, editWeeklyResetDay,
@@ -1417,4 +1336,5 @@ const createAccountStepIndicatorContext = {
 const geminiAccountHelpContext = {
   geminiHelpLinks, geminiQuotaDocs, showGeminiHelpDialog, t,
 } satisfies GeminiAccountHelpContext
+defineExpose({ step, submitting, footer: createAccountFooterContext, close: handleClose })
 </script>

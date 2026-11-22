@@ -63,12 +63,12 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-import CreateAccountModal from '@/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue'
+import CreateAccountModal from '@/features/admin-accounts/presentation/widgets/CreateAccountWizard.vue'
 
 const BaseDialogStub = defineComponent({
   name: 'BaseDialog',
   props: { show: { type: Boolean, default: false } },
-  template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+  template: '<div v-if="show" role="dialog"><slot name="after-title" /><slot /><slot name="footer" /></div>',
 })
 
 const OAuthAuthorizationFlowStub = defineComponent({
@@ -126,6 +126,10 @@ function mountModal() {
 }
 
 async function selectButtonByText(wrapper: ReturnType<typeof mountModal>, text: string) {
+  if (text === 'OAuth' || text === 'API Key') {
+    await wrapper.get(`[data-tour="account-form-type"] input[value="${text === 'OAuth' ? 'oauth-based' : 'apikey'}"]`).setValue(true)
+    return
+  }
   const button = wrapper.findAll('button').find((candidate) => candidate.text().includes(text))
   expect(button).toBeDefined()
   await button?.trigger('click')
@@ -138,7 +142,7 @@ async function submitApiKeyAccount(
   autoDisableOnInsufficientBalance = false
 ) {
   const wrapper = mountModal()
-  await selectButtonByText(wrapper, platform === 'openai' ? 'OpenAI' : 'admin.accounts.claudeConsole')
+  await wrapper.get(`[data-testid="account-platform-${platform}"]`).trigger('click')
   if (platform === 'openai') {
     await selectButtonByText(wrapper, 'API Key')
   }
@@ -160,7 +164,8 @@ async function submitApiKeyAccount(
 
 async function openCodexImportStep(toggleClicks = 0) {
   const wrapper = mountModal()
-  await selectButtonByText(wrapper, 'OpenAI')
+  await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
+  await selectButtonByText(wrapper, 'OAuth')
   for (let click = 0; click < toggleClicks; click += 1) {
     await wrapper.get('[data-testid="openai-long-context-billing-toggle"]').trigger('click')
   }
@@ -184,6 +189,67 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     createOpenAICodexPATMock.mockReset().mockResolvedValue({})
   })
 
+  it('selects Gemini first inside the same open dialog and exposes its own URL and key', async () => {
+    const wrapper = mountModal()
+    const dialog = wrapper.get('[role="dialog"]').element
+    await wrapper.get('[data-testid="account-platform-gemini"]').trigger('click')
+    expect(wrapper.get('[role="dialog"]').element).toBe(dialog)
+    expect(wrapper.get<HTMLInputElement>('#create-account-base-url').element.value).toBe('https://generativelanguage.googleapis.com')
+    expect(wrapper.get('#create-account-api-key').isVisible()).toBe(true)
+    await wrapper.get('input[name="create-account-auth-type"][value="service_account"]').setValue(true)
+    expect(wrapper.text()).toContain('Service Account JSON')
+    expect(wrapper.find('#create-account-api-key').exists()).toBe(false)
+  })
+
+  it('keeps the chosen OAuth TLS policy in the session import request', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
+    await selectButtonByText(wrapper, 'OAuth')
+    await wrapper.get('[data-tour="account-tab-openai"]').trigger('click')
+    const title = wrapper.get('[data-account-tab="openai"]').findAll('label')
+      .find(label => label.text() === 'admin.accounts.quotaControl.tlsFingerprint.label')
+    const toggle = title?.element.parentElement?.parentElement?.querySelector('button')
+    expect(toggle).toBeInstanceOf(HTMLButtonElement)
+    toggle!.click()
+    await wrapper.get('#create-account-name').setValue('TLS import')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await wrapper.get('[data-testid="import-codex-session"]').trigger('click')
+    await flushPromises()
+    expect(importCodexSessionMock.mock.calls[0]?.[0]?.extra).toMatchObject({ enable_tls_fingerprint: true })
+  })
+
+  it('submits OpenAI account policies selected in the provider tab', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
+    await wrapper.get('#create-account-name').setValue('policy account')
+    await wrapper.get('#create-account-api-key').setValue('test-api-key')
+    await wrapper.get('[data-tour="account-tab-openai"]').trigger('click')
+    await wrapper.get('[data-testid="codex-image-tool-block"]').trigger('click')
+    await wrapper.get('[data-testid="auto-pause-5h-threshold"]').setValue('75')
+    await wrapper.get('[data-testid="auto-pause-7d-disabled"]').trigger('click')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    expect(createAccountMock.mock.calls[0]?.[0]).toMatchObject({
+      platform: 'openai', type: 'apikey', extra: {
+        codex_image_generation_explicit_tool_policy: 'strip', auto_pause_5h_threshold: 0.75, auto_pause_7d_disabled: true,
+      },
+    })
+  })
+
+  it('exposes one dialog at a time and never carries an API key into another provider', async () => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
+    await wrapper.get('#create-account-api-key').setValue('only-for-openai')
+    await selectButtonByText(wrapper, 'admin.accounts.providerSetup.change')
+    expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
+    expect(wrapper.get('#create-account-form').isVisible()).toBe(false)
+    await selectButtonByText(wrapper, 'admin.accounts.providerSetup.back')
+    expect(wrapper.get<HTMLInputElement>('#create-account-api-key').element.value).toBe('only-for-openai')
+    await selectButtonByText(wrapper, 'admin.accounts.providerSetup.change')
+    await wrapper.get('[data-testid="account-platform-anthropic"]').trigger('click')
+    expect(wrapper.get<HTMLInputElement>('#create-account-api-key').element.value).toBe('')
+    expect(wrapper.get<HTMLInputElement>('#create-account-base-url').element.value).toBe('https://api.anthropic.com')
+  })
+
   it('sends false explicitly for normal OpenAI account creation by default', async () => {
     await submitApiKeyAccount('openai')
 
@@ -193,7 +259,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     it('shows namespace flattening only for OpenAI OAuth accounts', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
+    await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
+    await selectButtonByText(wrapper, 'OAuth')
     expect(wrapper.find('[data-testid="create-openai-flatten-namespaces-toggle"]').exists()).toBe(true)
 
     await selectButtonByText(wrapper, 'API Key')
@@ -202,7 +269,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     it('stores Codex prewarm continuation for OpenAI OAuth imports only', async () => {
       const wrapper = mountModal()
-      await selectButtonByText(wrapper, 'OpenAI')
+      await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
+      await selectButtonByText(wrapper, 'OAuth')
       const toggle = wrapper.get('[data-testid="create-codex-prewarm-continuation"]')
       expect(toggle.attributes('aria-checked')).toBe('false')
       await toggle.trigger('click')
@@ -217,7 +285,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
       ).toBe(true)
 
       const apiKeyWrapper = mountModal()
-      await selectButtonByText(apiKeyWrapper, 'OpenAI')
+      await apiKeyWrapper.get('[data-testid="account-platform-openai"]').trigger('click')
       await selectButtonByText(apiKeyWrapper, 'API Key')
       expect(
         apiKeyWrapper.find('[data-testid="create-codex-prewarm-continuation"]').exists()
@@ -226,7 +294,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     it('keeps Codex fingerprint convergence off by default and stores explicit session mode', async () => {
       const wrapper = mountModal()
-      await selectButtonByText(wrapper, 'OpenAI')
+      await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
+      await selectButtonByText(wrapper, 'OAuth')
       const select = wrapper.get('[data-testid="create-codex-fingerprint-mode-select"]')
       expect((select.element as HTMLSelectElement).value).toBe('off')
 
@@ -239,7 +308,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
       expect(importCodexSessionMock.mock.calls[0]?.[0]?.extra?.codex_fingerprint_mode).toBe('session')
 
       const apiKeyWrapper = mountModal()
-      await selectButtonByText(apiKeyWrapper, 'OpenAI')
+      await apiKeyWrapper.get('[data-testid="account-platform-openai"]').trigger('click')
       await selectButtonByText(apiKeyWrapper, 'API Key')
       expect(apiKeyWrapper.find('[data-testid="create-codex-fingerprint-mode-select"]').exists()).toBe(false)
     })
@@ -290,7 +359,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
   it('exposes Agent Identity in the OpenAI authorization methods', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
+    await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
+    await selectButtonByText(wrapper, 'OAuth')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('OpenAI account')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
 
@@ -325,7 +395,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
   it('stores the forced Images API switch for OpenAI API key accounts', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
+    await wrapper.get('[data-testid="account-platform-openai"]').trigger('click')
     await selectButtonByText(wrapper, 'API Key')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('OpenAI image account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')

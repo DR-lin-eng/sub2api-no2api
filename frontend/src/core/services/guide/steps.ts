@@ -113,20 +113,20 @@ export const getAdminSteps = (t: (key: string) => string, isSimpleMode = false):
     }
   },
   {
-    element: '[data-tour="account-form-name"]',
-    popover: {
-      title: t('onboarding.admin.accountName.title'),
-      description: t('onboarding.admin.accountName.description'),
-      side: 'right',
-      align: 'start',
-      showButtons: ['next', 'previous']
-    }
-  },
-  {
     element: '[data-tour="account-form-platform"]',
     popover: {
       title: t('onboarding.admin.accountPlatform.title'),
       description: t('onboarding.admin.accountPlatform.description'),
+      side: 'right',
+      align: 'start',
+      showButtons: ['close']
+    }
+  },
+  {
+    element: '[data-tour="account-form-name"]',
+    popover: {
+      title: t('onboarding.admin.accountName.title'),
+      description: t('onboarding.admin.accountName.description'),
       side: 'right',
       align: 'start',
       showButtons: ['next', 'previous']
@@ -140,6 +140,15 @@ export const getAdminSteps = (t: (key: string) => string, isSimpleMode = false):
       side: 'right',
       align: 'start',
       showButtons: ['next', 'previous']
+    }
+  },
+  {
+    element: '[data-tour="account-tab-scheduling"]',
+    popover: {
+      title: t('onboarding.admin.accountSchedulingTitle'),
+      description: t('onboarding.admin.accountScheduling'),
+      side: 'bottom',
+      showButtons: ['close']
     }
   },
   {

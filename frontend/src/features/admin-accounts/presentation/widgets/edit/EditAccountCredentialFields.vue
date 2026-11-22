@@ -54,8 +54,8 @@
           <p class="input-hint sm:col-span-2">{{ t('admin.accounts.cnProvider.zhipuTeamHint') }}</p>
         </div>
         <div v-if="!((isCNAccountPlatform(account.platform) && editCNAPIProtocol === 'adaptive') || account.platform === 'opencode_go')">
-          <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
-          <input
+          <label for="edit-account-base-url" class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
+          <input id="edit-account-base-url"
             v-model="editBaseUrl"
             type="text"
             class="input"
@@ -89,8 +89,8 @@
           :plan="editOpenCodeAccountMode"
         />
         <div>
-          <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
-          <input
+          <label for="edit-account-api-key" class="input-label">{{ t('admin.accounts.apiKey') }}</label>
+          <input id="edit-account-api-key"
             v-model="editApiKey"
             type="password"
             class="input font-mono"

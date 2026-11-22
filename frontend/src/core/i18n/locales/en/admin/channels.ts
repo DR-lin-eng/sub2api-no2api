@@ -43,6 +43,23 @@ export default {
 
     // Channel Management
     channels: {
+      wizard: {
+        configureLater: 'Configure later',
+        groupSearch: 'Search groups by name or ID',
+        chooseHint: 'Select the model provider or platform for this channel.',
+        configuredProviders: 'Configured providers',
+        changeProvider: 'Change provider',
+        addProvider: 'Add provider',
+        removeProvider: 'Remove {name}',
+        back: 'Back to configuration',
+        configureHint: 'Link a group to create the channel. Accounts in the group supply the upstream connection and credentials.',
+        settings: 'Channel settings',
+        basic: 'Basics & groups',
+        models: 'Models & mapping',
+        billing: 'Billing & statistics',
+        noGroups: 'Create a group for this provider in Groups, or use a composite group.',
+        providerOptions: '{name} options',
+      },
       title: 'Channel Management',
       description: 'Manage channels and custom model pricing',
       searchChannels: 'Search channels...',
@@ -148,7 +165,7 @@ export default {
         perSecondPrice: 'Price per Second',
         multimodalVideoPriceHint:
           'The multimodal platform requires a per-second price on every model: there are no built-in rates and group-level video prices do not apply. If this model has no per-second price for the requested resolution, the request is rejected with 503 (video_price_not_configured).',
-        perRequestPriceRequired: 'Per-request price or billing tiers required for per-request/image billing mode',
+        perRequestPriceRequired: 'Enter a default price or a pricing tier for per-request, image or video billing',
         tierLabel: 'Tier',
         resolution: 'Resolution',
         modelMapping: 'Model Mapping',
@@ -195,7 +212,7 @@ export default {
         searchAccountPlaceholder: 'Search accounts...',
         ruleAccountsHint: 'Leave empty to match all accounts',
         ruleModelPricing: 'Model Pricing',
-         noGroupsInChannel: 'No groups selected in platform tabs above',
+         noGroupsInChannel: 'Link a group under Basics & groups first',
          unnamed: 'Unnamed',
          syncLatestModels: 'Sync Latest Models',
          syncingModels: 'Syncing...',

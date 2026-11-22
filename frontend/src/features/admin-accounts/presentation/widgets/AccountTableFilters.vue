@@ -21,6 +21,7 @@
 </template>
 
 <script setup lang="ts">
+import { modelProviderLabel, modelProviderPlatforms } from '@/core/constants/modelProviders'
 import { computed, ref, useId } from 'vue'; import { useI18n } from 'vue-i18n'; import Select from '@/common/widgets/forms/Select.vue'; import SearchInput from '@/common/widgets/forms/SearchInput.vue'
 import type { AdminGroup } from '@/types'
 import { ACCOUNT_OAUTH_QUOTA_FILTER } from '@/features/admin-accounts/data/dtos/accountQuotaFilters'
@@ -91,7 +92,10 @@ const updatePlanType = (value: string | number | boolean | null) => {
 }
 const updatePrivacyMode = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, privacy_mode: value }) }
 const updateGroup = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, group: value }) }
-const pOpts = computed(() => [{ value: '', label: t('admin.accounts.allPlatforms') }, { value: 'anthropic', label: 'Anthropic' }, { value: 'openai', label: 'OpenAI' }, { value: 'gemini', label: 'Gemini' }, { value: 'antigravity', label: 'Antigravity' }, { value: 'grok', label: 'Grok' }, { value: 'kimi', label: 'Kimi' }, { value: 'zhipu', label: 'Zhipu GLM' }, { value: 'deepseek', label: 'DeepSeek' }, { value: 'minimax', label: 'MiniMax' }, { value: 'opencode_go', label: 'OpenCode' }, { value: 'multimodal', label: 'Multimodal' }])
+const pOpts = computed(() => [
+  { value: '', label: t('admin.accounts.allPlatforms') },
+  ...modelProviderPlatforms.map(value => ({ value, label: modelProviderLabel(t, value) })),
+])
 const tOpts = computed(() => [{ value: '', label: t('admin.accounts.allTypes') }, { value: 'oauth', label: t('admin.accounts.oauthType') }, { value: 'setup-token', label: t('admin.accounts.setupToken') }, { value: 'apikey', label: t('admin.accounts.apiKey') }, { value: 'bedrock', label: 'AWS Bedrock' }])
 const sOpts = computed(() => [{ value: '', label: t('admin.accounts.allStatus') }, { value: 'active', label: t('admin.accounts.status.active') }, { value: 'inactive', label: t('admin.accounts.status.inactive') }, { value: 'error', label: t('admin.accounts.status.error') }, { value: 'rate_limited', label: t('admin.accounts.status.rateLimited') }, { value: 'temp_unschedulable', label: t('admin.accounts.status.tempUnschedulable') }, { value: 'unschedulable', label: t('admin.accounts.status.unschedulable') }])
 const excelBpsOpts = computed(() => [

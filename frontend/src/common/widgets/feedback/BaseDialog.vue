@@ -4,6 +4,7 @@
       <div
         v-if="show"
         class="modal-overlay"
+        :class="{ 'drawer-overlay': width === 'drawer' }"
         :style="zIndexStyle"
         :aria-labelledby="dialogId"
         role="dialog"
@@ -22,11 +23,12 @@
             <h3 :id="dialogId" class="modal-title">
               {{ title }}
             </h3>
+            <slot name="after-title"></slot>
             <button
               v-if="showCloseButton"
               @click="emit('close')"
               class="-mr-2 rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:ring-offset-2 dark:text-dark-500 dark:hover:bg-dark-700 dark:hover:text-dark-300 dark:focus-visible:ring-offset-dark-900"
-              aria-label="Close modal"
+              :aria-label="closeLabel ?? 'Close modal'"
             >
               <Icon name="x" size="md" />
             </button>
@@ -48,7 +50,7 @@
   <section v-else-if="show" class="mx-auto w-full max-w-7xl bg-white dark:bg-dark-900">
     <header class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-dark-700">
       <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ title }}</h1>
-      <button v-if="showCloseButton" type="button" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-800 dark:hover:text-white" :aria-label="closeLabel" @click="emit('close')">
+      <button v-if="showCloseButton" type="button" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-800 dark:hover:text-white" :aria-label="closeLabel ?? 'Close'" @click="emit('close')">
         <Icon name="x" size="md" />
       </button>
     </header>
@@ -75,7 +77,7 @@ const dialogRef = ref<HTMLElement | null>(null)
 let previousActiveElement: HTMLElement | null = null
 let releaseBodyScrollLock: (() => void) | null = null
 
-type DialogWidth = 'narrow' | 'normal' | 'wide' | 'extra-wide' | 'full'
+type DialogWidth = 'narrow' | 'normal' | 'wide' | 'extra-wide' | 'full' | 'drawer'
 type InitialFocus = 'first' | 'dialog'
 
 interface Props {
@@ -102,8 +104,7 @@ const props = withDefaults(defineProps<Props>(), {
   showCloseButton: true,
   zIndex: 50,
   initialFocus: 'first',
-  mode: 'dialog',
-  closeLabel: 'Close'
+  mode: 'dialog'
 })
 
 const emit = defineEmits<Emits>()
@@ -122,6 +123,7 @@ const widthClasses = computed(() => {
     normal: 'max-w-lg',
     wide: 'w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl',
     'extra-wide': 'w-full sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl',
+    drawer: 'w-full',
     full: 'w-full sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl'
   }
   return widths[props.width]
@@ -196,3 +198,19 @@ onUnmounted(() => {
   syncBodyScrollLock(false)
 })
 </script>
+
+<style scoped>
+.drawer-overlay {
+  @apply justify-end p-0;
+}
+
+.drawer-overlay .modal-content {
+  @apply h-full max-h-full rounded-none border-y-0 border-r-0;
+}
+
+@media (min-width: 640px) {
+  .drawer-overlay .modal-content {
+    max-width: min(86rem, calc(100% - 4rem));
+  }
+}
+</style>

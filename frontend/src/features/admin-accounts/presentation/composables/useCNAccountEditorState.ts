@@ -37,7 +37,7 @@ export function useCNAccountEditorState(platform: () => AccountPlatform) {
       cnAdaptiveBaseURLs.value = defaultCNAdaptiveBaseURLs(nextPlatform, openCodeAccountMode.value)
       openCodeProtocolRules.value = defaultOpenCodeProtocolRules(openCodeAccountMode.value)
     }
-  })
+  }, { immediate: true })
 
   return {
     cnAccountMode,
