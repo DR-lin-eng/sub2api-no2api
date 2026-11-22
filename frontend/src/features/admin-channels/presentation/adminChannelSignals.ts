@@ -31,6 +31,21 @@ export interface PricingFormEntry {
   } | null
 }
 
+export function newPricingEntry(models: string[] = []): PricingFormEntry {
+  return {
+    models,
+    billing_mode: 'token',
+    input_price: null,
+    output_price: null,
+    cache_write_price: null,
+    cache_read_price: null,
+    image_input_price: null,
+    image_output_price: null,
+    per_request_price: null,
+    intervals: []
+  }
+}
+
 // 价格转换：后端存 per-token，前端显示 per-MTok ($/1M tokens)
 const MTOK = 1_000_000
 

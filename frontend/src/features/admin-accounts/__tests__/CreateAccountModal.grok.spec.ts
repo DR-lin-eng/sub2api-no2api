@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 const source = [
   'src/features/admin-accounts/presentation/widgets/CreateAccountDialog.vue',
   'src/features/admin-accounts/presentation/widgets/create/CreateAccountPlatformFields.vue',
+  'src/features/admin-accounts/presentation/widgets/create/AccountAuthTypePicker.vue',
   'src/features/admin-accounts/presentation/widgets/create/CreateAccountCredentialFields.vue',
   'src/features/admin-accounts/presentation/composables/useCreateAccountEditorPolicy.ts',
   'src/features/admin-accounts/presentation/composables/useCreateAccountOAuthActions.ts',
@@ -13,8 +14,8 @@ const source = [
 
 describe('CreateAccountModal Grok account types', () => {
   it('offers API-key setup alongside OAuth with the official xAI default', () => {
-    expect(source).toContain('data-testid="grok-account-type-api-key"')
-    expect(source).toContain("@click=\"accountCategory = 'apikey'\"")
+    expect(source).toContain('grok-account-type-api-key')
+    expect(source).toContain('v-model="choice" type="radio"')
     expect(source).toContain("newPlatform === 'grok'")
     expect(source).toContain("case 'grok': return 'https://api.x.ai/v1'")
     expect(source).toContain("form.platform === 'grok'")

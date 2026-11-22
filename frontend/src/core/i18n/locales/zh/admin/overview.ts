@@ -1,4 +1,30 @@
 export default {
+    modelProviders: {
+        chooseProvider: '选择厂商',
+        category: '厂商类别',
+        all: '全部',
+        vendors: '模型厂商',
+        platforms: '接入平台',
+        search: '搜索厂商或模型系列',
+        noMatches: '没有匹配的厂商',
+        clearFilters: '清除筛选',
+        current: '当前厂商',
+        configured: '已添加',
+        descriptions: {
+          anthropic: '接入 Claude 系列模型及 Bedrock 账号。',
+          openai: '接入 GPT 系列模型、Codex 和图像模型。',
+          gemini: '接入 Google Gemini 系列模型。',
+          antigravity: '通过 Google Antigravity 接入模型。',
+          grok: '接入 xAI 的 Grok 系列模型。',
+          kimi: '接入月之暗面 Moonshot AI 的 Kimi 系列模型。',
+          zhipu: '接入智谱 AI 的 GLM 系列模型。',
+          deepseek: '接入深度求索 DeepSeek 系列模型。',
+          minimax: '接入 MiniMax 系列模型。',
+          opencode_go: '通过 OpenCode Go 接入多个模型系列。',
+          typesafe: '通过 TypeSafe 接入 Jev 决策模型。',
+          multimodal: '接入自定义图像和视频生成模型。',
+        },
+    },
     // Dashboard
     dashboard: {
       title: '管理控制台',

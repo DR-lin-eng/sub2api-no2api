@@ -1,13 +1,6 @@
 import { enumLocaleLabel, type LocaleTranslate } from '@/core/i18n/enumLocale'
 
-const platformKeys = {
-  anthropic: 'admin.groups.platforms.anthropic',
-  openai: 'admin.groups.platforms.openai',
-  gemini: 'admin.groups.platforms.gemini',
-  antigravity: 'admin.groups.platforms.antigravity',
-  grok: 'admin.groups.platforms.grok',
-  composite: 'admin.groups.platforms.composite',
-} as const
+import { modelProviderLabel } from '@/core/constants/modelProviders'
 
 const compositeMatchKeys = {
   exact: 'admin.groups.compositeRoutes.match.exact',
@@ -37,7 +30,7 @@ const groupStatusKeys = {
 } as const
 
 export function groupPlatformLabel(t: LocaleTranslate, value: unknown): string {
-  return enumLocaleLabel(t, platformKeys, value)
+  return modelProviderLabel(t, value)
 }
 
 export function compositeRouteMatchLabel(t: LocaleTranslate, value: unknown): string {

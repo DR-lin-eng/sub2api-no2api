@@ -10,6 +10,18 @@ import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
+      providerSetup: {
+        oauthPlanHint: '普通 OAuth 授权和刷新令牌使用此档位。导入 Session、Agent Identity 或 PAT 时使用凭证中的档位。',
+        openai: 'OpenAI 专属设置',
+        chooseHint: '选择账号使用的模型厂商或接入平台。',
+        back: '返回账号配置',
+        change: '更换厂商',
+        settings: '账号设置',
+        connection: '连接与凭证',
+        scheduling: '调度与策略',
+        credentials: '凭证与模型',
+        oauthHint: '填写账号信息后，点击「下一步」完成授权。',
+      },
       upstreamUsage,
       grokCatalog,
       title: '账号管理',

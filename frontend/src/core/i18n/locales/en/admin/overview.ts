@@ -1,4 +1,30 @@
 export default {
+    modelProviders: {
+        chooseProvider: 'Choose a provider',
+        category: 'Provider category',
+        all: 'All',
+        vendors: 'Model providers',
+        platforms: 'Platforms',
+        search: 'Search providers or model families',
+        noMatches: 'No matching providers',
+        clearFilters: 'Clear filters',
+        current: 'Current provider',
+        configured: 'Added',
+        descriptions: {
+          anthropic: 'Use Claude models and Bedrock accounts.',
+          openai: 'Use GPT, Codex and image generation models.',
+          gemini: 'Use the Google Gemini family of models.',
+          antigravity: 'Access models through Google Antigravity.',
+          grok: 'Use the Grok family of models from xAI.',
+          kimi: 'Use Kimi models from Moonshot AI.',
+          zhipu: 'Use the GLM family of models from Zhipu AI.',
+          deepseek: 'Use the DeepSeek family of models.',
+          minimax: 'Use the MiniMax family of models.',
+          opencode_go: 'Access multiple model families through OpenCode Go.',
+          typesafe: 'Use the Jev decision model through TypeSafe.',
+          multimodal: 'Connect custom image and video generation models.',
+        },
+    },
     // Dashboard
     dashboard: {
       title: 'Admin Dashboard',

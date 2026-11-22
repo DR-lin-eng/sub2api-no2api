@@ -106,6 +106,7 @@ interface CreateAccountOAuthActionsContext extends EditorFields {
   applyOpenAIEndpointCapabilities: (credentials: Record<string, unknown>) => void
   applyTempUnschedConfig: (credentials: Record<string, unknown>) => boolean
   buildAntigravityExtra: () => Record<string, unknown> | undefined
+  planType: Ref<string>
   buildOpenAICodexImportExtra: () => Record<string, unknown> | undefined
   buildOpenAICompactModelMapping: () => Record<string, string> | null
   buildOpenAIExtra: (base?: Record<string, unknown>) => Record<string, unknown> | undefined
@@ -136,7 +137,7 @@ export function useCreateAccountOAuthActions(context: CreateAccountOAuthActionsC
     addMethod, allowedModels, antigravityModelMappings, antigravityOAuth,
     antigravityProjectId, apiKeyBaseUrl, applyGrokOAuthUpstreamConfig,
     applyOpenAIEndpointCapabilities, applyTempUnschedConfig, autoPauseOnExpired, baseRpm,
-    buildAntigravityExtra, buildOpenAICodexImportExtra, buildOpenAICompactModelMapping,
+    planType, buildAntigravityExtra, buildOpenAICodexImportExtra, buildOpenAICompactModelMapping,
     buildOpenAIExtra, cacheTTLOverrideEnabled, cacheTTLOverrideTarget, customBaseUrl,
     customBaseUrlEnabled, doCreateAccount, editDailyResetHour, editDailyResetMode,
     editQuotaDailyLimit, editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone,
@@ -464,6 +465,7 @@ export function useCreateAccountOAuthActions(context: CreateAccountOAuthActionsC
       if (!tokenInfo) return
 
       const credentials = oauthClient.buildCredentials(tokenInfo)
+      if (form.platform === 'openai' && planType.value) credentials.plan_type = planType.value
       const oauthExtra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
       const extra = buildOpenAIExtra(oauthExtra)
       const shouldCreateOpenAI = form.platform === 'openai'
@@ -744,6 +746,7 @@ export function useCreateAccountOAuthActions(context: CreateAccountOAuthActionsC
           }
 
           const credentials = oauthClient.buildCredentials(tokenInfo)
+          if (shouldCreateOpenAI && planType.value) credentials.plan_type = planType.value
           if (clientId) {
             credentials.client_id = clientId
           }

@@ -1,4 +1,6 @@
-const platforms = new Set(['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go', 'multimodal'])
+import { modelProviderPlatforms } from '@/core/constants/modelProviders'
+
+const platforms = new Set<string>(modelProviderPlatforms)
 
 export const ACCOUNT_FILTER_STORAGE_KEY = 'account-filter-values'
 export type AccountFilterState = { platform: string; status: string }

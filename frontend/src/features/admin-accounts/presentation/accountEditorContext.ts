@@ -30,7 +30,7 @@ type AddMethod = 'oauth' | 'setup-token'
 type ResetMode = 'rolling' | 'fixed' | null
 type RPMStrategy = 'tiered' | 'sticky_exempt'
 type ModelRestrictionMode = 'whitelist' | 'mapping'
-type CodexImageToolMode = 'inherit' | 'enabled' | 'disabled' | 'block'
+export type CodexImageToolMode = 'inherit' | 'enabled' | 'disabled' | 'block'
 type SelectOption<Value = string> = { value: Value; label: string }
 type ModelPreset = { label: string; from: string; to: string; color: string }
 type QuotaNotifyState = Record<
@@ -387,18 +387,7 @@ export interface EditAccountAdvancedContext
   codexCLIOnlyAppServerEnabled: Ref<boolean>
   codexCLIOnlyEnabled: Ref<boolean>
   codexThinkingTagNormalizationEnabled: Ref<boolean>
-  codexImageToolBadgeClass: ComputedRef<string>
-  codexImageToolBadgeLabel: ComputedRef<string>
   codexImageToolMode: Ref<CodexImageToolMode>
-  codexImageToolOptions: ComputedRef<
-    Array<
-      SelectOption<CodexImageToolMode> & {
-        description: string
-        selectedCardClass: string
-        selectedDotClass: string
-      }
-    >
-  >
   codexWebSearchEnabled: Ref<boolean>
   editDailyResetHour: Ref<number | null>
   editDailyResetMode: Ref<ResetMode>

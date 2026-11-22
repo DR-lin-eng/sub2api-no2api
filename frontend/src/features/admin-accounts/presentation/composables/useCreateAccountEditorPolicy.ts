@@ -100,7 +100,6 @@ interface CreateAccountEditorPolicyContext extends EditorFields {
   openaiAPIKeyResponsesWebSocketV2Mode: Ref<OpenAIWSMode>
   openaiOAuth: ReturnType<typeof useOpenAIOAuth>
   openaiOAuthResponsesWebSocketV2Mode: Ref<OpenAIWSMode>
-  resetForm: () => void
   show: () => boolean
   t: ReturnType<typeof useI18n>['t']
   vertexServiceAccountJson: Ref<string>
@@ -121,40 +120,16 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
     openAIEndpointCapabilities, openAIForceImageAPIEnabled,
     openaiAPIKeyResponsesWebSocketV2Mode, openaiOAuth,
     openaiOAuthResponsesWebSocketV2Mode, openaiFlattenNamespacesEnabled,
-    openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled, resetForm,
+    openaiPassthroughEnabled, openaiPassthroughModelFilterEnabled,
     selectedErrorCodes, show, t, tempUnschedEnabled, tempUnschedRules,
     tlsFingerprintProfiles, vertexClientEmail, vertexLocation, vertexProjectId,
     vertexServiceAccountJson, webSearchEmulationMode,
   } = context
 
-  // Watchers
-  watch(
-    show,
-    (newVal) => {
-      if (newVal) {
-        // Load TLS fingerprint profiles
-        loadTLSFingerprintProfiles()
-          .then(profiles => { tlsFingerprintProfiles.value = profiles.map(p => ({ id: p.id, name: p.name })) })
-          .catch(() => { tlsFingerprintProfiles.value = [] })
-        // Modal opened - fill related models
-        allowedModels.value = [...getModelsByPlatform(form.platform)]
-        // Antigravity: 默认使用映射模式并填充默认映射
-        if (form.platform === 'antigravity') {
-          antigravityModelRestrictionMode.value = 'mapping'
-          fetchAntigravityDefaultMappings().then(mappings => {
-            antigravityModelMappings.value = [...mappings]
-          })
-          antigravityWhitelistModels.value = []
-        } else {
-          antigravityWhitelistModels.value = []
-          antigravityModelMappings.value = []
-          antigravityModelRestrictionMode.value = 'mapping'
-        }
-      } else {
-        resetForm()
-      }
-    }
-  )
+  // Each mounted editor owns one provider draft, including while the picker covers it.
+  loadTLSFingerprintProfiles()
+    .then(profiles => { tlsFingerprintProfiles.value = profiles.map(p => ({ id: p.id, name: p.name })) })
+    .catch(() => { tlsFingerprintProfiles.value = [] })
 
   // Sync form.type based on accountCategory, addMethod, and platform-specific type
   watch(
@@ -198,7 +173,7 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
         })
         antigravityWhitelistModels.value = []
         accountCategory.value = 'oauth-based'
-        antigravityAccountType.value = 'oauth'
+        antigravityAccountType.value = 'upstream'
       } else {
         allowOverages.value = false
         antigravityProjectId.value = ''
@@ -207,7 +182,7 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
         antigravityModelRestrictionMode.value = 'mapping'
       }
         if (newPlatform === 'grok') {
-        accountCategory.value = 'oauth-based'
+        accountCategory.value = 'apikey'
         addMethod.value = 'oauth'
         modelRestrictionMode.value = 'mapping'
         form.concurrency = 1
@@ -276,7 +251,8 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
       geminiOAuth.resetState()
       antigravityOAuth.resetState()
       grokOAuth.resetState()
-    }
+    },
+    { immediate: true }
   )
 
   // Gemini AI Studio OAuth availability (requires operator-configured OAuth client)
@@ -327,7 +303,8 @@ export function useCreateAccountEditorPolicy(context: CreateAccountEditorPolicyC
       if (newMode === 'whitelist') {
         allowedModels.value = [...getModelsByPlatform(form.platform)]
       }
-    }
+    },
+    { immediate: true }
   )
 
   watch(

@@ -1,4 +1,7 @@
-let activeLocks = 0
+import { computed, ref } from 'vue'
+
+const activeLocks = ref(0)
+export const bodyScrollLocked = computed(() => activeLocks.value > 0)
 let previousOverflow: string | null = null
 let previousPaddingRight: string | null = null
 let hadModalOpenClass = false
@@ -17,7 +20,7 @@ function getScrollbarWidth(): number {
 export function acquireBodyScrollLock(): () => void {
   if (typeof document === 'undefined' || !document.body) return () => {}
 
-  if (activeLocks === 0) {
+  if (activeLocks.value === 0) {
     previousOverflow = document.body.style.overflow
     previousPaddingRight = document.body.style.paddingRight
     hadModalOpenClass = document.body.classList.contains('modal-open')
@@ -33,14 +36,14 @@ export function acquireBodyScrollLock(): () => void {
     document.body.classList.add('modal-open')
     document.body.style.overflow = 'hidden'
   }
-  activeLocks += 1
+  activeLocks.value += 1
 
   let released = false
   return () => {
     if (released) return
     released = true
-    activeLocks = Math.max(0, activeLocks - 1)
-    if (activeLocks !== 0) return
+    activeLocks.value = Math.max(0, activeLocks.value - 1)
+    if (activeLocks.value !== 0) return
 
     if (!hadModalOpenClass) {
       document.body.classList.remove('modal-open')

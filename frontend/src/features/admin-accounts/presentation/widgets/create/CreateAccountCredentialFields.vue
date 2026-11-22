@@ -66,8 +66,8 @@
           <p class="input-hint sm:col-span-2">{{ t('admin.accounts.cnProvider.zhipuTeamHint') }}</p>
         </div>
         <div v-if="!((isCNAccountPlatform(form.platform) && cnAPIProtocol === 'adaptive') || form.platform === 'opencode_go')">
-          <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
-          <input
+          <label for="create-account-base-url" class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
+          <input id="create-account-base-url"
             v-model="apiKeyBaseUrl"
             type="text"
             class="input"
@@ -101,8 +101,8 @@
           :plan="openCodeAccountMode"
         />
         <div>
-          <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
-          <input
+          <label for="create-account-api-key" class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
+          <input id="create-account-api-key" autocomplete="new-password"
             v-model="apiKeyValue"
             type="password"
             required

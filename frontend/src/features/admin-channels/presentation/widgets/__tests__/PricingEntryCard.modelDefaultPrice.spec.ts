@@ -1,7 +1,7 @@
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PricingEntryCard from '@/features/admin-channels/presentation/widgets/PricingEntryCard.vue'
-import type { PricingFormEntry } from '../types'
+import { newPricingEntry, type PricingFormEntry } from '../../adminChannelSignals'
 import channelsAPI from '@/features/admin-channels/data/datasources/adminChannelsDatasource'
 
 vi.mock('@/features/admin-channels/data/datasources/adminChannelsDatasource', () => ({
@@ -16,30 +16,13 @@ vi.mock('vue-i18n', async importOriginal => ({
 const getModelDefaultPricing = vi.mocked(channelsAPI.getModelDefaultPricing)
 
 function createEntry(models: string[] = []): PricingFormEntry {
-  return {
-    models,
-    billing_mode: 'token',
-    input_price: null,
-    output_price: null,
-    cache_write_price: null,
-    cache_read_price: null,
-    fast_multiplier: null,
-    flex_multiplier: null,
-    reasoning_effort_multipliers: null,
-    image_input_price: null,
-    image_output_price: null,
-    per_request_price: null,
-    intervals: [],
-    time_pricing: {
-      timezone: 'Asia/Shanghai',
-      weekdays_only: false,
-      periods: [],
-    },
-  }
+  return newPricingEntry(models)
 }
 
 function addModels(entry: PricingFormEntry, models: string[]) {
-  const wrapper = shallowMount(PricingEntryCard, { props: { entry } })
+  const wrapper = shallowMount(PricingEntryCard, {
+    props: { entry, onUpdate: (updated: PricingFormEntry) => { void wrapper.setProps({ entry: updated }) } },
+  })
   wrapper.findComponent({ name: 'ModelTagInput' }).vm.$emit('update:models', models)
   return wrapper
 }
@@ -93,6 +76,20 @@ describe('PricingEntryCard default price auto-fill', () => {
       input_price: null,
       output_price: null,
     })
+  })
+
+  it.each([
+    { models: ['first'], input_price: 22 },
+    { models: ['first', 'second'], input_price: null },
+  ])('ignores a late lookup after the draft has changed to %o', async (edits) => {
+    let finish!: (result: { found: boolean; input_price: number }) => void
+    getModelDefaultPricing.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const wrapper = addModels(createEntry(), ['first'])
+    await wrapper.setProps({ entry: { ...createEntry(), ...edits } })
+    finish({ found: true, input_price: 1e-6 })
+    await flushPromises()
+    expect(wrapper.props('entry')).toMatchObject(edits)
+    expect(emittedEntries(wrapper)).toHaveLength(1)
   })
 
   it('keeps manual prices untouched when a model is appended', async () => {

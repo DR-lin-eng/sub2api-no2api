@@ -43,6 +43,23 @@ export default {
 
     // Channel Management
     channels: {
+      wizard: {
+        configureLater: '稍后配置',
+        groupSearch: '搜索分组名称或编号',
+        chooseHint: '选择渠道使用的模型厂商或接入平台。',
+        configuredProviders: '已配置的厂商',
+        changeProvider: '更换厂商',
+        addProvider: '添加厂商',
+        removeProvider: '移除 {name}',
+        back: '返回配置',
+        configureHint: '关联分组后即可创建渠道。上游连接和凭证由分组内的账号提供。',
+        settings: '渠道参数',
+        basic: '基础与分组',
+        models: '模型与映射',
+        billing: '计费与统计',
+        noGroups: '请先在分组管理中创建该厂商的分组，或使用组合分组。',
+        providerOptions: '{name} 专属选项',
+      },
       title: '渠道管理',
       description: '管理渠道和自定义模型定价',
       searchChannels: '搜索渠道...',
@@ -148,7 +165,7 @@ export default {
         perSecondPrice: '每秒价格',
         multimodalVideoPriceHint:
           'multimodal 分组必须逐个模型配置每秒单价：没有内置价，也不使用分组级视频价。当前模型缺少该分辨率的每秒单价时，视频请求会直接返回 503（video_price_not_configured）。',
-        perRequestPriceRequired: '按次/图片计费模式必须设置默认价格或至少一个计费层级',
+        perRequestPriceRequired: '按次、图片或视频计费需要填写默认价格，或设置至少一个价格档位',
         tierLabel: '层级',
         resolution: '分辨率',
         modelMapping: '模型映射',
@@ -195,7 +212,7 @@ export default {
         searchAccountPlaceholder: '搜索账号...',
         ruleAccountsHint: '留空表示匹配所有账号',
         ruleModelPricing: '模型定价',
-        noGroupsInChannel: '上方平台标签页中未选择分组',
+        noGroupsInChannel: '请先在「基础与分组」中关联分组',
         unnamed: '未命名',
         syncLatestModels: '同步最新模型',
         syncingModels: '同步中...',

@@ -10,6 +10,18 @@ import channelMessages from './accounts.channels'
 
 export default {
     accounts: {
+      providerSetup: {
+        oauthPlanHint: 'Applies to standard OAuth and refresh tokens. Session, Agent Identity and PAT imports use the plan supplied by the credential.',
+        openai: 'OpenAI settings',
+        chooseHint: 'Select the model provider or platform for this account.',
+        back: 'Back to account setup',
+        change: 'Change provider',
+        settings: 'Account settings',
+        connection: 'Connection & credentials',
+        scheduling: 'Scheduling & policies',
+        credentials: 'Credentials & models',
+        oauthHint: 'Enter the account details, then continue to authorize the account.',
+      },
       upstreamUsage,
       grokCatalog,
       title: 'Account Management',

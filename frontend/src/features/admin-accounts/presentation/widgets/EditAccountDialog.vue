@@ -2,25 +2,37 @@
   <BaseDialog
     :show="show"
     :title="t('admin.accounts.editAccount')"
-    width="wide"
+    width="drawer"
+    :close-label="t('common.close')"
     @close="handleClose"
   >
+    <template #after-title>
+      <span v-if="account" class="ml-3 flex flex-1 items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+        <PlatformIcon :platform="account.platform" size="sm" />{{ modelProviderLabel(t, account.platform) }}
+      </span>
+    </template>
     <form
       v-if="account"
       id="edit-account-form"
       @submit.prevent="handleSubmit"
-      class="space-y-5"
+      class="mx-auto max-w-5xl"
+      @invalid.capture="revealInvalid"
     >
-      <EditAccountCredentialFields :context="editAccountCredentialContext" />
-
-      <GrokModelDiagnosticsPanel v-if="show && account.platform === 'grok'" :account-id="account.id" />
-
-      <OpenAIImageSizeTiersField v-if="account?.platform === 'openai'" v-model="openAIImageSizeTiers" />
-
-      <EditAccountAdvancedFields :context="editAccountAdvancedContext" />
-
-      <EditAccountPolicyFields :context="editAccountPolicyContext" />
-
+      <AccountFormTabs :openai="account.platform === 'openai'" v-model="tab" />
+      <div v-show="tab === 'connection'" data-account-tab="connection" class="space-y-5">
+        <EditAccountCredentialFields :context="editAccountCredentialContext" />
+        <GrokModelDiagnosticsPanel v-if="show && account.platform === 'grok'" :account-id="account.id" />
+      </div>
+      <div v-if="account.platform === 'openai'" v-show="tab === 'openai'" data-account-tab="openai" class="space-y-4">
+        <EditOpenAISettings :context="editAccountAdvancedContext" />
+        <EditResponsesSettings :context="editAccountAdvancedContext" />
+        <EditOpenAIPolicy :context="editAccountPolicyContext" />
+        <OpenAIImageSizeTiersField v-model="openAIImageSizeTiers" />
+      </div>
+      <div v-show="tab === 'scheduling'" data-account-tab="scheduling" class="space-y-5">
+        <EditAccountAdvancedFields :context="editAccountAdvancedContext" />
+        <EditAccountPolicyFields :context="editAccountPolicyContext" />
+      </div>
     </form>
 
     <template #footer>
@@ -35,26 +47,7 @@
           class="btn btn-primary"
           data-tour="account-form-submit"
         >
-          <svg
-            v-if="submitting"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
+          <LoadingSpinner v-if="submitting" size="sm" color="white" />
           {{ submitting ? t('admin.accounts.updating') : t('common.update') }}
         </button>
       </div>
@@ -75,11 +68,16 @@
 </template>
 
 <script setup lang="ts">
+import { modelProviderLabel } from '@/core/constants/modelProviders'
 import GrokModelDiagnosticsPanel from './GrokModelDiagnosticsPanel.vue'
 import { supportsAccountQuota } from '@/features/admin-accounts/presentation/accountQuota'
 
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import PlatformIcon from '@/common/widgets/icons/PlatformIcon.vue'
+import LoadingSpinner from '@/common/widgets/feedback/LoadingSpinner.vue'
+import AccountFormTabs from './AccountFormTabs.vue'
+import { useAccountFormTab } from '../composables/useAccountFormTab'
 import { useAppStore } from '@/core/stores/appStore'
 import { useAuthStore } from '@/features/auth'
 import { syncUpstreamModels } from '@/features/admin-accounts/data/datasources/adminAccountActions'
@@ -140,6 +138,9 @@ import {
   isValidWildcardPattern
 } from '@/features/admin-accounts/presentation/composables/useModelWhitelist'
 import EditAccountCredentialFields from './edit/EditAccountCredentialFields.vue'
+import EditOpenAISettings from './edit/EditOpenAISettings.vue'
+import EditOpenAIPolicy from './edit/EditOpenAIPolicy.vue'
+import EditResponsesSettings from './edit/EditResponsesSettings.vue'
 import EditAccountAdvancedFields from './edit/EditAccountAdvancedFields.vue'
 import OpenAIImageSizeTiersField from './OpenAIImageSizeTiersField.vue'
 import { OPENAI_IMAGE_SIZE_TIERS, readOpenAIImageSizeTiers, type OpenAIImageSizeTier } from '../openaiImageSizeTiers'
@@ -184,6 +185,8 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { tab, revealInvalid } = useAccountFormTab()
+watch(() => [props.show, props.account?.id], () => { tab.value = 'connection' })
 const activeAccount = computed(() => props.account as Account)
 const availableGroups = computed(() => props.groups)
 const availableProxies = computed(() => props.proxies)
@@ -377,7 +380,7 @@ const codexPrewarmContinuationEnabled = ref(false)
 const codexThinkingTagNormalizationEnabled = ref(false)
 const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
-type CodexImageToolMode = 'inherit' | 'enabled' | 'disabled' | 'block'
+import type { CodexImageToolMode } from '../accountEditorContext'
 const codexImageToolMode = ref<CodexImageToolMode>('inherit')
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
 const anthropicPassthroughEnabled = ref(false)
@@ -433,66 +436,6 @@ const openaiResponsesWebSocketV2Mode = computed({
 const openAIWSModeConcurrencyHintKey = computed(() =>
   resolveOpenAIWSModeConcurrencyHintKey(openaiResponsesWebSocketV2Mode.value)
 )
-const codexImageToolOptions = computed<Array<{
-  value: CodexImageToolMode
-  label: string
-  description: string
-  selectedCardClass: string
-  selectedDotClass: string
-}>>(() => [
-  {
-    value: 'inherit',
-    label: t('admin.accounts.openai.codexImageToolInherit'),
-    description: t('admin.accounts.openai.codexImageToolInheritDesc'),
-    selectedCardClass: 'border-sky-300 bg-sky-50 text-sky-900 shadow-sm ring-1 ring-sky-200 dark:border-sky-700 dark:bg-sky-900/25 dark:text-sky-100 dark:ring-sky-800',
-    selectedDotClass: 'border-sky-500 bg-sky-500 text-white'
-  },
-  {
-    value: 'enabled',
-    label: t('admin.accounts.openai.codexImageToolEnabled'),
-    description: t('admin.accounts.openai.codexImageToolEnabledDesc'),
-    selectedCardClass: 'border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-100 dark:ring-emerald-800',
-    selectedDotClass: 'border-emerald-500 bg-emerald-500 text-white'
-  },
-  {
-    value: 'disabled',
-    label: t('admin.accounts.openai.codexImageToolDisabled'),
-    description: t('admin.accounts.openai.codexImageToolDisabledDesc'),
-    selectedCardClass: 'border-amber-300 bg-amber-50 text-amber-900 shadow-sm ring-1 ring-amber-200 dark:border-amber-700 dark:bg-amber-900/25 dark:text-amber-100 dark:ring-amber-800',
-    selectedDotClass: 'border-amber-500 bg-amber-500 text-white'
-  },
-  {
-    value: 'block',
-    label: t('admin.accounts.openai.codexImageToolBlock'),
-    description: t('admin.accounts.openai.codexImageToolBlockDesc'),
-    selectedCardClass: 'border-rose-300 bg-rose-50 text-rose-900 shadow-sm ring-1 ring-rose-200 dark:border-rose-700 dark:bg-rose-900/25 dark:text-rose-100 dark:ring-rose-800',
-    selectedDotClass: 'border-rose-500 bg-rose-500 text-white'
-  }
-])
-const codexImageToolBadgeLabel = computed(() => {
-  switch (codexImageToolMode.value) {
-    case 'enabled':
-      return t('admin.accounts.openai.codexImageToolBadgeEnabled')
-    case 'disabled':
-      return t('admin.accounts.openai.codexImageToolBadgeDisabled')
-    case 'block':
-      return t('admin.accounts.openai.codexImageToolBadgeBlock')
-    default:
-      return t('admin.accounts.openai.codexImageToolBadgeInherit')
-  }
-})
-const codexImageToolBadgeClass = computed(() => {
-  switch (codexImageToolMode.value) {
-    case 'enabled':
-      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-    case 'disabled':
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-    case 'block':
-      return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-    default:
-      return 'bg-slate-100 text-slate-600 dark:bg-dark-600 dark:text-slate-300'
-  }
-})
 const openAICompactModeOptions = computed<Array<{ value: OpenAICompactMode; label: string }>>(() => [
   { value: 'auto', label: t('admin.accounts.openai.compactModeAuto') },
   { value: 'force_on', label: t('admin.accounts.openai.compactModeForceOn') },
@@ -1460,7 +1403,7 @@ const editAccountAdvancedContext = {
   account: activeAccount, addTempUnschedRule, anthropicAPIKeyAuthScheme,
   anthropicPassthroughEnabled, codexFingerprintMode, codexFingerprintModeOptions,
   codexPrewarmContinuationEnabled, codexThinkingTagNormalizationEnabled, codexCLIOnlyAppServerEnabled, codexCLIOnlyEnabled,
-  codexImageToolBadgeClass, codexImageToolBadgeLabel, codexImageToolMode, codexImageToolOptions,
+  codexImageToolMode,
   codexWebSearchEnabled, editDailyResetHour, editDailyResetMode, editQuotaDailyLimit,
   editQuotaLimit, editQuotaWeeklyLimit, editResetTimezone, editWeeklyResetDay,
   editWeeklyResetHour, editWeeklyResetMode, expiresAtInput, form, getTempUnschedRuleKey,

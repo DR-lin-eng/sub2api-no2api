@@ -2,7 +2,14 @@ import type { Ref } from 'vue'
 import { isOpenAIWSModeEnabled, type OpenAIWSMode } from '@/core/utils/openaiWsMode'
 import { applyOpenAIImageSizeTiersToExtra, type OpenAIImageSizeTier } from './openaiImageSizeTiers'
 
-interface CreateOpenAIExtraState {
+import { applyCodexImageToolExtra, applyOpenAIAutoPauseExtra, type OpenAIQuotaPauseState } from './openAIAccountPolicies'
+import type { CodexImageToolMode } from './accountEditorContext'
+
+interface CreateOpenAIExtraState extends OpenAIQuotaPauseState {
+  codexImageToolMode: Ref<CodexImageToolMode>
+  excelBpsEnabled: Ref<boolean>
+  tlsFingerprintEnabled: Ref<boolean>
+  tlsFingerprintProfileId: Ref<number | null>
   form: { platform: string; type: string }
   openAIImageSizeTiers: Ref<OpenAIImageSizeTier[]>
   accountCategory: Ref<string>
@@ -128,5 +135,14 @@ export function buildCreateOpenAIExtra(state: CreateOpenAIExtraState, base?: Rec
     delete extra.openai_force_image_api
   }
 
+  applyCodexImageToolExtra(extra, state)
+  applyOpenAIAutoPauseExtra(extra, state)
+  if (form.type === 'oauth') {
+    if (state.excelBpsEnabled.value) extra.excel_bps_enabled = true
+    if (state.tlsFingerprintEnabled.value) {
+      extra.enable_tls_fingerprint = true
+      if (state.tlsFingerprintProfileId.value != null) extra.tls_fingerprint_profile_id = state.tlsFingerprintProfileId.value
+    }
+  }
   return Object.keys(extra).length > 0 ? extra : undefined
 }
