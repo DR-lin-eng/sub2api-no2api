@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitepress'
 
-// GitHub Pages serves a project site under /<repo>/. The deploy workflow passes
-// the real path through DOCS_BASE, so a custom domain only needs DOCS_BASE=/.
-const base = normalizeBase(process.env.DOCS_BASE ?? '/sub2api-no2api/')
+// This site is served from a custom domain at the origin root.
+// Keep local builds aligned with the production DOCS_BASE set by the workflow.
+const base = normalizeBase(process.env.DOCS_BASE ?? '/')
 const repo = 'https://github.com/DR-lin-eng/sub2api-no2api'
 
 function normalizeBase(value: string): string {
