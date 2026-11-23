@@ -16,6 +16,7 @@ func TestDefaultModels_ContainsFallbackCatalogModels(t *testing.T) {
 		"models/gemini-3.1-pro-preview-customtools",
 		"models/gemini-3.1-flash-image",
 		"models/gemini-3.1-flash-lite-image",
+		"models/gemini-4-neon",
 	}
 
 	for _, name := range required {
@@ -26,6 +27,9 @@ func TestDefaultModels_ContainsFallbackCatalogModels(t *testing.T) {
 		if len(model.SupportedGenerationMethods) == 0 {
 			t.Fatalf("expected fallback model %q to advertise generation methods", name)
 		}
+	}
+	if !HasFallbackModel("gemini-4-neon") {
+		t.Fatal("expected Neon to be recognized as a fallback model")
 	}
 }
 

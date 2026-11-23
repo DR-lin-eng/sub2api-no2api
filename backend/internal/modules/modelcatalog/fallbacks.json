@@ -1028,6 +1028,30 @@
     ],
     "supports_reasoning": true
   },
+  "gemini-3.7-flash": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true
+  },
+  "gemini-3.8-flash": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true
+  },
   "gemini-4-argon": {
     "context_window": 1048576,
     "default_reasoning_level": "medium",
@@ -1051,6 +1075,49 @@
       "high"
     ],
     "supports_reasoning": true
+  },
+  "gemini-4-carbon": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true
+  },
+  "gemini-4-hydrogen": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "supports_reasoning": true
+  },
+  "gemini-4-neon": {
+    "context_window": 1048576,
+    "default_reasoning_level": "medium",
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_context_window": 1048576,
+    "max_output_tokens": 65536,
+    "supported_reasoning_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+    ],
+    "supports_computer_use": true,
+    "supports_reasoning": true,
+    "supports_web_search": true
   },
   "gemini-embedding-001": {
     "context_window": 2048,

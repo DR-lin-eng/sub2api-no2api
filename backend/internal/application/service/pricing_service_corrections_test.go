@@ -31,6 +31,39 @@ const solLegacyCatalog = `{
 	"gpt-5.5": {"input_cost_per_token": 0.000005, "output_cost_per_token": 0.000030}
 }`
 
+const geminiPromotionalCatalog = `{
+  "gemini-3.7-flash": {
+    "input_cost_per_token": 0.00000075,
+    "output_cost_per_token": 0.00000375,
+    "cache_read_input_token_cost": 0.000000075,
+    "litellm_provider": "gemini"
+  },
+  "gemini-3.8-flash": {
+    "input_cost_per_token": 0.00000075,
+    "output_cost_per_token": 0.00000375,
+    "cache_read_input_token_cost": 0.000000075,
+    "litellm_provider": "gemini"
+  },
+  "gemini-4-argon": {
+    "input_cost_per_token": 0.000002,
+    "input_cost_per_token_priority": 0.0000036,
+    "output_cost_per_token": 0.00001,
+    "output_cost_per_token_priority": 0.000018,
+    "cache_read_input_token_cost": 0.0000001,
+    "cache_read_input_token_cost_priority": 0.00000018,
+    "litellm_provider": "gemini"
+  },
+  "gemini-4-carbon": {
+    "input_cost_per_token": 0.000002,
+    "input_cost_per_token_priority": 0.0000036,
+    "output_cost_per_token": 0.00001,
+    "output_cost_per_token_priority": 0.000018,
+    "cache_read_input_token_cost": 0.0000001,
+    "cache_read_input_token_cost_priority": 0.00000018,
+    "litellm_provider": "gemini"
+  }
+}`
+
 type solCatalogRemote struct {
 	body []byte
 }
@@ -123,4 +156,86 @@ func TestPricingService_SolPromotionPreservesCustomAndUpdatedCatalogs(t *testing
 			require.InDelta(t, 12.5e-6, p.CacheCreationInputTokenCostPriority, 1e-12)
 		})
 	}
+}
+
+func TestPricingService_CorrectsDefaultGeminiPromoCardsToStandardRates(t *testing.T) {
+	for _, remoteURL := range []string{
+		"https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json",
+		"https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/refs/heads/main//model_prices_and_context_window.json",
+	} {
+		t.Run(remoteURL, func(t *testing.T) {
+			cfg := &config.Config{Pricing: config.PricingConfig{RemoteURL: remoteURL, DataDir: t.TempDir()}}
+			svc := NewPricingService(cfg, nil)
+			pricingFile := svc.getPricingFilePath()
+			require.NoError(t, os.WriteFile(pricingFile, []byte(geminiPromotionalCatalog), 0o600))
+			require.NoError(t, svc.loadPricingData(pricingFile))
+
+			for _, model := range []string{"gemini-3.7-flash", "gemini-3.8-flash"} {
+				pricing := svc.GetModelPricing(model)
+				require.NotNil(t, pricing)
+				require.InDelta(t, 1.5e-6, pricing.InputCostPerToken, 1e-15)
+				require.InDelta(t, 7.5e-6, pricing.OutputCostPerToken, 1e-15)
+				require.InDelta(t, 0.15e-6, pricing.CacheReadInputTokenCost, 1e-15)
+			}
+
+			for _, model := range []string{"gemini-4-argon", "gemini-4-carbon"} {
+				pricing := svc.GetModelPricing(model)
+				require.NotNil(t, pricing)
+				require.InDelta(t, 4e-6, pricing.InputCostPerToken, 1e-15)
+				require.InDelta(t, 20e-6, pricing.OutputCostPerToken, 1e-15)
+				require.InDelta(t, 0.2e-6, pricing.CacheReadInputTokenCost, 1e-15)
+				require.InDelta(t, 7.2e-6, pricing.InputCostPerTokenPriority, 1e-15)
+				require.InDelta(t, 36e-6, pricing.OutputCostPerTokenPriority, 1e-15)
+				require.InDelta(t, 0.36e-6, pricing.CacheReadInputTokenCostPriority, 1e-15)
+			}
+		})
+	}
+}
+
+func TestPricingService_DoesNotChangeGeminiCardsOutsideDefaultFeed(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		remoteURL string
+	}{
+		{name: "custom feed", remoteURL: "https://pricing.example.test/models.json"},
+		{name: "pinned feed", remoteURL: "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/1234567/model_prices_and_context_window.json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{Pricing: config.PricingConfig{RemoteURL: tc.remoteURL, DataDir: t.TempDir()}}
+			svc := NewPricingService(cfg, nil)
+			pricingFile := svc.getPricingFilePath()
+			require.NoError(t, os.WriteFile(pricingFile, []byte(geminiPromotionalCatalog), 0o600))
+			require.NoError(t, svc.loadPricingData(pricingFile))
+
+			pricing := svc.GetModelPricing("gemini-4-carbon")
+			require.NotNil(t, pricing)
+			require.InDelta(t, 2e-6, pricing.InputCostPerToken, 1e-15)
+			require.InDelta(t, 10e-6, pricing.OutputCostPerToken, 1e-15)
+			require.InDelta(t, 0.1e-6, pricing.CacheReadInputTokenCost, 1e-15)
+		})
+	}
+}
+
+func TestPricingService_CorrectsGeminiBaseCardWithoutPriorityFields(t *testing.T) {
+	svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{
+		RemoteURL: "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json",
+	}}, nil)
+	data, err := svc.parsePricingData([]byte(`{
+		"gemini-4-argon": {
+			"input_cost_per_token": 0.000002,
+			"output_cost_per_token": 0.00001,
+			"cache_read_input_token_cost": 0.0000001,
+			"litellm_provider": "gemini"
+		}
+	}`))
+	require.NoError(t, err)
+
+	svc.correctDefaultCatalogPricing(data)
+
+	pricing := data["gemini-4-argon"]
+	require.NotNil(t, pricing)
+	require.InDelta(t, 4e-6, pricing.InputCostPerToken, 1e-15)
+	require.InDelta(t, 20e-6, pricing.OutputCostPerToken, 1e-15)
+	require.InDelta(t, 0.2e-6, pricing.CacheReadInputTokenCost, 1e-15)
+	require.Zero(t, pricing.InputCostPerTokenPriority)
 }

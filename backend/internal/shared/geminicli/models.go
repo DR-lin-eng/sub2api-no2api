@@ -14,6 +14,7 @@ var DefaultModels = []Model{
 	{ID: "gemini-4-hydrogen", Type: "model", DisplayName: "Gemini 4 Hydrogen"},
 	{ID: "gemini-4-argon", Type: "model", DisplayName: "Gemini 4 Argon"},
 	{ID: "gemini-4-carbon", Type: "model", DisplayName: "Gemini 4 Carbon"},
+	{ID: "gemini-4-neon", Type: "model", DisplayName: "Gemini 4 Neon"},
 	{ID: "gemini-2.0-flash", Type: "model", DisplayName: "Gemini 2.0 Flash", CreatedAt: ""},
 	{ID: "gemini-2.5-flash", Type: "model", DisplayName: "Gemini 2.5 Flash", CreatedAt: ""},
 	{ID: "gemini-2.5-flash-image", Type: "model", DisplayName: "Gemini 2.5 Flash Image", CreatedAt: ""},

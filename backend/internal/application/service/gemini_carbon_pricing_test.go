@@ -11,7 +11,7 @@ import (
 )
 
 func TestGeminiCarbonPricingAliases(t *testing.T) {
-	base := &LiteLLMModelPricing{InputCostPerToken: 2e-6, OutputCostPerToken: 10e-6, CacheReadInputTokenCost: 0.1e-6}
+	base := &LiteLLMModelPricing{InputCostPerToken: 4e-6, OutputCostPerToken: 20e-6, CacheReadInputTokenCost: 0.2e-6}
 	svc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{"gemini-4-carbon": base}}
 	for _, model := range []string{
 		"gemini-4-carbon", "gemini-4-carbon-high", "gemini-4-carbon-medium", "gemini-4-carbon-low", "gemini-4-carbon-tiered",
@@ -35,13 +35,13 @@ func TestGeminiCarbonFallbackBilling(t *testing.T) {
 		t.Run(model, func(t *testing.T) {
 			cost, err := svc.CalculateCost(model, tokens, 1)
 			require.NoError(t, err)
-			require.InDelta(t, 2, cost.InputCost, 1e-12)
-			require.InDelta(t, 10, cost.OutputCost, 1e-12)
-			require.InDelta(t, 0.1, cost.CacheReadCost, 1e-12)
-			require.InDelta(t, 12.1, cost.TotalCost, 1e-12)
+			require.InDelta(t, 4, cost.InputCost, 1e-12)
+			require.InDelta(t, 20, cost.OutputCost, 1e-12)
+			require.InDelta(t, 0.2, cost.CacheReadCost, 1e-12)
+			require.InDelta(t, 24.2, cost.TotalCost, 1e-12)
 			priority, err := svc.CalculateCostWithServiceTier(model, tokens, 1, "priority")
 			require.NoError(t, err)
-			require.InDelta(t, 12.1*1.8, priority.TotalCost, 1e-12)
+			require.InDelta(t, 24.2*1.8, priority.TotalCost, 1e-12)
 		})
 	}
 }
@@ -55,12 +55,12 @@ func TestDefaultPricingIncludesGeminiCarbon(t *testing.T) {
 	pricing := svc.GetIdentifiedModelPricing("gemini-4-carbon")
 	require.NotNil(t, pricing)
 	require.Equal(t, "gemini", pricing.LiteLLMProvider)
-	require.InDelta(t, 2e-6, pricing.InputCostPerToken, 1e-15)
-	require.InDelta(t, 10e-6, pricing.OutputCostPerToken, 1e-15)
-	require.InDelta(t, 0.1e-6, pricing.CacheReadInputTokenCost, 1e-15)
-	require.InDelta(t, 3.6e-6, pricing.InputCostPerTokenPriority, 1e-15)
-	require.InDelta(t, 18e-6, pricing.OutputCostPerTokenPriority, 1e-15)
-	require.InDelta(t, 0.18e-6, pricing.CacheReadInputTokenCostPriority, 1e-15)
+	require.InDelta(t, 4e-6, pricing.InputCostPerToken, 1e-15)
+	require.InDelta(t, 20e-6, pricing.OutputCostPerToken, 1e-15)
+	require.InDelta(t, 0.2e-6, pricing.CacheReadInputTokenCost, 1e-15)
+	require.InDelta(t, 7.2e-6, pricing.InputCostPerTokenPriority, 1e-15)
+	require.InDelta(t, 36e-6, pricing.OutputCostPerTokenPriority, 1e-15)
+	require.InDelta(t, 0.36e-6, pricing.CacheReadInputTokenCostPriority, 1e-15)
 	require.Zero(t, pricing.LongContextInputTokenThreshold)
 	require.Contains(t, svc.ListModelNamesByProvider("gemini"), "gemini-4-carbon")
 

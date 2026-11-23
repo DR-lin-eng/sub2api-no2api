@@ -97,10 +97,10 @@ func TestGeminiArgonFallbackPricing(t *testing.T) {
 		model                string
 		input, output, cache float64
 	}{
-		{"gemini-4-argon", 2e-6, 10e-6, 0.1e-6},
-		{"gemini-4-argon-high", 2e-6, 10e-6, 0.1e-6},
-		{"gemini-4-argon-medium", 2e-6, 10e-6, 0.1e-6},
-		{"gemini-4-argon-low", 2e-6, 10e-6, 0.1e-6},
+		{"gemini-4-argon", 4e-6, 20e-6, 0.2e-6},
+		{"gemini-4-argon-high", 4e-6, 20e-6, 0.2e-6},
+		{"gemini-4-argon-medium", 4e-6, 20e-6, 0.2e-6},
+		{"gemini-4-argon-low", 4e-6, 20e-6, 0.2e-6},
 		{"gemini-4-argon-cyber-permissive", 4e-6, 20e-6, 0.2e-6},
 	} {
 		t.Run(tt.model, func(t *testing.T) {

@@ -34,7 +34,8 @@ The file contains JSON data with model pricing information including:
 - Context window sizes
 - Model capabilities
 
-Last reviewed: 2026-11-18 against the official OpenAI model and pricing pages.
+Last reviewed: 2026-11-23 for Gemini 4 Neon against Google's model and pricing pages.
+OpenAI pricing cards were last reviewed on 2026-11-18.
 The bundled cards include GPT-6.2 Astra/Sol with Standard, 30-minute cache
 write, cache read, long-context, Batch and Fast rates. Their Ultrafast promotion
 is 3x Standard through February 28, 2027 Pacific time, then 6x from March 1
@@ -49,8 +50,21 @@ Explicit `long_context_input_token_threshold` and multiplier fields are included
 for this project parser; the inherited xAI threshold is inclusive at 200000 tokens.
 See [PR #8170 review](../../../docs/UPSTREAM_SYNC_20261022_PR8170.md).
 
-Gemini 4 Carbon was checked against the official AI Studio price card on 2026-11-16.
-Its bundled introductory rates run through 2026-11-30; refresh the independent
-price source or configure an explicit override before the 2026-12-01 rate change.
-The supported synchronous paths and priority rates are documented in the
-[follow-up sync review](../../../docs/UPSTREAM_SYNC_20261116_FOLLOWUP.md).
+Gemini 4 Argon and Carbon use standard non-promotional rates in this gateway.
+Both are $4/$20/$0.20 per million input/output/cache-read tokens, with Priority
+at $7.20/$36/$0.36. The default feed correction upgrades recognized old promo
+cards before publishing them. Custom and pinned feeds retain their configured
+rates.
+
+Gemini 4 Neon was checked against the official [model card](https://ai.google.dev/gemini-api/docs/models/gemini-4-neon)
+and [price card](https://ai.google.dev/gemini-api/docs/pricing#gemini-4-neon) on 2026-11-23.
+The bundled synchronous rates per million tokens are $3/$15/$0.15 for standard,
+$5.40/$27/$0.27 for priority, and $1.50/$7.50/$0.075 for flex, ordered as
+input/output/cache-read. This gateway card uses the synchronous 65,536-token
+output limit; batch and long-decode pricing are separate API paths.
+Search and Maps grounding are provider-billed per-query add-ons. The gateway's
+local settlement records token usage and does not include those add-on charges.
+
+Gemini 3.7 and 3.8 Flash use $1.50/$7.50/$0.15 per million input/output/cache-read
+tokens. Recognized promo cards in the default feed are corrected before
+publication, and static fallback cards carry the same standard rates.

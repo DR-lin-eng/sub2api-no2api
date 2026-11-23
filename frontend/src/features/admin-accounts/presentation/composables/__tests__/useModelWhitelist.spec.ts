@@ -20,6 +20,13 @@ describe('useModelWhitelist', () => {
     expect(getModelsByPlatform('antigravity')).not.toContain('gemini-4-hydrogen')
   })
 
+  it('exposes the latest Gemini 4 model in the Gemini selector', () => {
+    expect(getModelsByPlatform('gemini')).toContain('gemini-4-neon')
+    expect(getPresetMappingsByPlatform('gemini')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'gemini-4-neon', to: 'gemini-4-neon' })
+    ]))
+  })
+
   it('OpenAI 渠道默认模型与指定的 Codex 清单和顺序一致', () => {
     const models = getModelsByPlatform('openai')
 

@@ -381,16 +381,16 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown: false,
 	}
 
-	// Gemini 3.7 Flash promotional rates through 2026-12-31.
+	// Gemini 3.7 Flash non-promotional rates ($1.50/$7.50/$0.15 per MTok).
 	s.fallbackPrices["gemini-3.7-flash"] = &ModelPricing{
-		InputPricePerToken: 0.75e-6, OutputPricePerToken: 3.75e-6,
-		CacheReadPricePerToken: 0.075e-6, SupportsCacheBreakdown: false,
+		InputPricePerToken: 1.5e-6, OutputPricePerToken: 7.5e-6,
+		CacheReadPricePerToken: 0.15e-6, SupportsCacheBreakdown: false,
 	}
 
-	// Gemini 3.8 Flash promotional rates through 2026-12-31.
+	// Gemini 3.8 Flash non-promotional rates ($1.50/$7.50/$0.15 per MTok).
 	s.fallbackPrices["gemini-3.8-flash"] = &ModelPricing{
-		InputPricePerToken: 0.75e-6, OutputPricePerToken: 3.75e-6,
-		CacheReadPricePerToken: 0.075e-6, SupportsCacheBreakdown: false,
+		InputPricePerToken: 1.5e-6, OutputPricePerToken: 7.5e-6,
+		CacheReadPricePerToken: 0.15e-6, SupportsCacheBreakdown: false,
 	}
 
 	// OpenAI GPT-5.4（业务指定价格）
@@ -943,6 +943,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		return s.fallbackPrices["gemini-3.8-flash"]
 	}
 
+	if strings.Contains(modelLower, "gemini-4-neon") {
+		return s.fallbackPrices["gemini-4-neon"]
+	}
 	if strings.Contains(modelLower, "gemini-4-hydrogen") {
 		return s.fallbackPrices["gemini-4-hydrogen"]
 	}

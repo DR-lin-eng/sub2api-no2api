@@ -8,11 +8,8 @@ import (
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 )
 
-// correctDefaultCatalogPricing handles the default feed's known stale Sol
-// card, verified against https://developers.openai.com/api/docs/pricing on
-// 2026-09-10. Run only when loading a catalog, before publishing its index.
-// Custom feeds and pinned revisions keep their explicit prices. A different
-// future upstream card must also win over this narrowly matched correction.
+// correctDefaultCatalogPricing applies narrow price corrections to the default
+// feed only. Custom feeds and pinned revisions keep their explicit prices.
 func (s *PricingService) correctDefaultCatalogPricing(data map[string]*LiteLLMModelPricing) {
 	if s == nil || s.cfg == nil {
 		return
@@ -27,6 +24,8 @@ func (s *PricingService) correctDefaultCatalogPricing(data map[string]*LiteLLMMo
 	default:
 		return
 	}
+
+	correctGeminiNonPromotionalPricing(data)
 
 	p := data["gpt-5.6-sol"]
 	if p == nil || p.LiteLLMProvider != "openai" ||
@@ -46,4 +45,42 @@ func (s *PricingService) correctDefaultCatalogPricing(data map[string]*LiteLLMMo
 	p.CacheReadInputTokenCostPriority = current.CacheReadInputTokenCostPriority
 	p.CacheCreationInputTokenCostPriority = current.CacheCreationInputTokenCostPriority
 	logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Corrected default catalog GPT-5.6 Sol legacy rates to official promotional rates")
+}
+
+func correctGeminiNonPromotionalPricing(data map[string]*LiteLLMModelPricing) {
+	corrected := false
+	for _, name := range []string{"gemini-3.7-flash", "gemini-3.8-flash"} {
+		p := data[name]
+		if p == nil || p.LiteLLMProvider != "gemini" ||
+			p.InputCostPerToken != 0.75e-6 || p.OutputCostPerToken != 3.75e-6 ||
+			p.CacheReadInputTokenCost != 0.075e-6 {
+			continue
+		}
+		p.InputCostPerToken = 1.5e-6
+		p.OutputCostPerToken = 7.5e-6
+		p.CacheReadInputTokenCost = 0.15e-6
+		corrected = true
+	}
+
+	for _, name := range []string{"gemini-4-argon", "gemini-4-carbon"} {
+		p := data[name]
+		if p == nil || p.LiteLLMProvider != "gemini" ||
+			p.InputCostPerToken != 2e-6 || p.OutputCostPerToken != 10e-6 ||
+			p.CacheReadInputTokenCost != 0.1e-6 {
+			continue
+		}
+		p.InputCostPerToken = 4e-6
+		p.OutputCostPerToken = 20e-6
+		p.CacheReadInputTokenCost = 0.2e-6
+		if p.InputCostPerTokenPriority == 3.6e-6 && p.OutputCostPerTokenPriority == 18e-6 &&
+			p.CacheReadInputTokenCostPriority == 0.18e-6 {
+			p.InputCostPerTokenPriority = 7.2e-6
+			p.OutputCostPerTokenPriority = 36e-6
+			p.CacheReadInputTokenCostPriority = 0.36e-6
+		}
+		corrected = true
+	}
+	if corrected {
+		logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Corrected default Gemini promo cards to standard rates")
+	}
 }
