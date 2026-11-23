@@ -1,14 +1,54 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { ref } from 'vue'
 
 import DashboardView from '../presentation/pages/DashboardPage.vue'
 
-const { keysList, getDashboardApiKeysUsage, getDashboardStats } = vi.hoisted(() => ({
+const {
+  keysList,
+  getDashboardApiKeysUsage,
+  getDashboardStats,
+  getDashboardTrend,
+  getDashboardModels,
+  getByDateRange,
+} = vi.hoisted(() => ({
   keysList: vi.fn(),
   getDashboardApiKeysUsage: vi.fn(),
-  getDashboardStats: vi.fn()
+  getDashboardStats: vi.fn(),
+  getDashboardTrend: vi.fn(),
+  getDashboardModels: vi.fn(),
+  getByDateRange: vi.fn(),
 }))
+
+const intersectionObservers: TestDashboardIntersectionObserver[] = []
+
+class TestDashboardIntersectionObserver {
+  private readonly observedElements: Element[] = []
+
+  constructor(private readonly callback: IntersectionObserverCallback) {
+    intersectionObservers.push(this)
+  }
+
+  observe(element: Element): void {
+    this.observedElements.push(element)
+  }
+
+  unobserve(element: Element): void {
+    const index = this.observedElements.indexOf(element)
+    if (index >= 0) this.observedElements.splice(index, 1)
+  }
+
+  disconnect(): void {
+    this.observedElements.length = 0
+  }
+
+  trigger(element: Element): void {
+    this.callback(
+      [{ target: element, isIntersecting: true } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    )
+  }
+}
 
 vi.mock('@/features/auth/presentation/stores/authStore', () => ({
   useAuthStore: () => ({
@@ -22,13 +62,29 @@ vi.mock('@/features/keys/data/datasources/keysDatasource', () => ({ keysAPI: { l
 vi.mock('@/features/usage/data/datasources/usageDatasource', () => ({
   usageAPI: {
     getDashboardStats,
-    getDashboardTrend: vi.fn().mockResolvedValue({ trend: [] }),
-    getDashboardModels: vi.fn().mockResolvedValue({ models: [] }),
-    getByDateRange: vi.fn().mockResolvedValue({ items: [] }),
+    getDashboardTrend,
+    getDashboardModels,
+    getByDateRange,
     getDashboardApiKeysUsage
   }
 }))
 vi.mock('@/features/profile/data/datasources/profileDatasource', () => ({ getMyPlatformQuotas: vi.fn().mockResolvedValue({ platform_quotas: [] }) }))
+vi.mock('../presentation/widgets/UserDashboardCharts.vue', () => ({
+  default: {
+    name: 'UserDashboardCharts',
+    props: ['startDate', 'endDate'],
+    emits: ['update:startDate', 'update:endDate', 'dateRangeChange', 'refresh'],
+    template: `
+      <div>
+        <button
+          data-test="range"
+          @click="$emit('update:startDate', '2026-03-07'); $emit('update:endDate', '2026-03-08'); $emit('dateRangeChange')"
+        >range</button>
+        <button data-test="refresh-all" @click="$emit('refresh')">refresh</button>
+      </div>
+    `
+  }
+}))
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void
@@ -51,11 +107,6 @@ const mountDashboard = () => mount(DashboardView, {
       AppLayout: { template: '<div><slot /></div>' },
       LoadingSpinner: true,
       UserDashboardStats: true,
-      UserDashboardCharts: {
-        props: ['startDate', 'endDate'],
-        emits: ['update:startDate', 'update:endDate', 'dateRangeChange'],
-        template: '<button data-test="range" @click="$emit(\'update:startDate\', \'2026-03-07\'); $emit(\'update:endDate\', \'2026-03-08\'); $emit(\'dateRangeChange\')">range</button>'
-      },
       UserDashboardApiKeyUsage: {
         name: 'UserDashboardApiKeyUsage',
         props: ['rows', 'loading', 'error'],
@@ -68,14 +119,75 @@ const mountDashboard = () => mount(DashboardView, {
   }
 })
 
+function triggerDashboardSection(wrapper: ReturnType<typeof mountDashboard>, testId: string): void {
+  const section = wrapper.get(`[data-testid="${testId}"]`).element
+  const observer = intersectionObservers[0]
+  expect(observer).toBeDefined()
+  observer.trigger(section)
+}
+
 describe('user DashboardView API key usage orchestration', () => {
   beforeEach(() => {
+    intersectionObservers.length = 0
+    vi.stubGlobal('IntersectionObserver', TestDashboardIntersectionObserver)
     keysList.mockReset()
     getDashboardApiKeysUsage.mockReset()
     getDashboardStats.mockReset()
+    getDashboardTrend.mockReset()
+    getDashboardModels.mockReset()
+    getByDateRange.mockReset()
     keysList.mockResolvedValue(page([], 1, 1))
     getDashboardApiKeysUsage.mockResolvedValue({ stats: {} })
     getDashboardStats.mockResolvedValue({})
+    getDashboardTrend.mockResolvedValue({ trend: [] })
+    getDashboardModels.mockResolvedValue({ models: [] })
+    getByDateRange.mockResolvedValue({ items: [] })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('defers chart and lower-page requests until their sections approach the viewport', async () => {
+    const wrapper = mountDashboard()
+    await flushPromises()
+
+    expect(getDashboardStats).toHaveBeenCalledTimes(1)
+    expect(getDashboardTrend).not.toHaveBeenCalled()
+    expect(getDashboardModels).not.toHaveBeenCalled()
+    expect(keysList).not.toHaveBeenCalled()
+    expect(getByDateRange).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="range"]').exists()).toBe(false)
+
+    triggerDashboardSection(wrapper, 'dashboard-charts-section')
+    await flushPromises()
+    expect(wrapper.find('[data-test="range"]').exists()).toBe(true)
+    expect(getDashboardTrend).toHaveBeenCalledTimes(1)
+    expect(getDashboardModels).toHaveBeenCalledTimes(1)
+    expect(keysList).not.toHaveBeenCalled()
+
+    triggerDashboardSection(wrapper, 'dashboard-api-key-usage-section')
+    await flushPromises()
+    expect(keysList).toHaveBeenCalledTimes(1)
+
+    triggerDashboardSection(wrapper, 'dashboard-recent-usage-section')
+    await flushPromises()
+    expect(getByDateRange).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads deferred sections when the dashboard refresh action is used', async () => {
+    const wrapper = mountDashboard()
+    await flushPromises()
+    triggerDashboardSection(wrapper, 'dashboard-charts-section')
+    await flushPromises()
+
+    await wrapper.get('[data-test="refresh-all"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findComponent({ name: 'UserDashboardApiKeyUsage' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'UserDashboardRecentUsage' }).exists()).toBe(true)
+    expect(keysList).toHaveBeenCalledTimes(1)
+    expect(getByDateRange).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the stats layout visible and exposes a retry after an initial failure', async () => {
@@ -99,7 +211,9 @@ describe('user DashboardView API key usage orchestration', () => {
       .mockResolvedValueOnce(page(Array.from({ length: 100 }, (_, i) => key(i + 101)), 2, 3))
       .mockResolvedValueOnce(page([key(201)], 3, 3))
 
-    mountDashboard()
+    const wrapper = mountDashboard()
+    await flushPromises()
+    triggerDashboardSection(wrapper, 'dashboard-api-key-usage-section')
     await flushPromises()
 
     expect(keysList.mock.calls).toEqual([[1, 100], [2, 100], [3, 100]])
@@ -121,7 +235,9 @@ describe('user DashboardView API key usage orchestration', () => {
       return page([], pageNumber, 7)
     })
 
-    mountDashboard()
+    const wrapper = mountDashboard()
+    await flushPromises()
+    triggerDashboardSection(wrapper, 'dashboard-api-key-usage-section')
     await flushPromises()
 
     expect(maxInFlight).toBe(4)
@@ -138,6 +254,9 @@ describe('user DashboardView API key usage orchestration', () => {
     const second = deferred<{ stats: Record<string, any> }>()
     getDashboardApiKeysUsage.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
     const wrapper = mountDashboard()
+    await flushPromises()
+    triggerDashboardSection(wrapper, 'dashboard-charts-section')
+    triggerDashboardSection(wrapper, 'dashboard-api-key-usage-section')
     await flushPromises()
 
     const initialDates = getDashboardApiKeysUsage.mock.calls[0][1]
@@ -163,6 +282,8 @@ describe('user DashboardView API key usage orchestration', () => {
       .mockResolvedValueOnce({ stats: { 1: { api_key_id: 1, total_tokens: 30, total_actual_cost: 3 } } })
       .mockRejectedValueOnce(new Error('refresh failed'))
     const wrapper = mountDashboard()
+    await flushPromises()
+    triggerDashboardSection(wrapper, 'dashboard-api-key-usage-section')
     await flushPromises()
     await wrapper.get('[data-test="api-keys"]').trigger('click')
     await flushPromises()
