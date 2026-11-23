@@ -2,7 +2,7 @@
 
 面向 API 调用方的公开文档站，独立于后端和内嵌前端。站点由 [VitePress](https://vitepress.dev/) 生成，经 GitHub Actions 发布到 GitHub Pages：
 
-<https://dr-lin-eng.github.io/sub2api-no2api/>
+<https://sub2apiword.chatapi.dpdns.org/>
 
 它不会被编译进 Sub2API 二进制或 Docker 镜像。
 
@@ -40,7 +40,7 @@ Pull Request 只构建，不发布。
 
 首次使用前，在仓库的 **Settings → Pages → Build and deployment** 把 **Source** 设为 **GitHub Actions**。
 
-站点路径由构建时的 `DOCS_BASE` 决定，workflow 会从 Pages 配置自动取值。绑定自定义域名后无需改动代码。
+站点路径由构建时的 `DOCS_BASE` 决定。当前发布工作流将它设为 `/`，与 GitHub Pages 中配置的自定义域名根路径一致。
 
 ## 编写约定
 
