@@ -298,6 +298,12 @@ func extractUpstreamErrorMessage(body []byte) string {
 		return m
 	}
 
+	// Responses 失败信封：{"response":{"error":{"type":"...","message":"..."}}}
+	// 非流式透传和兼容转发也必须保留这条消息，否则客户端只会收到通用 502。
+	if m := gjson.GetBytes(body, "response.error.message").String(); strings.TrimSpace(m) != "" {
+		return m
+	}
+
 	// ChatGPT 内部 API 风格：{"detail":"..."}
 	if d := gjson.GetBytes(body, "detail").String(); strings.TrimSpace(d) != "" {
 		return d

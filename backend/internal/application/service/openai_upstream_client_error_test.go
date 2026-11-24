@@ -111,6 +111,28 @@ func TestHandleErrorResponseDeterministic400Fallbacks(t *testing.T) {
 	}
 }
 
+func TestHandleErrorResponseDeterministic400PreservesResponsesErrorEnvelope(t *testing.T) {
+	c, recorder := newOpenAIUpstreamErrorTestContext(t)
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+	body := `{"response":{"error":{"type":"invalid_request_error","code":"invalid_encrypted_content","param":"input","message":"encrypted content is invalid"}}}`
+
+	_, err := svc.handleErrorResponse(
+		context.Background(),
+		newOpenAIUpstreamErrorResponse(http.StatusBadRequest, body),
+		c,
+		newOpenAIUpstreamErrorTestAccount(),
+		nil,
+	)
+
+	require.Error(t, err)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	responseBody := recorder.Body.String()
+	require.Equal(t, "invalid_request_error", gjson.Get(responseBody, "error.type").String())
+	require.Equal(t, "invalid_encrypted_content", gjson.Get(responseBody, "error.code").String())
+	require.Equal(t, "input", gjson.Get(responseBody, "error.param").String())
+	require.Equal(t, "encrypted content is invalid", gjson.Get(responseBody, "error.message").String())
+}
+
 func TestHandleErrorResponseNonDeterministicStatusesRemainGeneric(t *testing.T) {
 	tests := []struct {
 		status      int
