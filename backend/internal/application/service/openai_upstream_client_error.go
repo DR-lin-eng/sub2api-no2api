@@ -74,11 +74,15 @@ func writeOpenAIUpstreamClientError(c *gin.Context, statusCode int, body []byte,
 	errorPayload := gin.H{"type": openAIUpstreamClientErrorFallbackType}
 	if errType := strings.TrimSpace(gjson.GetBytes(body, "error.type").String()); errType != "" {
 		errorPayload["type"] = errType
+	} else if errType := strings.TrimSpace(gjson.GetBytes(body, "response.error.type").String()); errType != "" {
+		errorPayload["type"] = errType
 	}
 	if code := strings.TrimSpace(extractUpstreamErrorCode(body)); code != "" {
 		errorPayload["code"] = code
 	}
 	if param := strings.TrimSpace(gjson.GetBytes(body, "error.param").String()); param != "" {
+		errorPayload["param"] = param
+	} else if param := strings.TrimSpace(gjson.GetBytes(body, "response.error.param").String()); param != "" {
 		errorPayload["param"] = param
 	}
 	message := strings.TrimSpace(upstreamMsg)

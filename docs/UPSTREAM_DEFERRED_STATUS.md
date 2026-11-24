@@ -70,3 +70,6 @@ DeepSeek 原实现对每条 assistant 消息在完整请求上执行一次 JSON 
 2026-11-20 的 39 个 PR、直接合并和版本提交见[增量审查](UPSTREAM_SYNC_20261120.md)。继承五份台账的 276 个历史 PR，按净补丁和当前能力边界继续跟踪。
 
 项目内 PR #231 的网关热路径性能审查见[审查记录](PR231_GATEWAY_HOTPATH_REVIEW.md)。该 head 已完成性能、Docker、升级回退和 CI 核对，并标记 `diff_review_closed=true`、`capability_complete=true`。同一 head 和同一范围不重复检查，只有 head、owner 或能力边界变化时重开。
+
+
+2026-11-24 的上游增量审查见[审查记录](UPSTREAM_SYNC_20261124.md)及[机器台账](../diagnostics/upstream-sync-20261124/UPSTREAM_PRS.json)。#9045 在当前 application owner 中补齐 `response.error` 非流式 400 字段保留，重复的 gorilla/websocket 依赖升级只应用一次。#9008 的自动分组写回和 #9052 的身份变量/WS 分桶保留本地契约，待独立能力设计后重开；上游版本号 0.2.25 不写入本项目。
