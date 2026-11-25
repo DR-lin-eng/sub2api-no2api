@@ -19,3 +19,13 @@ docker run --rm --entrypoint /app/sub2api sub2api:upstream-sync-20261124 --versi
 ```
 
 输出版本为项目现有 `0.1.250`，提交标记为本同步分支，未采用上游 `0.2.25`。
+
+## 2026-11-25 主线追踪
+
+当天核对时，上游 `main` 仍为 `0f6671457`。本项目已在上一轮记录这批补丁的决定，合并后的共同祖先仍停在上一批的 `328db26f4`。追踪合并 `6c6a8b628` 以 `63dea76f7` 和 `0f6671457` 为父提交，文件树与项目基线同为 `85e25666b`。[上一轮同步 PR #234](https://github.com/DR-lin-eng/sub2api-no2api/pull/234)
+
+在有完整提交历史的检出中运行下列命令，可核对首父链、PR 编号、冻结净补丁摘要、沿用的处理决定及追踪关系。
+
+```sh
+python3 diagnostics/upstream-sync-20261124/verify_ledger.py --require-ancestry
+```
