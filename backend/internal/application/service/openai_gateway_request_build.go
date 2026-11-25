@@ -212,6 +212,10 @@ func (s *OpenAIGatewayService) buildUpstreamRequestWithFingerprint(ctx context.C
 	customUA := account.GetOpenAIUserAgent()
 	if customUA != "" {
 		req.Header.Set("user-agent", customUA)
+	} else if account.IsOpenCodeGo() {
+		if upstreamUA := openCodeUpstreamUserAgent(targetURL, ""); upstreamUA != "" {
+			req.Header.Set("user-agent", upstreamUA)
+		}
 	}
 
 	// 若开启 ForceCodexCLI，则强制将上游 User-Agent 伪装为 Codex CLI。

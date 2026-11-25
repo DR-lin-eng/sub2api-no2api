@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/xai"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -1494,7 +1495,7 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 			extra[service.CodexVirtualClientKeyExtraKey] = virtualClientKey
 		}
 	}
-	return service.Account{
+	metadata := service.Account{
 		ID:                      account.ID,
 		Name:                    account.Name,
 		Platform:                account.Platform,
@@ -1525,6 +1526,21 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		Credentials:             filterSchedulerCredentials(account.Credentials),
 		Extra:                   extra,
 	}
+	// Media admission can inspect scheduler metadata before hydrating the full
+	// account. Keep the live JWT tier precedence without copying access tokens.
+	if account.IsGrokOAuth() {
+		tier := xai.SubscriptionTierFromJWT(account.GetCredential("access_token"))
+		if tier == "" {
+			tier = account.GetCredential("subscription_tier")
+		}
+		if tier != "" {
+			if metadata.Credentials == nil {
+				metadata.Credentials = make(map[string]any)
+			}
+			metadata.Credentials["subscription_tier"] = tier
+		}
+	}
+	return metadata
 }
 
 func filterSchedulerAccountGroups(accountGroups []service.AccountGroup) []service.AccountGroup {

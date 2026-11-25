@@ -7,53 +7,29 @@ import (
 )
 
 func (s *ContentModerationService) enqueueAsync(input ContentModerationCheckInput, cfg *ContentModerationConfig, content ContentModerationInput, hashText string) {
-	if s == nil || s.asyncQueue == nil || s.stopped.Load() {
+	if s.queueDisabled() || s.stopped.Load() {
 		return
 	}
-	queueSize := defaultContentModerationQueueSize
-	if cfg != nil && cfg.QueueSize > 0 {
-		queueSize = cfg.QueueSize
-	}
-	if len(s.asyncQueue) >= queueSize {
-		slog.Warn("content_moderation.async_queue_full", "user_id", input.UserID, "endpoint", input.Endpoint, "queue_size", queueSize)
-		s.asyncDropped.Add(1)
-		return
-	}
-	task := &contentModerationTask{
+	task := contentModerationTask{
 		input:      input,
 		content:    content,
 		inputHash:  hashText,
 		enqueuedAt: time.Now(),
 	}
-	select {
-	case s.asyncQueue <- task:
+	accepted, queueSize := s.enqueueTask(cfg, task)
+	if accepted {
 		s.asyncEnqueued.Add(1)
-	case <-s.lifecycleCtx.Done():
-		s.asyncDropped.Add(1)
-	default:
-		slog.Warn("content_moderation.async_queue_full", "user_id", input.UserID, "endpoint", input.Endpoint)
-		s.asyncDropped.Add(1)
+		return
 	}
+	slog.Warn("content_moderation.async_queue_full", "user_id", input.UserID, "endpoint", input.Endpoint, "queue_size", queueSize)
+	s.asyncDropped.Add(1)
 }
 
 func (s *ContentModerationService) enqueueRecord(input ContentModerationCheckInput, cfg *ContentModerationConfig, log *ContentModerationLog, inputHash string, recordHash bool, applySideEffects bool) {
-	if s == nil || s.asyncQueue == nil || log == nil || s.stopped.Load() {
+	if log == nil || s.queueDisabled() || s.stopped.Load() {
 		return
 	}
-	queueSize := defaultContentModerationQueueSize
-	if cfg != nil && cfg.QueueSize > 0 {
-		queueSize = cfg.QueueSize
-	}
-	if len(s.asyncQueue) >= queueSize {
-		slog.Warn("content_moderation.record_queue_full",
-			"user_id", input.UserID,
-			"endpoint", input.Endpoint,
-			"action", log.Action,
-			"queue_size", queueSize)
-		s.asyncDropped.Add(1)
-		return
-	}
-	task := &contentModerationTask{
+	accepted, queueSize := s.enqueueTask(cfg, contentModerationTask{
 		input:            input,
 		inputHash:        inputHash,
 		log:              log,
@@ -61,19 +37,17 @@ func (s *ContentModerationService) enqueueRecord(input ContentModerationCheckInp
 		recordHash:       recordHash,
 		applySideEffects: applySideEffects,
 		enqueuedAt:       time.Now(),
-	}
-	select {
-	case s.asyncQueue <- task:
+	})
+	if accepted {
 		s.asyncEnqueued.Add(1)
-	case <-s.lifecycleCtx.Done():
-		s.asyncDropped.Add(1)
-	default:
-		slog.Warn("content_moderation.record_queue_full",
-			"user_id", input.UserID,
-			"endpoint", input.Endpoint,
-			"action", log.Action)
-		s.asyncDropped.Add(1)
+		return
 	}
+	slog.Warn("content_moderation.record_queue_full",
+		"user_id", input.UserID,
+		"endpoint", input.Endpoint,
+		"action", log.Action,
+		"queue_size", queueSize)
+	s.asyncDropped.Add(1)
 }
 
 func (s *ContentModerationService) worker(workerCtx context.Context, id int) {
@@ -136,25 +110,146 @@ func (s *ContentModerationService) worker(workerCtx context.Context, id int) {
 }
 
 func (s *ContentModerationService) dequeueAsyncTask(ctx context.Context, idleWait time.Duration) (*contentModerationTask, bool) {
-	if s == nil || s.asyncQueue == nil {
+	if s == nil {
 		return nil, false
 	}
 	if idleWait <= 0 {
+		idleWait = time.Second
+	}
+	for {
+		timer := time.NewTimer(idleWait)
+		s.asyncQueueMu.RLock()
+		queue := s.asyncQueue
+		wake := s.asyncWake
+		s.asyncQueueMu.RUnlock()
+		if queue == nil {
+			select {
+			case <-wake:
+				timer.Stop()
+				continue
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, false
+			case <-timer.C:
+				return nil, false
+			}
+		}
 		select {
-		case task, ok := <-s.asyncQueue:
+		case task, ok := <-queue:
+			timer.Stop()
 			return task, ok
+		case <-wake:
+			timer.Stop()
+			continue
 		case <-ctx.Done():
+			timer.Stop()
+			return nil, false
+		case <-timer.C:
 			return nil, false
 		}
 	}
-	timer := time.NewTimer(idleWait)
-	defer timer.Stop()
+}
+
+const contentModerationInitialQueueCapacity = 64
+
+func (s *ContentModerationService) asyncQueueOf() chan *contentModerationTask {
+	if s == nil {
+		return nil
+	}
+	s.asyncQueueMu.RLock()
+	queue := s.asyncQueue
+	s.asyncQueueMu.RUnlock()
+	return queue
+}
+
+func queueDropThreshold(cfg *ContentModerationConfig) int {
+	threshold := defaultContentModerationQueueSize
+	if cfg != nil && cfg.QueueSize > 0 {
+		threshold = cfg.QueueSize
+	}
+	if threshold > maxContentModerationQueueSize {
+		threshold = maxContentModerationQueueSize
+	}
+	if threshold < 1 {
+		threshold = 1
+	}
+	return threshold
+}
+
+func (s *ContentModerationService) wakeWorkersLocked() {
+	if s.asyncWake == nil {
+		s.asyncWake = make(chan struct{})
+		return
+	}
+	close(s.asyncWake)
+	s.asyncWake = make(chan struct{})
+}
+
+func (s *ContentModerationService) growAsyncQueueLocked(threshold int) {
+	current := s.asyncQueue
+	if current == nil {
+		return
+	}
+	next := cap(current) * 2
+	if next < contentModerationInitialQueueCapacity {
+		next = contentModerationInitialQueueCapacity
+	}
+	if next > threshold {
+		next = threshold
+	}
+	if next <= cap(current) {
+		return
+	}
+	grown := make(chan *contentModerationTask, next)
+	for {
+		select {
+		case task := <-current:
+			grown <- task
+		default:
+			s.asyncQueue = grown
+			s.wakeWorkersLocked()
+			return
+		}
+	}
+}
+
+func (s *ContentModerationService) queueDisabled() bool {
+	if s == nil {
+		return true
+	}
+	s.asyncQueueMu.RLock()
+	defer s.asyncQueueMu.RUnlock()
+	return s.asyncQueue == nil && !s.asyncQueueLazy
+}
+
+func (s *ContentModerationService) enqueueTask(cfg *ContentModerationConfig, task contentModerationTask) (bool, int) {
+	if s == nil {
+		return false, 0
+	}
+	threshold := queueDropThreshold(cfg)
+	s.asyncQueueMu.Lock()
+	defer s.asyncQueueMu.Unlock()
+	if s.asyncQueue == nil {
+		if !s.asyncQueueLazy {
+			return false, threshold
+		}
+		initial := contentModerationInitialQueueCapacity
+		if initial > threshold {
+			initial = threshold
+		}
+		s.asyncQueue = make(chan *contentModerationTask, initial)
+		s.wakeWorkersLocked()
+	}
+	if len(s.asyncQueue) >= threshold {
+		return false, threshold
+	}
+	if len(s.asyncQueue) >= cap(s.asyncQueue) {
+		s.growAsyncQueueLocked(threshold)
+	}
 	select {
-	case task, ok := <-s.asyncQueue:
-		return task, ok
-	case <-ctx.Done():
-		return nil, false
-	case <-timer.C:
-		return nil, false
+	case s.asyncQueue <- &task:
+		return true, threshold
+	default:
+		return false, threshold
 	}
 }

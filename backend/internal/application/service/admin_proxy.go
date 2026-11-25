@@ -610,6 +610,10 @@ func (s *adminServiceImpl) attachProxyLatency(ctx context.Context, proxies []Pro
 		proxies[i].QualityGrade = info.QualityGrade
 		proxies[i].QualitySummary = info.QualitySummary
 		proxies[i].QualityChecked = info.QualityCheckedAt
+		if !info.UpdatedAt.IsZero() {
+			checkedAt := info.UpdatedAt
+			proxies[i].LatencyChecked = &checkedAt
+		}
 	}
 }
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import HelpTooltip from '@/common/widgets/feedback/HelpTooltip.vue'
@@ -76,5 +76,34 @@ describe('HelpTooltip', () => {
     expect(tooltip.style.display).toBe('none')
 
     wrapper.unmount()
+  })
+
+  it('keeps fixed tooltip coordinates in viewport space after scrolling', async () => {
+    vi.stubGlobal('scrollY', 480)
+    vi.stubGlobal('scrollX', 120)
+    const wrapper = mount(HelpTooltip, {
+      attachTo: document.body,
+      props: { content: 'viewport coordinates' },
+    })
+    const trigger = wrapper.get('.group').element as HTMLElement
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+      top: 42,
+      left: 18,
+      width: 20,
+      height: 20,
+      right: 38,
+      bottom: 62,
+      x: 18,
+      y: 42,
+      toJSON: () => ({}),
+    })
+
+    await wrapper.get('.group').trigger('mouseenter')
+    await nextTick()
+    const tooltip = getTooltipElement()
+    expect(tooltip.style.left).toBe('28px')
+    expect(tooltip.style.top).toBe('calc(34px)')
+    wrapper.unmount()
+    vi.unstubAllGlobals()
   })
 })

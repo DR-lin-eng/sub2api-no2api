@@ -111,8 +111,8 @@ func (s *ContentModerationService) GetStatus(ctx context.Context) (*ContentModer
 		preBlockAvgLatency = s.preBlockLatencyTotalMS.Load() / preBlockChecked
 	}
 	queueLength := 0
-	if s.asyncQueue != nil {
-		queueLength = len(s.asyncQueue)
+	if queue := s.asyncQueueOf(); queue != nil {
+		queueLength = len(queue)
 	}
 	queueUsage := 0.0
 	if cfg.QueueSize > 0 {

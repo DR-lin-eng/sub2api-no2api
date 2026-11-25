@@ -748,6 +748,19 @@ const applyLatencyResult = (
     target.city = undefined
   }
   target.latency_message = result.message
+  target.latency_checked_at = new Date().toISOString()
+}
+
+const applyQualityLatencyResult = (proxyId: number, result: ProxyQualityCheckResult) => {
+  const baseStep = result.items.find((item) => item.target === 'base_connectivity')
+  applyLatencyResult(proxyId, {
+    success: baseStep?.status === 'pass',
+    latency_ms: result.base_latency_ms || undefined,
+    message: result.summary,
+    ip_address: result.exit_ip,
+    country: result.country,
+    country_code: result.country_code
+  })
 }
 
 const summarizeQualityStatus = (result: ProxyQualityCheckResult): Proxy['quality_status'] => {
@@ -836,17 +849,7 @@ const handleQualityCheck = async (proxy: Proxy) => {
     qualityReport.value = result
     showQualityReportDialog.value = true
 
-    const baseStep = result.items.find((item) => item.target === 'base_connectivity')
-    if (baseStep && baseStep.status === 'pass') {
-      applyLatencyResult(proxy.id, {
-        success: true,
-        latency_ms: result.base_latency_ms,
-        message: result.summary,
-        ip_address: result.exit_ip,
-        country: result.country,
-        country_code: result.country_code
-      })
-    }
+    applyQualityLatencyResult(proxy.id, result)
     applyQualityResult(proxy.id, result)
 
     appStore.showSuccess(
@@ -878,20 +881,7 @@ const runBatchProxyQualityChecks = async (ids: number[]) => {
       startQualityCheckingProxy(current)
       try {
         const result = await proxiesAPI.checkProxyQuality(current)
-        const target = proxies.value.find((proxy) => proxy.id === current)
-        if (target) {
-          const baseStep = result.items.find((item) => item.target === 'base_connectivity')
-          if (baseStep && baseStep.status === 'pass') {
-            applyLatencyResult(current, {
-              success: true,
-              latency_ms: result.base_latency_ms,
-              message: result.summary,
-              ip_address: result.exit_ip,
-              country: result.country,
-              country_code: result.country_code
-            })
-          }
-        }
+        applyQualityLatencyResult(current, result)
         applyQualityResult(current, result)
         if (result.challenge_count > 0) {
           challenge++

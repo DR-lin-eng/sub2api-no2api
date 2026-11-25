@@ -73,3 +73,5 @@ DeepSeek 原实现对每条 assistant 消息在完整请求上执行一次 JSON 
 
 
 2026-11-24 的上游增量审查见[审查记录](UPSTREAM_SYNC_20261124.md)及[机器台账](../diagnostics/upstream-sync-20261124/UPSTREAM_PRS.json)。#9045 在当前 application owner 中补齐 `response.error` 非流式 400 字段保留，重复的 gorilla/websocket 依赖升级只应用一次。#9008 的自动分组写回和 #9052 的身份变量/WS 分桶保留本地契约，待独立能力设计后重开；上游版本号 0.2.25 不写入本项目。
+
+2026-11-25 的开放 PR 增量审查见[审查记录](UPSTREAM_SYNC_20261125.md)及[机器台账](../diagnostics/upstream-sync-20261125/UPSTREAM_PRS.json)。本批按开放 PR head 去重审查 23 项。内容审核队列、Gemini 空 usage、无版本 Codex identity、Grok tier 元数据、OpenCode UA、HelpTooltip 和代理快照已按当前 owner 适配或复用。大型协议、迁移和新运行面差异已关闭并保存重开条件。

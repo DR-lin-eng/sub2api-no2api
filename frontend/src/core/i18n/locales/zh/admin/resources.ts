@@ -200,6 +200,7 @@ export default {
       qualityTableLatency: '延迟',
       qualityTableMessage: '说明',
       qualityInline: '质量 {grade}/{score}',
+      lastCheckedAt: '检测于 {time}',
       qualityStatusHealthy: '优质',
       qualityStatusPass: '通过',
       qualityStatusWarn: '告警',

@@ -201,6 +201,7 @@ export default {
       qualityTableLatency: 'Latency',
       qualityTableMessage: 'Message',
       qualityInline: 'Quality {grade}/{score}',
+      lastCheckedAt: 'Checked {time}',
       qualityStatusHealthy: 'Healthy',
       qualityStatusPass: 'Pass',
       qualityStatusWarn: 'Warn',

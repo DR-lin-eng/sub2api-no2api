@@ -2555,35 +2555,43 @@ func isGeminiBase64Alphabet(c byte) bool {
 
 func extractGeminiUsage(data []byte) *ClaudeUsage {
 	usage := gjson.GetBytes(data, "usageMetadata")
-	if !usage.Exists() {
+	if !usage.IsObject() {
 		return nil
 	}
-	prompt := int(usage.Get("promptTokenCount").Int())
-	cand := int(usage.Get("candidatesTokenCount").Int())
-	cached := int(usage.Get("cachedContentTokenCount").Int())
-	thoughts := int(usage.Get("thoughtsTokenCount").Int())
+	prompt := usage.Get("promptTokenCount")
+	cand := usage.Get("candidatesTokenCount")
+	cached := usage.Get("cachedContentTokenCount")
+	thoughts := usage.Get("thoughtsTokenCount")
 
 	// 从 candidatesTokensDetails 提取 IMAGE 模态 token 数
-	imageTokens := 0
+	var imageTokens gjson.Result
 	candidateDetails := usage.Get("candidatesTokensDetails")
 	if candidateDetails.Exists() {
 		candidateDetails.ForEach(func(_, detail gjson.Result) bool {
 			if detail.Get("modality").String() == "IMAGE" {
-				imageTokens = int(detail.Get("tokenCount").Int())
+				imageTokens = detail.Get("tokenCount")
 				return false
 			}
 			return true
 		})
 	}
+	// Gemini may emit a trailing placeholder with an empty usageMetadata object.
+	// It must not replace counters already observed in the stream. Explicit zeroes
+	// remain valid counters and are therefore preserved.
+	if prompt.Type == gjson.Null && cand.Type == gjson.Null && cached.Type == gjson.Null &&
+		thoughts.Type == gjson.Null && imageTokens.Type == gjson.Null {
+		return nil
+	}
+	cachedTokens := int(cached.Int())
 
 	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
 	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去
 	return &ClaudeUsage{
-		InputTokens:          max(prompt-cached, 0),
-		OutputTokens:         cand + thoughts,
+		InputTokens:          max(int(prompt.Int())-cachedTokens, 0),
+		OutputTokens:         int(cand.Int() + thoughts.Int()),
 		ReasoningTokens:      apicompat.ReasoningTokensFromUsage(usage),
-		CacheReadInputTokens: cached,
-		ImageOutputTokens:    imageTokens,
+		CacheReadInputTokens: cachedTokens,
+		ImageOutputTokens:    int(imageTokens.Int()),
 	}
 }
 

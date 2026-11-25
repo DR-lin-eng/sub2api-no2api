@@ -146,17 +146,22 @@ const healthStatusClass = (status?: string) => {
     </template>
 
     <template #cell-location="{ row }">
-      <div class="flex items-center gap-2">
-        <img
-          v-if="row.country_code"
-          :src="flagUrl(row.country_code)"
-          :alt="row.country || row.country_code"
-          class="h-4 w-6 rounded-sm"
-        />
-        <span v-if="formatLocation(row)" class="text-sm text-gray-700 dark:text-gray-200">
-          {{ formatLocation(row) }}
+      <div class="flex flex-col">
+        <div class="flex items-center gap-2">
+          <img
+            v-if="row.country_code"
+            :src="flagUrl(row.country_code)"
+            :alt="row.country || row.country_code"
+            class="h-4 w-6 rounded-sm"
+          />
+          <span v-if="formatLocation(row)" class="text-sm text-gray-700 dark:text-gray-200">
+            {{ formatLocation(row) }}
+          </span>
+          <span v-else class="text-sm text-gray-400">-</span>
+        </div>
+        <span v-if="row.ip_address" class="font-mono text-xs text-gray-500 dark:text-gray-400">
+          {{ row.ip_address }}
         </span>
-        <span v-else class="text-sm text-gray-400">-</span>
       </div>
     </template>
 
@@ -227,7 +232,12 @@ const healthStatusClass = (status?: string) => {
     </template>
 
     <template #cell-created_at="{ row }">
-      <span class="text-xs text-gray-600 dark:text-gray-300">{{ formatDateTime(row.created_at) }}</span>
+      <div class="flex flex-col text-xs">
+        <span class="text-gray-600 dark:text-gray-300">{{ formatDateTime(row.created_at) }}</span>
+        <span v-if="row.latency_checked_at" class="text-gray-500 dark:text-gray-400">
+          {{ t('admin.proxies.lastCheckedAt', { time: formatDateTime(row.latency_checked_at) }) }}
+        </span>
+      </div>
     </template>
 
     <template #cell-status="{ value }">

@@ -3,6 +3,8 @@ package service
 import (
 	"net/http"
 	"net/url"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -12,9 +14,34 @@ import (
 )
 
 const (
-	openCodeSessionHeader         = "X-OpenCode-Session"
-	openCodeInboundBodyContextKey = "opencode_inbound_body"
+	openCodeSessionHeader           = "X-OpenCode-Session"
+	openCodeInboundBodyContextKey   = "opencode_inbound_body"
+	openCodeUserAgentVersionEnv     = "OPENCODE_USER_AGENT_VERSION"
+	defaultOpenCodeUserAgentVersion = "1.19.6"
 )
+
+var openCodeUserAgentVersionPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
+
+func resolveOpenCodeUserAgentVersion(raw string) string {
+	version := strings.TrimSpace(raw)
+	if version == "" {
+		version = strings.TrimSpace(os.Getenv(openCodeUserAgentVersionEnv))
+	}
+	if !openCodeUserAgentVersionPattern.MatchString(version) {
+		return defaultOpenCodeUserAgentVersion
+	}
+	return version
+}
+
+func openCodeUpstreamUserAgent(targetURL, configured string) string {
+	if configured = strings.TrimSpace(configured); configured != "" {
+		return configured
+	}
+	if !isOfficialOpenCodeHost(targetURL) {
+		return ""
+	}
+	return "opencode/" + resolveOpenCodeUserAgentVersion("")
+}
 
 // rememberOpenCodeInboundBody keeps the client request body so protocol
 // conversion (Responses↔Anthropic↔Chat Completions) can still recover

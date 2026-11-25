@@ -125,6 +125,7 @@ export interface Proxy {
   quality_grade?: string
   quality_summary?: string
   quality_checked?: number
+	latency_checked_at?: string
   health_status: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
   health_consecutive_failures: number
   last_health_check_at?: string | null

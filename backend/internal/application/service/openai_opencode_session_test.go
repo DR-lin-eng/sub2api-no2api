@@ -350,3 +350,24 @@ func TestOpenCodeSessionIsNotForwardedToOtherUpstreams(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenCodeUpstreamUserAgentUsesValidatedVersion(t *testing.T) {
+	t.Setenv(openCodeUserAgentVersionEnv, "2.3.4")
+	if got := openCodeUpstreamUserAgent("https://opencode.ai/zen/go/v1", ""); got != "opencode/2.3.4" {
+		t.Fatalf("openCodeUpstreamUserAgent() = %q", got)
+	}
+
+	t.Setenv(openCodeUserAgentVersionEnv, "invalid")
+	if got := openCodeUpstreamUserAgent("https://opencode.ai/zen/go/v1", ""); got != "opencode/"+defaultOpenCodeUserAgentVersion {
+		t.Fatalf("invalid version fallback = %q", got)
+	}
+}
+
+func TestOpenCodeUpstreamUserAgentPreservesConfiguredAndCustomHosts(t *testing.T) {
+	if got := openCodeUpstreamUserAgent("https://opencode.ai/zen/go/v1", "custom/1.0"); got != "custom/1.0" {
+		t.Fatalf("configured UA = %q", got)
+	}
+	if got := openCodeUpstreamUserAgent("https://proxy.example/v1", ""); got != "" {
+		t.Fatalf("custom host UA = %q", got)
+	}
+}

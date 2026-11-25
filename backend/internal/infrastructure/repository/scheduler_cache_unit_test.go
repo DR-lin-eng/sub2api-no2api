@@ -368,6 +368,22 @@ func TestBuildSchedulerMetadataAccount_KeepsGrokMediaEligibility(t *testing.T) {
 	})
 }
 
+func TestBuildSchedulerMetadataAccount_PreservesGrokSubscriptionTierWithoutToken(t *testing.T) {
+	account := service.Account{
+		ID:       45,
+		Platform: service.PlatformGrok,
+		Type:     service.AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token":      "opaque-token",
+			"subscription_tier": "supergrok",
+		},
+	}
+
+	got := buildSchedulerMetadataAccount(account)
+	require.Equal(t, "supergrok", got.GetCredential("subscription_tier"))
+	require.Empty(t, got.GetCredential("access_token"))
+}
+
 func TestBuildSchedulerMetadataAccount_KeepsRPMSchedulingFields(t *testing.T) {
 	account := service.Account{
 		ID:       43,
