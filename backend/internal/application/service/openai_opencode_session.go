@@ -26,6 +26,13 @@ func rememberOpenCodeInboundBody(c *gin.Context, body []byte) {
 	c.Set(openCodeInboundBodyContextKey, body)
 }
 
+func clearOpenCodeInboundBody(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	c.Set(openCodeInboundBodyContextKey, nil)
+}
+
 func openCodeInboundBodies(c *gin.Context) [][]byte {
 	if c == nil {
 		return nil

@@ -11,8 +11,11 @@ import (
 )
 
 const (
-	openAIHTTP200GenericFailureReason GatewayFailureReason = "openai_http200_generic_failure"
-	openAIHTTP200RecoveryKey          string               = "openai_http200_recovery_tried"
+	openAIHTTP200GenericFailureReason     GatewayFailureReason = "openai_http200_generic_failure"
+	openAIHTTP200RecoveryKey              string               = "openai_http200_recovery_tried"
+	openAIOriginalRequestReplaySafeKey    string               = "openai_original_request_replay_safe"
+	openAIOriginalRequestStreamKey        string               = "openai_original_request_stream"
+	openAIOriginalRequestStreamPresentKey string               = "openai_original_request_stream_present"
 )
 
 func openAIResponseFailureReportsUsage(payload []byte) bool {
@@ -48,6 +51,7 @@ func (s *OpenAIGatewayService) retryOpenAIHTTP200Failure(ctx context.Context, c 
 		return false, nil
 	}
 	if tried, _ := c.Get(openAIHTTP200RecoveryKey); tried == true ||
+		!openAIOriginalRequestReplaySafe(c) ||
 		!openAIWSHTTPReplaySafeBody(body) || !openAIWSHTTPReplaySafeBody(canonicalBody) {
 		return false, nil
 	}
@@ -58,4 +62,36 @@ func (s *OpenAIGatewayService) retryOpenAIHTTP200Failure(ctx context.Context, c 
 		return false, waitErr
 	}
 	return true, nil
+}
+
+func openAIOriginalRequestReplaySafe(c *gin.Context) bool {
+	if c == nil {
+		return true
+	}
+	value, ok := c.Get(openAIOriginalRequestReplaySafeKey)
+	if !ok {
+		return true
+	}
+	replaySafe, ok := value.(bool)
+	return !ok || replaySafe
+}
+
+func openAIOriginalRequestStream(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	value, ok := c.Get(openAIOriginalRequestStreamKey)
+	stream, valid := value.(bool)
+	return ok && valid && stream
+}
+
+func openAIOriginalRequestStreamPresent(c *gin.Context, canonicalBody []byte) bool {
+	if c != nil {
+		if value, ok := c.Get(openAIOriginalRequestStreamPresentKey); ok {
+			present, valid := value.(bool)
+			return !valid || present
+		}
+	}
+	stream := gjson.GetBytes(canonicalBody, "stream")
+	return !stream.Exists() || stream.Type == gjson.False
 }

@@ -41,6 +41,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	// 固定渠道映射后的请求级 canonical body；账号 normalize/strip 不得改写跨 failover hint。
 	canonicalImageIntentBody := body
+	if c != nil && account != nil && account.IsOpenAI() {
+		c.Set(openAIOriginalRequestReplaySafeKey, openAIWSHTTPReplaySafeBody(body))
+		c.Set(openAIOriginalRequestStreamKey, gjson.GetBytes(body, "stream").Bool())
+		c.Set(openAIOriginalRequestStreamPresentKey, gjson.GetBytes(body, "stream").Exists())
+	}
 	body, _, err := sanitizeOpenAIResponsesToolSchemasForPlatform(body, account.Platform)
 	if err != nil {
 		return nil, err
@@ -263,6 +268,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			startTime,
 		)
 	}
+	// The passthrough branch above has consumed the original body. The regular
+	// Responses path must not retain the pre-normalization body through a long
+	// streaming response.
+	originalBody = nil
 
 	bodyModified := false
 	var reqBody map[string]any
@@ -617,7 +626,28 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			requestView = newOpenAIRequestView(body)
 		}
 	}
+	canonicalTransportBody := body
+	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocketV2 {
+		preparedBody, compressionResult := s.prepareOpenAIWSImagePayloadForAccount(account, body)
+		if compressionResult.Changed {
+			body = preparedBody
+			canonicalTransportBody = preparedBody
+			requestView = newOpenAIRequestView(body)
+			logOpenAIWSModeInfo(
+				"image_compression account_id=%d original_bytes=%d prepared_bytes=%d compressed_images=%d skipped_images=%d shadow=%v timed_out=%v",
+				account.ID,
+				compressionResult.OriginalBytes,
+				compressionResult.PreparedBytes,
+				compressionResult.CompressedImages,
+				compressionResult.SkippedImages,
+				compressionResult.ShadowOnly,
+				compressionResult.TimedOut,
+			)
+		}
+	}
 	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalBody, body, "http")
+	integrityOriginalBody = nil
+	canonicalImageIntentBody = nil
 	imageBillingModel := ""
 	imageSizeTier := ""
 	imageInputSize := ""
@@ -645,7 +675,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return nil, err
 	}
 
-	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocketV2 && s.shouldBypassOpenAIWSForSize(ctx, c, account, body, canonicalImageIntentBody) {
+	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocketV2 && s.shouldBypassOpenAIWSForSize(ctx, c, account, body, canonicalTransportBody) {
 		s.markOpenAIWSHTTPRecovery(c, account, body, "ws_request_size_http")
 		wsDecision = openAIWSHTTPDecision("ws_request_size_http")
 	}
@@ -656,6 +686,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		if err != nil {
 			return nil, err
 		}
+		clearOpenCodeInboundBody(c)
 		_, hasPreviousResponseID := wsReqBody["previous_response_id"]
 		logOpenAIWSModeDebug(
 			"forward_start account_id=%d account_type=%s model=%s stream=%v has_previous_response_id=%v",
@@ -917,7 +948,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// semantic output and must not prevent a replay-safe WS-to-HTTP fallback.
 		canReplayThroughHTTP := !openAIStreamClientOutputStarted(c, false)
 
-		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && s.prepareOpenAIWSHTTPFallback(ctx, c, account, wsErr, body, canonicalImageIntentBody) {
+		if canReplayThroughHTTP && !codexContinuationRecoveryForbidden(c) && s.prepareOpenAIWSHTTPFallback(ctx, c, account, wsErr, body, canonicalTransportBody) {
 			wsDecision = openAIWSHTTPDecision("ws_fallback_http_sse")
 			// Discard prewarm mutations; HTTP must replay the immutable full body.
 			reqBody = nil
@@ -983,7 +1014,8 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// Send request
 		upstreamReq = tlsRecovery.trace(upstreamReq)
 		upstreamStart := time.Now()
-		resp, err := s.doOpenAIResponsesWithCompressionRecovery(ctx, c, upstreamReq, proxyURL, account, reqStream, canonicalImageIntentBody, nil)
+		clearOpenCodeInboundBody(c)
+		resp, err := s.doOpenAIResponsesWithCompressionRecovery(ctx, c, upstreamReq, proxyURL, account, reqStream, canonicalTransportBody, nil)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if headerGuard != nil && headerGuard.stopHeaderWait() {
 			if resp != nil && resp.Body != nil {
@@ -1134,7 +1166,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			// disconnect or replay an unsafe tool request.
 			replayModel, replayBody := reqModel, body
 			setOpenAIStreamReplaySafeLazy(c, func() bool {
-				return openAIPassthroughRequestReplaySafe(c, replayModel, replayBody, canonicalImageIntentBody, false)
+				return openAIPassthroughRequestReplaySafe(c, replayModel, replayBody, canonicalTransportBody, false)
 			})
 			streamResult, streamErr := s.handleStreamingResponseWithReasoning(ctx, resp, c, account, startTime, originalModel, upstreamModel, reasoningEffortValue)
 			responseErr = streamErr
@@ -1156,7 +1188,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 		}
 		if responseErr != nil {
-			if retry, retryErr := s.retryOpenAIHTTP200Failure(ctx, c, account, body, canonicalImageIntentBody, usage, responseErr); retryErr != nil {
+			if retry, retryErr := s.retryOpenAIHTTP200Failure(ctx, c, account, body, canonicalTransportBody, usage, responseErr); retryErr != nil {
 				return nil, retryErr
 			} else if retry {
 				_ = resp.Body.Close()

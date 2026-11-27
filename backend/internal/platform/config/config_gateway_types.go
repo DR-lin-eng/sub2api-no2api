@@ -301,10 +301,20 @@ type GatewayOpenAIWSConfig struct {
 	PrewarmGenerateEnabled bool `mapstructure:"prewarm_generate_enabled"`
 	// ClientReadLimitBytes: 入站客户端 WS 单帧读取上限。
 	ClientReadLimitBytes int64 `mapstructure:"client_read_limit_bytes"`
+	// UpstreamMessageReadLimitBytes: 上游 Responses WS 单帧读取上限。
+	UpstreamMessageReadLimitBytes int64 `mapstructure:"upstream_message_read_limit_bytes"`
 	// HTTPBridgeEnabled: 内嵌图片/大消息预分流及可重放的 WS 断连请求启用 HTTP Responses 恢复。
 	HTTPBridgeEnabled bool `mapstructure:"http_bridge_enabled"`
-	// HTTPBridgeThresholdBytes: 其他 WS 首包与 HTTP→WS 预热请求的 JSON 字节预分流阈值；内嵌图片直接走 HTTP。
+	// HTTPBridgeThresholdBytes: 旧版预分流阈值，保留用于兼容旧配置。
 	HTTPBridgeThresholdBytes int64 `mapstructure:"http_bridge_threshold_bytes"`
+	// WSMaxRequestBytes: 上游 WS 请求体硬上限，超过后才预分流 HTTP。
+	// Deprecated compatibility alias. API-key accounts use APIKeyWSMaxRequestBytes when set.
+	WSMaxRequestBytes int64 `mapstructure:"ws_max_request_bytes"`
+	// APIKeyWSMaxRequestBytes: API-key account WS request/frame budget. OAuth
+	// accounts ignore this value and use the official 128 MiB budget.
+	APIKeyWSMaxRequestBytes int64 `mapstructure:"apikey_ws_max_request_bytes"`
+	// ImageCompression controls bounded, optional inline image preparation for WS requests.
+	ImageCompression OpenAIWSImageCompressionConfig `mapstructure:"image_compression"`
 
 	// Feature 开关：v2 优先于 v1
 	ResponsesWebsockets   bool `mapstructure:"responses_websockets"`
@@ -360,6 +370,25 @@ type GatewayOpenAIWSConfig struct {
 	StickyPreviousResponseTTLSeconds int `mapstructure:"sticky_previous_response_ttl_seconds"`
 
 	SchedulerScoreWeights GatewayOpenAIWSSchedulerScoreWeights `mapstructure:"scheduler_score_weights"`
+}
+
+// OpenAIWSImageCompressionConfig controls inline image preparation without
+// changing the public Responses schema. Shadow mode measures the candidate
+// output while preserving the original body and transport decision.
+type OpenAIWSImageCompressionConfig struct {
+	Enabled                  bool   `mapstructure:"enabled"`
+	APIKeyEnabled            bool   `mapstructure:"apikey_enabled"`
+	Mode                     string `mapstructure:"mode"`
+	TargetRequestBytes       int64  `mapstructure:"target_request_bytes"`
+	MinRequestBytes          int64  `mapstructure:"min_request_bytes"`
+	MinImageBytes            int64  `mapstructure:"min_image_bytes"`
+	MaxEdgePixels            int    `mapstructure:"max_edge_pixels"`
+	MaxDecodedPixelsPerImage int64  `mapstructure:"max_decoded_pixels_per_image"`
+	MaxTotalDecodedPixels    int64  `mapstructure:"max_total_decoded_pixels"`
+	MaxImagesPerRequest      int    `mapstructure:"max_images_per_request"`
+	MaxTotalEncodeMS         int    `mapstructure:"max_total_encode_ms"`
+	PreserveAlpha            bool   `mapstructure:"preserve_alpha"`
+	QualityLadder            []int  `mapstructure:"quality_ladder"`
 }
 
 // GatewayOpenAIWSSchedulerScoreWeights 账号调度打分权重。

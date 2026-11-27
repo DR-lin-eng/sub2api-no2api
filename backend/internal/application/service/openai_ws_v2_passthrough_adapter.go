@@ -723,7 +723,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	if err := validateOpenAIWSBearerToken(account, token); err != nil {
 		return err
 	}
-	integrityOriginalFirstMessage := append([]byte(nil), firstClientMessage...)
+	if c != nil && account.IsOpenAI() {
+		c.Set(openAIOriginalRequestReplaySafeKey, openAIWSHTTPReplaySafeBody(firstClientMessage))
+	}
+	var integrityOriginalFirstMessage []byte
+	if len(firstClientMessage) <= openAIRequestIntegrityMaxObservedBytes {
+		integrityOriginalFirstMessage = append([]byte(nil), firstClientMessage...)
+	}
 	firstClientMessage = normalizeCodexBootstrapForOpenAIWS(account.ID, 1, firstClientMessage)
 	firstClientMessage = s.normalizeOpenAIRequestTimezone(ctx, nil, account, firstClientMessage, "ws")
 	visibleOutputTTFT := s.useOpenAIVisibleOutputTTFT(ctx)
@@ -852,7 +858,21 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		}
 		firstClientMessage = rewritten
 	}
+	if prepared, compressionResult := s.prepareOpenAIWSImagePayloadForAccount(account, firstClientMessage); compressionResult.Changed {
+		firstClientMessage = prepared
+		logOpenAIWSV2Passthrough(
+			"image_compression account_id=%d original_bytes=%d prepared_bytes=%d compressed_images=%d skipped_images=%d shadow=%v timed_out=%v",
+			account.ID,
+			compressionResult.OriginalBytes,
+			compressionResult.PreparedBytes,
+			compressionResult.CompressedImages,
+			compressionResult.SkippedImages,
+			compressionResult.ShadowOnly,
+			compressionResult.TimedOut,
+		)
+	}
 	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalFirstMessage, firstClientMessage, "websocket_passthrough")
+	integrityOriginalFirstMessage = nil
 	if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, 1), account); err != nil {
 		return openAIOAuthGatewayRateLimitWSFailover(err, 1, firstClientMessage)
 	}
@@ -967,6 +987,7 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		s.captureIntegrityState(proofCtx, handshakeHeaders)
 		cancelDial()
 		if err == nil {
+			applyOpenAIWSMessageReadLimit(upstreamConn, s.cfg, account)
 			break
 		}
 		var handshakeErr *openAIWSHandshakeError
@@ -1100,7 +1121,10 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			eventType := strings.TrimSpace(gjson.GetBytes(payload, "type").String())
 			isResponseCreate := eventType == "response.create"
-			integrityOriginalPayload := append([]byte(nil), payload...)
+			var integrityOriginalPayload []byte
+			if len(payload) <= openAIRequestIntegrityMaxObservedBytes {
+				integrityOriginalPayload = append([]byte(nil), payload...)
+			}
 			turnNo := int(completedTurns.Load()) + 1
 			if turnNo < 2 {
 				turnNo = 2
@@ -1266,10 +1290,14 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			//     覆盖（Store(nil)），因为 OpenAI 上游对该帧实际不传
 			//     service_tier 时按 default 处理，billing 应如实反映。
 			if policyErr == nil && blocked == nil && isResponseCreate {
+				if prepared, compressionResult := s.prepareOpenAIWSImagePayloadForAccount(account, out); compressionResult.Changed {
+					out = prepared
+				}
 				responseTurnState.Store(nil)
 				usageMeta.updateFromResponseCreate(out, model, requestModelForThisFrame)
 				acceptedTurn = true
 				s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalPayload, out, "websocket_passthrough")
+				integrityOriginalPayload = nil
 			}
 			return out, blocked, policyErr
 		},

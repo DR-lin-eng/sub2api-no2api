@@ -299,6 +299,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		if !gjson.ValidBytes(trimmed) {
 			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", errors.New("invalid json"))
 		}
+		if c != nil && account.IsOpenAI() {
+			c.Set(openAIOriginalRequestReplaySafeKey, openAIWSHTTPReplaySafeBody(trimmed))
+		}
 
 		normalized := normalizeCodexBootstrapForOpenAIWS(account.ID, turn, trimmed)
 		if s.IsDistillationGroupRequest(c, account) {
@@ -560,6 +563,20 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			promptCacheKey = strings.TrimSpace(finalContinuationValues[0].String())
 			previousResponseID = strings.TrimSpace(finalContinuationValues[1].String())
 		}
+		prepared, compressionResult := s.prepareOpenAIWSImagePayloadForAccount(account, normalized)
+		if compressionResult.Changed {
+			normalized = prepared
+			logOpenAIWSModeInfo(
+				"ingress_ws_image_compression account_id=%d original_bytes=%d prepared_bytes=%d compressed_images=%d skipped_images=%d shadow=%v timed_out=%v",
+				account.ID,
+				compressionResult.OriginalBytes,
+				compressionResult.PreparedBytes,
+				compressionResult.CompressedImages,
+				compressionResult.SkippedImages,
+				compressionResult.ShadowOnly,
+				compressionResult.TimedOut,
+			)
+		}
 		s.observeOpenAIRequestIntegrity(ctx, c, account, trimmed, normalized, "websocket")
 		ingressSessionOriginalModel = originalModel
 
@@ -667,6 +684,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	if routeErr := refreshIngressRouteState(firstPayload); routeErr != nil {
 		return routeErr
 	}
+	// Session affinity has been derived. Release the original first-frame bytes
+	// before a long-lived streaming relay keeps its compressed payload alive.
+	firstPayload.rawForHash = nil
 
 	if shouldHTTPBridge && codexContinuationRequiresExactConnection(c) {
 		return wrapCodexContinuationIngressError(newCodexContinuationTerminalError(
@@ -680,7 +700,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			account.ID,
 			account.Type,
 			firstPayload.payloadBytes,
-			s.openAIWSHTTPBridgeThresholdBytes(),
+			s.openAIWSHTTPBridgeThresholdBytesForAccount(account),
 			sessionHash != "",
 			storeDisabled,
 		)

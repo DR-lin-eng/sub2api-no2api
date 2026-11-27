@@ -22,7 +22,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
-const openAIWSMessageReadLimitBytes int64 = 16 * 1024 * 1024
+const openAIWSMessageReadLimitBytes int64 = 132 * 1024 * 1024
 const (
 	openAIWSProxyTransportMaxIdleConns        = 128
 	openAIWSProxyTransportMaxIdleConnsPerHost = 64
@@ -43,6 +43,10 @@ type openAIWSClientConn interface {
 	ReadMessage(ctx context.Context) ([]byte, error)
 	Ping(ctx context.Context) error
 	Close() error
+}
+
+type openAIWSReadLimitSetter interface {
+	SetReadLimit(int64)
 }
 
 // openAIWSIdlePingCapable is intentionally separate from openAIWSClientConn.
@@ -241,7 +245,7 @@ func (d *coderOpenAIWSClientDialer) DialRouteWithProfile(
 	}
 	// coder/websocket 默认单消息读取上限为 32KB，Codex WS 事件（如 rate_limits/大 delta）
 	// 可能超过该阈值，需显式提高上限，避免本地 read_fail(message too big)。
-	conn.SetReadLimit(openAIWSMessageReadLimitBytes)
+	conn.SetReadLimit(resolveOpenAIWSUpstreamMessageReadLimitBytes(d.cfg))
 	respHeaders := http.Header(nil)
 	if resp != nil {
 		respHeaders = cloneHeader(resp.Header)
@@ -457,6 +461,13 @@ func (d *coderOpenAIWSClientDialer) SnapshotTransportMetrics() OpenAIWSTransport
 type coderOpenAIWSClientConn struct {
 	conn          *coderws.Conn
 	upstreamPings atomic.Int64
+}
+
+func (c *coderOpenAIWSClientConn) SetReadLimit(limit int64) {
+	if c == nil || c.conn == nil || limit <= 0 {
+		return
+	}
+	c.conn.SetReadLimit(limit)
 }
 
 func (c *coderOpenAIWSClientConn) UpstreamPingCount() int64 {

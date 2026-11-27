@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tidwall/gjson"
 )
 
 // The canonical body retains the downstream stream flag; OAuth preparation has
@@ -17,8 +16,7 @@ func (s *OpenAIGatewayService) prepareOpenAIWSNonStreamingHTTPFallback(
 	ctx context.Context, c *gin.Context, account *Account, wsErr error, body, canonicalBody []byte,
 ) bool {
 	if account == nil || !account.IsCodexPrewarmContinuationEnabled() ||
-		!openAIWSHTTPUnambiguousFields(gjson.ParseBytes(canonicalBody), "stream") ||
-		(gjson.GetBytes(canonicalBody, "stream").Exists() && gjson.GetBytes(canonicalBody, "stream").Type != gjson.False) ||
+		openAIOriginalRequestStream(c) || !openAIOriginalRequestStreamPresent(c, canonicalBody) ||
 		!s.openAIWSHTTPRecoveryAllowed(ctx, c, account, body, canonicalBody) {
 		return false
 	}

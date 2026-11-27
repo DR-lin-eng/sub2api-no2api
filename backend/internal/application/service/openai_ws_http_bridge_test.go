@@ -901,6 +901,7 @@ func TestOpenAIWSHTTPBridgeKeepsContinuationFramesOnHTTPWithoutPreviousResponseI
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
 	cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
 	cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 1
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
@@ -931,8 +932,9 @@ func TestOpenAIWSHTTPBridgeKeepsContinuationFramesOnHTTPWithoutPreviousResponseI
 		Type:        AccountTypeOAuth,
 		Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "bridge-upstream-account"},
 		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-			codexFingerprintModeExtraKey:      "session",
+			"responses_websockets_v2_enabled":           true,
+			codexFingerprintModeExtraKey:                "session",
+			"openai_oauth_responses_websockets_v2_mode": OpenAIWSIngressModeHTTPBridge,
 		},
 		Concurrency: 1,
 		Status:      StatusActive,

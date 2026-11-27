@@ -867,7 +867,7 @@ func (s *OpenAIGatewayService) logOpenAIWSModeBootstrap() {
 		wsCfg.RetryBackoffMaxMS,
 		wsCfg.RetryJitterRatio,
 		wsCfg.RetryTotalBudgetMS,
-		openAIWSMessageReadLimitBytes,
+		resolveOpenAIWSUpstreamMessageReadLimitBytes(s.cfg),
 	)
 }
 

@@ -1,0 +1,35 @@
+{
+  "status": "pass",
+  "date": "2026-11-27",
+  "runtime": {
+    "image": "golang:1.26.11-alpine",
+    "architecture": "linux/arm64",
+    "cpus": 2,
+    "memory": "4 GiB",
+    "gomaxprocs": 2,
+    "cgo_enabled": false,
+    "network": "none"
+  },
+  "checks": {
+    "config": "pass",
+    "service_ws": "pass",
+    "handler_stream_recovery": "pass",
+    "compression_unit": "pass",
+    "release_build": "pass"
+  },
+  "ws_budgets": {
+    "oauth_request_bytes": 134217728,
+    "apikey_default_request_bytes": 104857600,
+    "apikey_budget_configurable": true,
+    "image_compression_global_switch": true,
+    "image_compression_apikey_switch": true
+  },
+  "benchmark": {
+    "fixture": "1024x1024 noisy PNG",
+    "iterations": 3,
+    "ns_per_op": 130993542,
+    "bytes_per_op": 36001528,
+    "allocs_per_op": 306
+  },
+  "real_openai_upstream_tested": false
+}

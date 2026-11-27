@@ -233,19 +233,36 @@ HTTP SSE 等待响应头（包括换号后的等待）及响应体期间按
 WSv2 在首语义输出前耗尽内部重连预算时，会把读取/连接类失败转换为统一的
 账号 failover 信号；不会落到通用 `Upstream request failed`，也不会重放已经提交的语义事件。
 
-`gateway.openai_ws.http_bridge_enabled` 开启时，包含内嵌 `data:image/...` 图片的完整请求
-在发送上游前直接选择 HTTP Responses，避免多图 Base64 内容触发上游 WS 消息大小限制。
-这同时覆盖 HTTP 入站的账号预热路径，以及原生 WS 的 ctx_pool/passthrough 首包；原生
-WS 客户端仍在原连接接收 Responses 事件。图片字节、数量、顺序、detail 和工具声明原样保留。
-远程图片 URL、file ID 和文本中的 data URL 不单独触发这项规则。
+`gateway.openai_ws.client_read_limit_bytes` 默认提供 132 MiB 的入站读取空间，
+`gateway.openai_ws.upstream_message_read_limit_bytes` 是旧版兼容读取值。OAuth 账号在实际
+连接上固定使用官方 128 MiB 单帧值，不接受自定义单帧配置。API Key 账号使用
+`gateway.openai_ws.apikey_ws_max_request_bytes` 作为 WS 请求/单帧预算，可按上游 Cloudflare
+或代理限制下调。`gateway.openai_ws.ws_max_request_bytes` 仍作为旧配置兼容别名。
+`gateway.openai_ws.ws_max_request_bytes` 是上游 WS 路由硬上限，旧的
+`http_bridge_threshold_bytes` 只保留混合版本兼容意义。内嵌图片不再单独触发 HTTP bridge，
+图片压缩是否跳过也不单独决定传输协议，最终完整 JSON 小于 WS 硬上限时继续使用 WS。
 
-其他大消息继续按 `http_bridge_threshold_bytes` 预分流，阈值按未压缩 JSON 字节判断，默认
-15 MiB，不按 token 数估算。发送前的传输选择允许声明托管工具或显式存储，因为尚未执行
-上游请求；仍须具备完整 input，不得丢弃服务端续链状态。低于该阈值仍收到上游
+开启 `gateway.openai_ws.image_compression.enabled` 后，超过 `min_request_bytes` 的请求先对结构化
+`data:image/...` 输入执行有界 JPEG 准备。`target_request_bytes` 是停止继续降低画质的软目标，
+超过该目标但低于 `ws_max_request_bytes` 的请求仍走 WS。透明 PNG 可按配置铺底，动画 GIF、SVG、
+无法确认 EXIF 方向的 JPEG 和 `detail=original` 默认保留原字节。HTTP 入站、ctx_pool ingress、
+passthrough 首帧和后续 `response.create` 帧共用该准备逻辑。字符串化的
+`function_call_output.output` 只在局部 JSON 字符串内处理。
+
+`image_compression.apikey_enabled` 可单独关闭 API Key 模式的图片压缩。API Key 请求仍继续使用
+`apikey_ws_max_request_bytes` 的可配置 WS 预算，OAuth 请求不读取该配置。
+
+该策略同时覆盖 HTTP 入站的账号预热路径，以及原生 WS 的 ctx_pool/passthrough 会话；原生
+WS 客户端仍在原连接接收 Responses 事件。远程图片 URL、file ID 和文本中的 data URL 不触发
+图片编码。压缩后的 body 同时用于 WS 发送和安全重放，原始 body 只保留会话哈希、意图和完整性
+摘要所需的信息，并在流式转发开始前释放大字节切片。验证矩阵见
+[Codex WS 图片压缩诊断](../diagnostics/ws-image-compression-20261127/README.md)。
+
+请求超过 `ws_max_request_bytes` 时继续按完整 input、工具副作用和续链状态选择 HTTP。低于该硬上限仍收到上游
 `1009`（`message_too_big`，含预热）时，
 可完整重放且尚未交付语义内容的请求在同一账号尝试一次 HTTP Responses；普通 WS 读写断连
 则先消耗既有有限重连预算，再尝试同样的 HTTP 恢复。重选同账号不补充该请求的 WS 预算。
-HTTP 使用保存的完整原始 body，不携带预热生成的连接私有 response ID，也不继承预热改写的角色。
+HTTP 使用本次请求已经准备好的完整 body，不携带预热生成的连接私有 response ID，也不继承预热改写的角色。
 
 发送后的失败恢复仍禁止显式 `store:true`、后台任务、服务端 conversation、`previous_response_id`、
 未配对工具结果、未解析的 item reference、托管工具副作用和已输出内容；完整配对的本地工具

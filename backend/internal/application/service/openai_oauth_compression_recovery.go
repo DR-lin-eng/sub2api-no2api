@@ -73,7 +73,8 @@ func (s *OpenAIGatewayService) doOpenAIResponsesWithCompressionRecovery(
 			account.ID, resp.StatusCode, decodeErr)
 		return resp, nil
 	}
-	if !openAIWSHTTPReplaySafeBody(body) ||
+	if !openAIOriginalRequestReplaySafe(c) ||
+		!openAIWSHTTPReplaySafeBody(body) ||
 		!s.openAIOAuthCompressionRecoveryAllowed(ctx, c, req, account) {
 		return resp, nil
 	}

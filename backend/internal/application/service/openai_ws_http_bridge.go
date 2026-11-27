@@ -18,12 +18,15 @@ import (
 )
 
 const (
-	openAIWSClientReadLimitBytesDefault     int64 = 64 * 1024 * 1024
+	openAIWSClientReadLimitBytesDefault     int64 = 132 * 1024 * 1024
 	openAIWSHTTPBridgeThresholdBytesDefault int64 = 15 * 1024 * 1024
 	openAIWSHTTPBridgeErrorBodyLimitBytes         = 64 * 1024
 	openAIWSAccountFailoverReplayMaxItems         = 512
 	openAIWSAccountFailoverReplayMaxBytes         = 2 * 1024 * 1024
 )
+
+const openAIWSUpstreamMessageReadLimitBytesDefault int64 = 132 * 1024 * 1024
+const openAIWSOAuthRequestBudgetBytes int64 = 128 * 1024 * 1024
 
 // ResolveOpenAIWSClientFirstMessageTimeout returns the effective client ingress deadline.
 func ResolveOpenAIWSClientFirstMessageTimeout(cfg *config.Config) time.Duration {
@@ -41,15 +44,70 @@ func ResolveOpenAIWSClientReadLimitBytes(cfg *config.Config) int64 {
 	return cfg.Gateway.OpenAIWS.ClientReadLimitBytes
 }
 
+func resolveOpenAIWSUpstreamMessageReadLimitBytes(cfg *config.Config) int64 {
+	if cfg == nil || cfg.Gateway.OpenAIWS.UpstreamMessageReadLimitBytes <= 0 {
+		return openAIWSUpstreamMessageReadLimitBytesDefault
+	}
+	return cfg.Gateway.OpenAIWS.UpstreamMessageReadLimitBytes
+}
+
+func resolveOpenAIWSMessageReadLimitForAccount(cfg *config.Config, account *Account) int64 {
+	if account != nil && account.IsOpenAIOAuth() {
+		return openAIWSOAuthRequestBudgetBytes
+	}
+	if account != nil && account.IsOpenAIApiKey() && cfg != nil {
+		if configured := cfg.Gateway.OpenAIWS.APIKeyWSMaxRequestBytes; configured > 0 {
+			return configured
+		}
+		if legacy := cfg.Gateway.OpenAIWS.WSMaxRequestBytes; legacy > 0 {
+			return legacy
+		}
+	}
+	return resolveOpenAIWSUpstreamMessageReadLimitBytes(cfg)
+}
+
+func applyOpenAIWSMessageReadLimit(conn openAIWSClientConn, cfg *config.Config, account *Account) {
+	if setter, ok := conn.(openAIWSReadLimitSetter); ok {
+		setter.SetReadLimit(resolveOpenAIWSMessageReadLimitForAccount(cfg, account))
+	}
+}
+
 func (s *OpenAIGatewayService) openAIWSHTTPBridgeEnabled() bool {
 	return s != nil && s.cfg != nil && s.cfg.Gateway.OpenAIWS.HTTPBridgeEnabled
 }
 
 func (s *OpenAIGatewayService) openAIWSHTTPBridgeThresholdBytes() int64 {
-	if s == nil || s.cfg == nil || s.cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes <= 0 {
+	if s == nil || s.cfg == nil {
+		return openAIWSHTTPBridgeThresholdBytesDefault
+	}
+	if s.cfg.Gateway.OpenAIWS.WSMaxRequestBytes > 0 {
+		return s.cfg.Gateway.OpenAIWS.WSMaxRequestBytes
+	}
+	if s.cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes <= 0 {
 		return openAIWSHTTPBridgeThresholdBytesDefault
 	}
 	return s.cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes
+}
+
+// openAIWSHTTPBridgeThresholdBytesForAccount resolves the outbound request
+// budget. OAuth uses the official fixed 128 MiB budget. API-key accounts may
+// use the operator-configured Cloudflare-safe budget.
+func (s *OpenAIGatewayService) openAIWSHTTPBridgeThresholdBytesForAccount(account *Account) int64 {
+	if account != nil && account.IsOpenAIOAuth() {
+		return openAIWSOAuthRequestBudgetBytes
+	}
+	if s == nil {
+		return openAIWSHTTPBridgeThresholdBytesDefault
+	}
+	if account != nil && account.IsOpenAIApiKey() && s.cfg != nil {
+		if configured := s.cfg.Gateway.OpenAIWS.APIKeyWSMaxRequestBytes; configured > 0 {
+			return configured
+		}
+		if legacy := s.cfg.Gateway.OpenAIWS.WSMaxRequestBytes; legacy > 0 {
+			return legacy
+		}
+	}
+	return s.openAIWSHTTPBridgeThresholdBytes()
 }
 
 func (s *OpenAIGatewayService) shouldBridgeOpenAIWSHTTP(account *Account, payload []byte, previousResponseID string) bool {
@@ -59,14 +117,14 @@ func (s *OpenAIGatewayService) shouldBridgeOpenAIWSHTTP(account *Account, payloa
 	if strings.TrimSpace(previousResponseID) != "" {
 		return false
 	}
-	return s.shouldRouteOpenAIWSHTTPPayload(payload) && openAIWSHTTPFullInputBody(payload)
+	return s.shouldRouteOpenAIWSHTTPPayloadForAccount(account, payload) && openAIWSHTTPFullInputBody(payload)
 }
 
 func (s *OpenAIGatewayService) shouldBridgeOpenAIWSPassthroughFirstMessage(account *Account, payload []byte) bool {
 	if account != nil && account.Platform == PlatformGrok {
 		return true
 	}
-	if !s.shouldRouteOpenAIWSHTTPPayload(payload) {
+	if !s.shouldRouteOpenAIWSHTTPPayloadForAccount(account, payload) {
 		return false
 	}
 	if !json.Valid(payload) {

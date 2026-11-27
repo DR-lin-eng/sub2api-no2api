@@ -123,6 +123,7 @@
 | [保留 zstd 的 Codex 400 恢复](../diagnostics/issue-8636-fix-20261113/README.md) | 默认压缩继续启用、精确错误分类、请求级单次恢复及 Docker 结算验证 |
 | [HTTP 200 流内失败与断流恢复](../diagnostics/http200-stream-20261113/README.md) | Codex 通用错误信封、单账号恢复、失败终态、残留正文及编码组合的 Docker 验证 |
 | [2026-11-14 OAuth 请求与压缩对齐](../diagnostics/oauth-alignment-20261114/README.md) | 对照桌面报告核验 OAuth 身份、最终 zstd 请求字节、响应解压和四阶段 Docker 回滚 |
+| [2026-11-27 Codex WS 图片压缩](../diagnostics/ws-image-compression-20261127/README.md) | 132 MiB WS 读取边界、双预算路由、内嵌图片压缩、流式恢复和 Docker benchmark |
 
 
 ## 长期优化计划
