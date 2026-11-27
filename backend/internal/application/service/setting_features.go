@@ -1468,6 +1468,11 @@ func (s *SettingService) GetBetaPolicyRuntimeSettings(ctx context.Context) (*Bet
 		}
 	}
 	_, err, _ := s.betaPolicyRuntimeSF.Do("refresh", func() (any, error) {
+		if loaded := s.betaPolicyRuntimeLoaded.Load(); loaded != 0 && time.Since(time.Unix(0, loaded)) < betaPolicyRuntimeRefreshInterval {
+			if s.betaPolicyRuntimeCache.Load() != nil {
+				return nil, nil
+			}
+		}
 		return nil, s.refreshBetaPolicyRuntimeSettings(ctx)
 	})
 	if cached := s.betaPolicyRuntimeCache.Load(); cached != nil {

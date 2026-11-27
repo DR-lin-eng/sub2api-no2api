@@ -77,4 +77,40 @@ describe('HelpTooltip', () => {
 
     wrapper.unmount()
   })
+
+  it('uses viewport coordinates without double-counting window scroll offsets', async () => {
+    const origScrollX = window.scrollX
+    const origScrollY = window.scrollY
+    Object.defineProperty(window, 'scrollX', { configurable: true, value: 140 })
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 320 })
+
+    try {
+      const wrapper = mount(HelpTooltip, {
+        attachTo: document.body,
+        props: { content: 'scroll check' },
+      })
+      const trigger = wrapper.get('.group')
+      trigger.element.getBoundingClientRect = () => ({
+        top: 50,
+        left: 80,
+        width: 20,
+        height: 20,
+        right: 100,
+        bottom: 70,
+        x: 80,
+        y: 50,
+        toJSON: () => ({}),
+      })
+
+      await trigger.trigger('mouseenter')
+      await nextTick()
+      const tooltip = getTooltipElement()
+      expect(tooltip.style.top).toBe('calc(42px)')
+      expect(tooltip.style.left).toBe('90px')
+      wrapper.unmount()
+    } finally {
+      Object.defineProperty(window, 'scrollX', { configurable: true, value: origScrollX })
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: origScrollY })
+    }
+  })
 })

@@ -495,7 +495,11 @@ type ContentModerationService struct {
 	emailService             *EmailService
 	httpClient               *http.Client
 	moderationProxyCache     atomic.Pointer[moderationProxyURLCacheEntry]
-	asyncQueue               chan *contentModerationTask
+	asyncMu                  sync.Mutex
+	asyncBuf                 []*contentModerationTask
+	asyncHead                int
+	asyncSize                int
+	asyncNotify              chan struct{}
 	lifecycleCtx             context.Context
 	lifecycleCancel          context.CancelFunc
 	workerMu                 sync.Mutex

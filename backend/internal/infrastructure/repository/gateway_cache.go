@@ -50,9 +50,35 @@ redis.call("SET", KEYS[1], ARGV[2], "EX", ttl)
 return next
 `)
 
+var compareAndBindStickySessionScript = redis.NewScript(`
+local current = redis.call("GET", KEYS[1])
+local target = ARGV[1]
+local ttlMs = tonumber(ARGV[2])
+if not ttlMs or ttlMs <= 0 then
+  return -1
+end
+if not current then
+  redis.call("SET", KEYS[1], target, "PX", ttlMs)
+  return 1
+end
+if current == target then
+  redis.call("PEXPIRE", KEYS[1], ttlMs)
+  return 1
+end
+for i = 3, #ARGV do
+  if current == ARGV[i] then
+    redis.call("SET", KEYS[1], target, "PX", ttlMs)
+    return 1
+  end
+end
+return 0
+`)
+
 type gatewayCache struct {
 	rdb *redis.Client
 }
+
+var _ service.StickySessionCASCache = (*gatewayCache)(nil)
 
 func NewGatewayCache(rdb *redis.Client) service.GatewayCache {
 	return &gatewayCache{rdb: rdb}
@@ -76,6 +102,26 @@ func (c *gatewayCache) GetSessionAccountID(ctx context.Context, groupID int64, s
 func (c *gatewayCache) SetSessionAccountID(ctx context.Context, groupID int64, sessionHash string, accountID int64, ttl time.Duration) error {
 	key := buildSessionKey(groupID, sessionHash)
 	return c.rdb.Set(ctx, key, accountID, ttl).Err()
+}
+
+func (c *gatewayCache) CompareAndSetSessionAccountID(ctx context.Context, groupID int64, sessionHash string, accountID int64, failedOverAccountIDs []int64, ttl time.Duration) (bool, error) {
+	ttlMs := ttl.Milliseconds()
+	if ttlMs <= 0 {
+		return false, nil
+	}
+	key := buildSessionKey(groupID, sessionHash)
+	args := make([]any, 0, 2+len(failedOverAccountIDs))
+	args = append(args, strconv.FormatInt(accountID, 10), ttlMs)
+	for _, failedID := range failedOverAccountIDs {
+		if failedID > 0 && failedID != accountID {
+			args = append(args, strconv.FormatInt(failedID, 10))
+		}
+	}
+	res, err := compareAndBindStickySessionScript.Run(ctx, c.rdb, []string{key}, args...).Int64()
+	if err != nil {
+		return false, err
+	}
+	return res == 1, nil
 }
 
 func (c *gatewayCache) RefreshSessionTTL(ctx context.Context, groupID int64, sessionHash string, ttl time.Duration) error {

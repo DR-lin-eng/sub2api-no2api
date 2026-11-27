@@ -29,6 +29,18 @@ const hasCanonicalGrokTier = (value: unknown): boolean => {
   return typeof tier === 'string' && tier.trim().length > 0
 }
 
+const normalizeGeminiBaseUrlScope = (value: unknown): 'official' | 'custom' => {
+  if (typeof value !== 'string') return 'official'
+  const trimmed = value.trim()
+  if (!trimmed) return 'official'
+  try {
+    const parsed = new URL(trimmed)
+    return parsed.hostname.toLowerCase() === 'generativelanguage.googleapis.com' ? 'official' : 'custom'
+  } catch {
+    return trimmed.toLowerCase().includes('generativelanguage.googleapis.com') ? 'official' : 'custom'
+  }
+}
+
 export const buildOpenAIUsageRefreshKey = (account: Pick<Account, 'id' | 'platform' | 'type' | 'updated_at' | 'last_used_at' | 'rate_limit_reset_at' | 'extra'>): string => {
   if (account.platform !== 'openai' || account.type !== 'oauth') {
     return ''
@@ -66,13 +78,29 @@ export const buildGrokUsageRefreshKey = (account: Pick<Account, 'platform' | 'ex
   ].join('|')
 }
 
-export const buildAccountUsageRefreshKey = (account: Pick<Account, 'id' | 'platform' | 'type' | 'updated_at' | 'last_used_at' | 'rate_limit_reset_at' | 'session_window_start' | 'session_window_end' | 'session_window_status' | 'extra'>): string => {
+export const buildAccountUsageRefreshKey = (
+  account: Pick<
+    Account,
+    | 'id'
+    | 'platform'
+    | 'type'
+    | 'updated_at'
+    | 'last_used_at'
+    | 'rate_limit_reset_at'
+    | 'session_window_start'
+    | 'session_window_end'
+    | 'session_window_status'
+    | 'extra'
+  > & { credentials?: Record<string, unknown> | null }
+): string => {
   if (account.platform === 'openai') return buildOpenAIUsageRefreshKey(account)
 
   const isClaude = account.platform === 'anthropic' && (account.type === 'oauth' || account.type === 'setup-token')
-  if (!isClaude && account.platform !== 'gemini') return ''
+  const isGemini = account.platform === 'gemini'
+  if (!isClaude && !isGemini) return ''
 
   const extra = account.extra ?? {}
+  const credentials = account.credentials ?? {}
   return serializeSnapshotRefreshValue([
     account.id,
     account.platform,
@@ -88,6 +116,12 @@ export const buildAccountUsageRefreshKey = (account: Pick<Account, 'id' | 'platf
       extra.passive_usage_7d_reset ?? null,
       extra.passive_usage_7d_oi_utilization ?? null,
       extra.passive_usage_7d_oi_reset ?? null
+    ] : []),
+    ...(isGemini ? [
+      credentials.tier_id ?? null,
+      credentials.oauth_type ?? null,
+      credentials.project_id ? 'has_project' : null,
+      account.type === 'apikey' ? normalizeGeminiBaseUrlScope(credentials.base_url) : null
     ] : [])
   ])
 }

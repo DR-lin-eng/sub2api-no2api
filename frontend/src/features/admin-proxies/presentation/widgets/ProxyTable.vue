@@ -146,18 +146,24 @@ const healthStatusClass = (status?: string) => {
     </template>
 
     <template #cell-location="{ row }">
-      <div class="flex items-center gap-2">
-        <img
-          v-if="row.country_code"
-          :src="flagUrl(row.country_code)"
-          :alt="row.country || row.country_code"
-          class="h-4 w-6 rounded-sm"
-        />
-        <span v-if="formatLocation(row)" class="text-sm text-gray-700 dark:text-gray-200">
-          {{ formatLocation(row) }}
+      <div v-if="row.ip_address || formatLocation(row) || row.country_code" class="flex flex-col gap-0.5">
+        <div class="flex items-center gap-2">
+          <img
+            v-if="row.country_code"
+            :src="flagUrl(row.country_code)"
+            :alt="row.country || row.country_code"
+            class="h-4 w-6 rounded-sm"
+          />
+          <span v-if="formatLocation(row)" class="text-sm text-gray-700 dark:text-gray-200">
+            {{ formatLocation(row) }}
+          </span>
+          <span v-else-if="!row.ip_address" class="text-sm text-gray-400">-</span>
+        </div>
+        <span v-if="row.ip_address" class="font-mono text-xs text-gray-500 dark:text-gray-400">
+          {{ row.ip_address }}
         </span>
-        <span v-else class="text-sm text-gray-400">-</span>
       </div>
+      <span v-else class="text-sm text-gray-400">-</span>
     </template>
 
     <template #cell-account_count="{ row, value }">
@@ -193,6 +199,13 @@ const healthStatusClass = (status?: string) => {
           {{ row.latency_ms }}ms
         </span>
         <span v-else class="text-sm text-gray-400">-</span>
+        <span
+          v-if="row.latency_checked_at"
+          class="text-xs text-gray-500 dark:text-gray-400"
+          :title="formatDateTime(row.latency_checked_at)"
+        >
+          {{ t('admin.proxies.latencyCheckedAt', { time: formatDateTime(row.latency_checked_at) }) }}
+        </span>
         <div
           v-if="typeof row.quality_checked === 'number'"
           class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"

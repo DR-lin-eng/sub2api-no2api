@@ -600,6 +600,10 @@ func (s *adminServiceImpl) attachProxyLatency(ctx context.Context, proxies []Pro
 			proxies[i].LatencyStatus = "failed"
 		}
 		proxies[i].LatencyMessage = info.Message
+		if !info.UpdatedAt.IsZero() {
+			checkedAt := info.UpdatedAt
+			proxies[i].LatencyCheckedAt = &checkedAt
+		}
 		proxies[i].IPAddress = info.IPAddress
 		proxies[i].Country = info.Country
 		proxies[i].CountryCode = info.CountryCode

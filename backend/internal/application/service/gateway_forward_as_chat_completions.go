@@ -443,16 +443,22 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 		}
 	}
 
-	writeChunk := func(chunk apicompat.ChatCompletionsChunk) bool {
+	toolRestorer := newToolNameStreamRestorer(c)
+	writeRawChunk := func(chunk apicompat.ChatCompletionsChunk) bool {
 		sse, err := apicompat.ChatChunkToSSE(chunk)
 		if err != nil {
 			return false
 		}
-		// Reverse tool name mapping: fake → real, per-chunk bytes.Replace.
-		// c 可能持有请求侧注入的 ToolNameRewrite；无则仅做静态前缀还原。
-		out := reverseToolNamesIfPresentString(c, sse)
-		if _, err := fmt.Fprint(c.Writer, out); err != nil {
+		if _, err := fmt.Fprint(c.Writer, sse); err != nil {
 			return true // client disconnected
+		}
+		return false
+	}
+	writeChunk := func(chunk apicompat.ChatCompletionsChunk) bool {
+		for _, restored := range toolRestorer.RestoreChatChunk(chunk) {
+			if writeRawChunk(restored) {
+				return true
+			}
 		}
 		return false
 	}
@@ -558,6 +564,9 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	finalCCChunks := apicompat.FinalizeResponsesChatStream(ccState)
 	for _, chunk := range finalCCChunks {
 		writeChunk(chunk) //nolint:errcheck
+	}
+	if flushed, ok := toolRestorer.flushChatChunk(ccState.ID, "chat.completion.chunk", ccState.Created, ccState.Model); ok {
+		writeRawChunk(flushed) //nolint:errcheck
 	}
 
 	// Write [DONE] marker

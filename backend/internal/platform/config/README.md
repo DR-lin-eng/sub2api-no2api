@@ -35,5 +35,5 @@
 `gateway.max_same_account_retries_gemini` / `GATEWAY_MAX_SAME_ACCOUNT_RETRIES_GEMINI` 是 Gemini 三条转发路径的同账号重试次数，不含首次请求，默认 4、有效范围 0–10；0 关闭瞬时错误重试，签名兼容降级独立计数。
 
 `gateway.disable_openai_transport_error_cooldown` 默认 false，只有显式设为 true 才停止为新的持久传输故障
-写入固定 10 分钟冷却；环境名为 `GATEWAY_DISABLE_OPENAI_TRANSPORT_ERROR_COOLDOWN`。其他状态与已存在
+写入临时不可调度冷却（代理/DNS/网络可达性故障 30 秒，代理鉴权失败 10 分钟）；环境名为 `GATEWAY_DISABLE_OPENAI_TRANSPORT_ERROR_COOLDOWN`。其他状态与已存在
 冷却保留，配置修改后重启生效。见 [同步审查](../../../../docs/UPSTREAM_SYNC_20261107.md)。

@@ -26,7 +26,7 @@ func NewContentModerationService(
 		authCacheInvalidator: authCacheInvalidator,
 		emailService:         emailService,
 		httpClient:           servertiming.InstrumentClient(nil),
-		asyncQueue:           make(chan *contentModerationTask, maxContentModerationQueueSize),
+		asyncNotify:          make(chan struct{}, 1),
 		lifecycleCtx:         lifecycleCtx,
 		lifecycleCancel:      lifecycleCancel,
 		workerCancels:        make(map[int]context.CancelFunc),
@@ -62,7 +62,7 @@ func ProvideContentModerationService(
 }
 
 func (s *ContentModerationService) resizeWorkers(count int) {
-	if s == nil || s.stopped.Load() || s.asyncQueue == nil {
+	if s == nil || s.stopped.Load() || s.asyncNotify == nil {
 		return
 	}
 	if count <= 0 {
@@ -111,12 +111,10 @@ func (s *ContentModerationService) Stop() {
 		}
 		s.workerMu.Unlock()
 		s.workerWG.Wait()
-		for {
-			select {
-			case <-s.asyncQueue:
-			default:
-				return
-			}
-		}
+		s.asyncMu.Lock()
+		s.asyncBuf = nil
+		s.asyncHead = 0
+		s.asyncSize = 0
+		s.asyncMu.Unlock()
 	})
 }

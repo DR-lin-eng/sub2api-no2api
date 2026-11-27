@@ -1463,6 +1463,7 @@ export default {
         cost: '费用',
         requests: '请求',
         tokens: 'Token',
+        upstreamErrors: '上游错误',
         highestCostDay: '最高费用日',
         highestRequestDay: '最高请求日',
         date: '日期',

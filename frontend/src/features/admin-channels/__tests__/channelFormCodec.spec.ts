@@ -186,6 +186,11 @@ describe('channel form codec', () => {
       bedrock_cc_compat: true,
     })
     expect(result.features_config).not.toBe(existingFeatures)
+
+    const withExpose = buildChannelAPIFields(sections, existingFeatures, { expose_response_model: true })
+    expect(withExpose.features_config.expose_response_model).toBe(true)
+    const withoutExpose = buildChannelAPIFields(sections, withExpose.features_config, { expose_response_model: false })
+    expect(withoutExpose.features_config.expose_response_model).toBe(false)
   })
 
   it('writes an explicit false when the rendered web search platform is disabled', () => {

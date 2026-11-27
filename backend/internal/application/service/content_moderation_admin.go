@@ -110,10 +110,7 @@ func (s *ContentModerationService) GetStatus(ctx context.Context) (*ContentModer
 	if preBlockChecked > 0 {
 		preBlockAvgLatency = s.preBlockLatencyTotalMS.Load() / preBlockChecked
 	}
-	queueLength := 0
-	if s.asyncQueue != nil {
-		queueLength = len(s.asyncQueue)
-	}
+	queueLength := s.asyncQueueLen()
 	queueUsage := 0.0
 	if cfg.QueueSize > 0 {
 		queueUsage = float64(queueLength) * 100 / float64(cfg.QueueSize)

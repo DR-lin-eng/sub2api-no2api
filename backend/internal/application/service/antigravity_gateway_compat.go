@@ -283,7 +283,8 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 			return nil, err
 		}
 		body = ensureGeminiFunctionCallThoughtSignatures(body)
-		body = applyGeminiCompatThinkingConfig(body, claudeBody, mappedModel, claudeRequest != nil && claudeRequest.Stream)
+		includeThoughts := s.shouldIncludeThoughtsForAntigravityGeminiCompat(claudeRequest != nil && claudeRequest.Stream)
+		body = applyGeminiCompatThinkingConfig(body, claudeBody, mappedModel, includeThoughts)
 		body, err = injectIdentityPatchToGeminiRequest(body)
 		if err != nil {
 			return nil, err
@@ -297,6 +298,16 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 	options := s.getClaudeTransformOptions(ctx)
 	options.EnableIdentityPatch = true
 	return antigravity.TransformClaudeToGeminiWithOptions(claudeRequest, projectID, mappedModel, options)
+}
+
+func (s *AntigravityGatewayService) shouldIncludeThoughtsForAntigravityGeminiCompat(stream bool) bool {
+	if !stream {
+		return false
+	}
+	if s != nil && s.settingService != nil && s.settingService.cfg != nil && s.settingService.cfg.Gateway.AntigravityGeminiOmitIncludeThoughts {
+		return false
+	}
+	return true
 }
 
 // enableMixedGeminiToolInvocations adds the upstream-required opt-in only when

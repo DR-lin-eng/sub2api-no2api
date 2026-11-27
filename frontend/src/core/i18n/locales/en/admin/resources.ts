@@ -123,6 +123,7 @@ export default {
       batchTest: 'Test All Proxies',
       testFailed: 'Failed',
       latencyFailed: 'Connection failed',
+      latencyCheckedAt: 'Tested {time}',
       batchTestEmpty: 'No proxies available for testing',
       batchTestDone: 'Batch test completed for {count} proxies',
       batchTestFailed: 'Batch test failed',

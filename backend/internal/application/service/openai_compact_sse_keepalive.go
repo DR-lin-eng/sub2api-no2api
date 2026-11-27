@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,40 @@ import (
 
 // openAICompactSSEKeepaliveKey 存放 body-signal compact 请求的下游 SSE 心跳器。
 const openAICompactSSEKeepaliveKey = "openai_compact_sse_keepalive"
+
+// openAICompactSSEKeepaliveAccountingKey 跨单次请求内的多次心跳启停（如换号重试）累计已写出的注释字节数与提交状态。
+const openAICompactSSEKeepaliveAccountingKey = "openai_compact_sse_keepalive_accounting"
+
+type openAICompactSSEKeepaliveAccounting struct {
+	bytes     atomic.Int64
+	committed atomic.Bool
+}
+
+func getOrCreateOpenAICompactSSEKeepaliveAccounting(c *gin.Context) *openAICompactSSEKeepaliveAccounting {
+	if c == nil {
+		return &openAICompactSSEKeepaliveAccounting{}
+	}
+	if value, ok := c.Get(openAICompactSSEKeepaliveAccountingKey); ok {
+		if acc, valid := value.(*openAICompactSSEKeepaliveAccounting); valid && acc != nil {
+			return acc
+		}
+	}
+	acc := &openAICompactSSEKeepaliveAccounting{}
+	c.Set(openAICompactSSEKeepaliveAccountingKey, acc)
+	return acc
+}
+
+func getOpenAICompactSSEKeepaliveAccounting(c *gin.Context) *openAICompactSSEKeepaliveAccounting {
+	if c == nil {
+		return nil
+	}
+	if value, ok := c.Get(openAICompactSSEKeepaliveAccountingKey); ok {
+		if acc, valid := value.(*openAICompactSSEKeepaliveAccounting); valid {
+			return acc
+		}
+	}
+	return nil
+}
 
 // openAICompactSSEKeepalive 在 compact 上游 unary 等待期间向下游写 SSE 注释行
 // 心跳。上游 /responses/compact 在模型处理期间不发送任何字节（大上下文可长达
@@ -29,11 +64,20 @@ type openAICompactSSEKeepalive struct {
 	writer  gin.ResponseWriter
 	started bool
 	stopped bool
-	// bytes 是心跳已写出的注释字节数。心跳不构成语义响应，handler 的
-	// "Forward 期间是否已写响应"判定（failover 放弃换号的依据）必须扣除
-	// 这部分字节，见 OpenAICompactKeepaliveAdjustedWrittenSize。
-	bytes int
-	stop  chan struct{}
+	// bytes 是本轮心跳实例写出的注释字节数；跨重试累计字节存放在 accounting。
+	bytes      int
+	accounting *openAICompactSSEKeepaliveAccounting
+	stop       chan struct{}
+}
+
+func (k *openAICompactSSEKeepalive) isStopped() bool {
+	if k == nil {
+		return true
+	}
+	k.mu.Lock()
+	stopped := k.stopped
+	k.mu.Unlock()
+	return stopped
 }
 
 // StartOpenAICompactSSEKeepalive 为已标记 body-signal 客户端流式的 compact
@@ -55,23 +99,31 @@ func StartOpenAICompactSSEKeepalive(c *gin.Context, interval time.Duration) func
 // the existing protocol-aware error paths remain available. Response construction
 // stops the timer under the writer lock before taking over the response.
 func StartOpenAIResponsesSSEKeepalive(c *gin.Context, interval time.Duration) func() {
-	if c == nil || c.Writer == nil || interval <= 0 || c.Writer.Written() {
+	if c == nil || c.Writer == nil || interval <= 0 || OpenAICompactKeepaliveAdjustedWrittenSize(c) >= 0 {
 		return func() {}
 	}
 	return startOpenAIStartupSSEKeepalive(c, interval)
 }
 
 func startOpenAIStartupSSEKeepalive(c *gin.Context, interval time.Duration) func() {
-	// A handler and its Forward call share one owner. Nested wrappers would
-	// stop each other's timers and make heartbeat bytes count more than once.
-	if _, exists := c.Get(openAICompactSSEKeepaliveKey); exists {
-		return func() {}
+	// A handler and its Forward call share one owner while active. Once a prior
+	// attempt's keepalive is stopped on failover, a new attempt may start another
+	// timer while sharing request-wide byte/commit accounting.
+	if value, exists := c.Get(openAICompactSSEKeepaliveKey); exists {
+		if existing, ok := value.(*openAICompactSSEKeepalive); ok && !existing.isStopped() {
+			return func() {}
+		}
 	}
-	declareOpenAIStreamResponseMetadataTrailers(c)
+	accounting := getOrCreateOpenAICompactSSEKeepaliveAccounting(c)
+	if !accounting.committed.Load() {
+		declareOpenAIStreamResponseMetadataTrailers(c)
+	}
 	originalWriter := c.Writer
 	k := &openAICompactSSEKeepalive{
-		writer: originalWriter,
-		stop:   make(chan struct{}),
+		writer:     originalWriter,
+		started:    accounting.committed.Load(),
+		accounting: accounting,
+		stop:       make(chan struct{}),
 	}
 	c.Set(openAICompactSSEKeepaliveKey, k)
 	wrappedWriter := &openAICompactKeepaliveWriter{ResponseWriter: originalWriter, k: k}
@@ -124,9 +176,16 @@ func (k *openAICompactSSEKeepalive) beat() bool {
 		header.Set("X-Accel-Buffering", "no")
 		k.writer.WriteHeader(http.StatusOK)
 		k.started = true
+		if k.accounting != nil {
+			k.accounting.committed.Store(true)
+		}
 	}
 	n, err := k.writer.Write([]byte(": keepalive\n\n"))
 	k.bytes += n
+	if k.accounting != nil && n > 0 {
+		k.accounting.bytes.Add(int64(n))
+		k.accounting.committed.Store(true)
+	}
 	if err != nil {
 		k.stopped = true
 		return false
@@ -158,18 +217,18 @@ func StopOpenAICompactSSEKeepaliveCommitted(c *gin.Context) bool {
 	if c == nil {
 		return false
 	}
-	value, ok := c.Get(openAICompactSSEKeepaliveKey)
-	if !ok {
-		return false
+	committed := false
+	if value, ok := c.Get(openAICompactSSEKeepaliveKey); ok {
+		if k, valid := value.(*openAICompactSSEKeepalive); valid && k != nil {
+			k.mu.Lock()
+			k.markStoppedLocked()
+			committed = k.started
+			k.mu.Unlock()
+		}
 	}
-	k, ok := value.(*openAICompactSSEKeepalive)
-	if !ok || k == nil {
-		return false
+	if acc := getOpenAICompactSSEKeepaliveAccounting(c); acc != nil && acc.committed.Load() {
+		committed = true
 	}
-	k.mu.Lock()
-	k.markStoppedLocked()
-	committed := k.started
-	k.mu.Unlock()
 	return committed
 }
 
@@ -192,9 +251,16 @@ func OpenAICompactKeepaliveAdjustedWrittenSize(c *gin.Context) int {
 	if value, ok := c.Get(openAICompactSSEKeepaliveKey); ok {
 		if k, valid := value.(*openAICompactSSEKeepalive); valid && k != nil {
 			k.mu.Lock()
-			size = k.writer.Size()
+			if current, wrapped := c.Writer.(*openAICompactKeepaliveWriter); wrapped && current.k == k {
+				size = k.writer.Size()
+			}
 			compactKeepaliveBytes = k.bytes
 			k.mu.Unlock()
+		}
+	}
+	if acc := getOpenAICompactSSEKeepaliveAccounting(c); acc != nil {
+		if total := int(acc.bytes.Load()); total > compactKeepaliveBytes {
+			compactKeepaliveBytes = total
 		}
 	}
 	if size < 0 {

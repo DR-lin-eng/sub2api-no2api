@@ -1,0 +1,554 @@
+{
+  "schema_version": 1,
+  "project_baseline": "1dbeb9c3126141ae5840be56aebbab117e8e1388",
+  "upstream_base": "0f6671457132425d1b84f3d80536b53e02942424",
+  "upstream_head": "81ce8356d9a289411987bdefeddc9710340d6d52",
+  "inherited_ledgers": [
+    {
+      "path": "diagnostics/upstream-sync-20261124/UPSTREAM_PRS.json",
+      "sha256": "966e70db9ec5709898744d6f03f3d07ce9f6c0b4bcbb067baf1db4f8e4fe739d"
+    }
+  ],
+  "entries": [
+    {
+      "pr": 8860,
+      "merge_sha": "4ecec232d8bbc68489e297d32ec4f914e4328010",
+      "title": "Merge pull request #8860 from Anankke/fix/account-usage-auto-refresh",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8860",
+      "diff_sha256": "8ad03e575ce0223ad77bbcae76026a41c7764c6b8ba5385618a88163f2898417",
+      "files": [
+        "frontend/src/components/account/__tests__/AccountUsageCell.spec.ts",
+        "frontend/src/utils/__tests__/accountUsageRefresh.spec.ts",
+        "frontend/src/utils/accountUsageRefresh.ts"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "frontend/src/core/utils/accountUsageRefresh.ts",
+        "frontend/src/core/utils/__tests__/accountUsageRefresh.spec.ts",
+        "frontend/src/features/admin-accounts/presentation/widgets/AccountUsageCell.vue"
+      ],
+      "decision": "在 core/utils/accountUsageRefresh.ts 的 buildAccountUsageRefreshKey 中纳入 Gemini 账号 tier_id、oauth_type、project_id 状态及 base_url 官方/第三方作用域，并将第三方 relay URL 归一化为固定作用域，确保官方与自定义中转切换或配额档位变更时自动刷新，同时避免第三方中转 URL 互改触发无意义的 /usage 重拉与行替换。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "Gemini 本地配额计算字段或 AccountUsageCell 自动刷新判定条件新增维度时重开。"
+    },
+    {
+      "pr": 8994,
+      "merge_sha": "e3eb96c0b5f5805572e370d1107988efec1c924a",
+      "title": "Merge pull request #8994 from wucm667/fix/issue-8991-terminal-context",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8994",
+      "diff_sha256": "ca21afaf64fdffdcf18d6cdc0e85d9320092bca91364a536ff5edc0ff80502db",
+      "files": [
+        "backend/internal/handler/openai_page_context.go",
+        "backend/internal/handler/openai_page_context_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/shared/apicompat/codex_page_context.go",
+        "backend/internal/shared/apicompat/codex_terminal_info_test.go"
+      ],
+      "decision": "在 shared/apicompat/codex_page_context.go 的字节预筛与独立上下文校验中补齐 terminal_info，将其转换为 <external_terminal_info> 用户消息并保持空白输出忽略与常规请求零分配快速跳过。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "Codex 桌面或 CLI 新增其他无工具调用的独立 function_call_output 上下文类型时重开。"
+    },
+    {
+      "pr": 8995,
+      "merge_sha": "ddc855a51d19b1d978027cfbb4c6eece97d53023",
+      "title": "Merge pull request #8995 from r266-tech/codex/show-requester-in-ops-error-detail",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/8995",
+      "diff_sha256": "8d5591a6ac939cb09cd547f0b603b0c94b9a1f8277df09f915c73057073eee5c",
+      "files": [
+        "frontend/src/views/admin/ops/components/OpsErrorDetailModal.vue",
+        "frontend/src/views/admin/ops/components/__tests__/OpsErrorDetailModal.spec.ts"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "frontend/src/features/admin-ops/presentation/widgets/OpsErrorDetailDialog.vue",
+        "frontend/src/features/admin-ops/__tests__/OpsErrorDetailDialog.spec.ts"
+      ],
+      "decision": "在 admin-ops 的 OpsErrorDetailDialog.vue 中拆分调用用户与上游账号卡片，使请求错误详情视图在展示上游供应商错误时同时保留触发请求的用户身份与命中账号，专用上游错误视图继续隐藏空用户卡片。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "Ops 错误详情弹窗的字段布局或归因模型调整时重开。"
+    },
+    {
+      "pr": 9004,
+      "merge_sha": "6f34149c15de58720157d2ad8b2228988a1bdb59",
+      "title": "Merge pull request #9004 from Anankke/fix/sticky-session-rebind-cas",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9004",
+      "diff_sha256": "c6a0a492beb3b102615ed8bbd5a247a1ddf6a3c45d70996fa9bf47a09bb3e2b4",
+      "files": [
+        "backend/internal/handler/gateway_handler.go",
+        "backend/internal/handler/gateway_sticky_writeback_test.go",
+        "backend/internal/repository/gateway_cache.go",
+        "backend/internal/repository/gateway_cache_integration_test.go",
+        "backend/internal/repository/gateway_cache_sticky_cas_test.go",
+        "backend/internal/service/gateway_service.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/infrastructure/repository/gateway_cache.go",
+        "backend/internal/application/service/gateway_service.go",
+        "backend/internal/transport/http/handler/gateway_handler_messages.go"
+      ],
+      "decision": "通过单轮 Redis Lua 脚本实现 CompareAndSetSessionAccountID 与 StickySessionCASCache 端口，并在 gateway_handler_messages.go 终态回写中使用 BindStickySessionUnlessRebound：仅当粘性键为空、仍指向本账号或仍停留在本次故障转移链已失败账号时才写入/续期，防止长流式响应结束后把并发请求已改绑的健康账号覆盖回旧账号。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "粘性会话 Redis 键格式、分片策略或跨协议终态绑定入口调整时重开。"
+    },
+    {
+      "pr": 9012,
+      "merge_sha": "d081e563f74f9e1a17954231d8f1189038b61a00",
+      "title": "Merge pull request #9012 from Anankke/fix/toolname-stream-restore",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9012",
+      "diff_sha256": "6103536d64f2fe62c0d3fe9fb35f26bfa976f4b8a2a8a74bfe9bca149e573922",
+      "files": [
+        "backend/internal/service/gateway_forward_as_chat_completions.go",
+        "backend/internal/service/gateway_forward_as_responses.go",
+        "backend/internal/service/gateway_tool_rewrite_stream.go",
+        "backend/internal/service/gateway_tool_rewrite_stream_test.go",
+        "backend/internal/service/gateway_upstream_response.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/gateway_tool_rewrite.go",
+        "backend/internal/application/service/gateway_tool_rewrite_stream.go",
+        "backend/internal/application/service/gateway_upstream_response.go",
+        "backend/internal/application/service/gateway_forward_as_chat_completions.go",
+        "backend/internal/application/service/gateway_forward_as_responses.go"
+      ],
+      "decision": "新增状态化流式工具名还原器 toolNameStreamRestorer 覆盖 Anthropic SSE、Chat Completions 桥与 Responses 桥的跨 delta 分片假名拼合；同时针对上游逐分片线性扫描与直接 Flush 的性能退化完成两项重构：(1) 用 256-bit 首字节位图与单次 SIMD 下划线预筛替代普通文本分片上的 N 次工具对扫描与 []byte(from) 分配；(2) 完整保留 PR #231 的 streamFlushCoalescer 合并刷写路径。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "Claude 工具混淆前缀规则（例如引入不含下划线的重写前缀）或流式桥接事件结构变更时重开。"
+    },
+    {
+      "pr": 9034,
+      "merge_sha": "a55adce0aae87c4a29d3517735ce9ce3e9dec12b",
+      "title": "Merge pull request #9034 from r266-tech/codex/shorten-proxy-network-cooldown",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9034",
+      "diff_sha256": "ee416ad1e93149ccca4cb415d6d14ac5f109d988822cae56d89dbcd061fbf9b4",
+      "files": [
+        "backend/internal/service/gateway_upstream_transport_error.go",
+        "backend/internal/service/gemini_upstream_transport_error.go",
+        "backend/internal/service/openai_upstream_transport_error.go",
+        "backend/internal/service/openai_upstream_transport_error_handle_test.go",
+        "backend/internal/service/openai_upstream_transport_error_test.go",
+        "deploy/.env.example",
+        "deploy/config.example.yaml"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/openai_upstream_transport_error.go",
+        "backend/internal/application/service/openai_gateway_passthrough.go",
+        "deploy/config.example.yaml",
+        "deploy/.env.example"
+      ],
+      "decision": "在本站持久传输冷却唯一运行面 openai_upstream_transport_error.go 中将代理鉴权拒绝（保持 10 分钟临时不可调度）与代理/DNS/网络可达性故障（缩短至 30 秒冷却）拆分，并优先匹配代理鉴权标记；本站 Anthropic/Gemini 网关未采用上游新增的传输层写库冷却机制，不额外引入跨平台写库副作用。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "其他平台网关明确立项引入持久传输冷却，或传输故障分类阈值调整时重开。"
+    },
+    {
+      "pr": 9046,
+      "merge_sha": "62b3fa1aacdc4dab611c6ee2cf47ea36fa8fda28",
+      "title": "Merge pull request #9046 from alfadb/fix/zhipu-overload-429-short-cooldown",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9046",
+      "diff_sha256": "2fa00d8a56d7a0663791f22a3c2edf38a50e101c1a529ac867fcbd187dc3ade8",
+      "files": [
+        "backend/internal/service/ratelimit_cn_frequency_429_test.go",
+        "backend/internal/service/ratelimit_cn_providers.go"
+      ],
+      "status": "reused-current-implementation",
+      "current_owners": [
+        "backend/internal/application/service/ratelimit_service.go",
+        "backend/internal/application/service/ratelimit_coding_plan.go",
+        "backend/internal/application/service/ratelimit_coding_plan_test.go"
+      ],
+      "decision": "上游此前把智谱 Coding Plan 429 默认锁到 5 小时窗口重置，因此需为 1305 平台过载开白名单；本站从未采纳 429 锁死 5h 窗口（仅配额 100% 耗尽的 403 走窗口重置），ratelimit_service.go 对所有智谱 429 已统一采用秒级退避限流且不置 error。补充 1305 回归单测锁定当前行为，不重复引入 ratelimit_cn_providers.go。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "本站未来对国产 Coding Plan 429 引入长窗口配额锁定时重开。"
+    },
+    {
+      "pr": 9060,
+      "merge_sha": "8ace90b8d0504d41f11a6f22fa12a1e2ffc9b4f6",
+      "title": "Merge pull request #9060 from LagrangeQ/fix/gemini-empty-stream-usage",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9060",
+      "diff_sha256": "fdf02ab97d1aeefc24189f2f01ee8c5e326d5fe760151ecdc526d4328ddc25fb",
+      "files": [
+        "backend/internal/service/gemini_messages_compat_service.go",
+        "backend/internal/service/gemini_messages_compat_service_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/gemini_messages_compat_service.go",
+        "backend/internal/application/service/upstream_sync_20261127_test.go"
+      ],
+      "decision": "在 gemini_messages_compat_service.go 的 extractGeminiUsage 中忽略非对象及所有计数字段（含 IMAGE tokenCount 与 reasoning tokens）均缺失或为 null 的尾随空 usageMetadata，保留已采集的真实流式用量，同时兼容显式 0 计数。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "Gemini usageMetadata 新增独立计费模态计数字段时重开。"
+    },
+    {
+      "pr": 9064,
+      "merge_sha": "f3ea22ec91f29d9326ac68b5c5601fc154121a5e",
+      "title": "Merge pull request #9064 from PMExtra/feat/account-upstream-error-stats",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9064",
+      "diff_sha256": "d10096ca80730cd25874ef2dc596dca61a2d39189f725b1120a84f2058134fcc",
+      "files": [
+        "backend/cmd/server/wire_gen.go",
+        "backend/internal/pkg/usagestats/usage_log_types.go",
+        "backend/internal/repository/usage_log_repo_integration_test.go",
+        "backend/internal/repository/usage_log_repo_stats.go",
+        "backend/internal/service/account_usage_service.go",
+        "backend/internal/service/account_usage_upstream_errors_test.go",
+        "backend/internal/service/wire.go",
+        "frontend/src/components/account/AccountTodayStatsCell.vue",
+        "frontend/src/components/account/__tests__/AccountTodayStatsCell.spec.ts",
+        "frontend/src/components/admin/account/AccountStatsModal.vue",
+        "frontend/src/components/admin/account/__tests__/AccountStatsModal.spec.ts",
+        "frontend/src/i18n/locales/en/admin/accounts.ts",
+        "frontend/src/i18n/locales/zh/admin/accounts.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/shared/usagestats/account_stats.go",
+        "backend/internal/shared/usagestats/usage_log_types.go",
+        "backend/internal/infrastructure/repository/usage_log_repo_account_stats.go",
+        "backend/internal/application/service/account_usage_service.go",
+        "frontend/src/features/admin-accounts/presentation/widgets/AccountTodayStatsCell.vue",
+        "frontend/src/features/admin-accounts/presentation/widgets/AdminAccountStatsDialog.vue"
+      ],
+      "decision": "在账号今日统计与 30 天统计弹窗中展示排除 429/529、业务限流和 count_tokens 后的供应商上游错误次数；修正上游直接按 UTC 分桶与本站应用时区日聚合不一致导致的跨午夜偏移问题，统一复用 resolveUsageStatsTimezone() 与现有 idx_ops_error_logs_account_time 索引，并通过可选接口自动装配免除额外 Wire 侵入。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "ops_error_logs 的上游错误口径或预聚合归档表结构变更时重开。"
+    },
+    {
+      "pr": 9069,
+      "merge_sha": "be8dfee8b2967ff0f0049aa6a4d859c30a8a6760",
+      "title": "Merge pull request #9069 from wucm667/feat/issue-9066-proxy-account-count",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9069",
+      "diff_sha256": "365f229d25c4f27dc36c118889c9e2d057e4c4b875209f7bf17425ae7ff8b530",
+      "files": [
+        "frontend/src/components/common/__tests__/ProxySelector.testing.spec.ts",
+        "frontend/src/views/admin/AccountsView.vue",
+        "frontend/src/views/admin/__tests__/AccountsView.bulkEdit.spec.ts",
+        "frontend/src/views/admin/__tests__/AccountsView.lite.spec.ts",
+        "frontend/src/views/admin/__tests__/AccountsView.priorityColumn.spec.ts",
+        "frontend/src/views/admin/__tests__/AccountsView.schedulerScore.spec.ts",
+        "frontend/src/views/admin/__tests__/AccountsView.selectAllResults.spec.ts",
+        "frontend/src/views/admin/__tests__/AccountsView.sparkShadow.spec.ts",
+        "frontend/src/views/admin/__tests__/AccountsView.usageWindowsHint.spec.ts"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "frontend/src/features/admin-accounts/presentation/pages/AccountsPage.vue",
+        "frontend/src/common/widgets/data/ProxySelector.vue"
+      ],
+      "decision": "在 AccountsPage.vue 中切换为 getAllWithCount 拉取带账号计数的代理列表，并用 Promise.allSettled 解耦代理与分组并发加载，使新建/编辑/批量编辑账号弹窗复用 ProxySelector 已有的账号数徽标展示且单路失败不互相拖累。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "账号页代理选择器改为按需分页远程搜索时重开。"
+    },
+    {
+      "pr": 9076,
+      "merge_sha": "2c5325ace8eb6e58d3ac808d9f62f041ab950691",
+      "title": "Merge pull request #9076 from r266-tech/codex/optional-antigravity-stream-summaries",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9076",
+      "diff_sha256": "b44db4ab0189b88b189d28b988b819f05f35626232e8099e9b7f91f655a9b04f",
+      "files": [
+        "backend/internal/config/config.go",
+        "backend/internal/config/config_test.go",
+        "backend/internal/service/antigravity_gateway_compat.go",
+        "backend/internal/service/antigravity_gateway_compat_test.go",
+        "deploy/config.example.yaml"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/platform/config/config_gateway_types.go",
+        "backend/internal/platform/config/defaults_gateway.go",
+        "backend/internal/application/service/antigravity_gateway_compat.go",
+        "deploy/config.example.yaml"
+      ],
+      "decision": "新增可选配置 gateway.antigravity_gemini_omit_include_thoughts（环境变量 GATEWAY_ANTIGRAVITY_GEMINI_OMIT_INCLUDE_THOUGHTS，默认 false），开启后在 Antigravity Gemini 兼容流式请求中省略 thinkingConfig.includeThoughts，交由上游决定是否下发思考摘要；默认关闭确保零行为变化。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "Antigravity Gemini 思考摘要配置改为管理端动态持久化开关或账号级覆写时重开。"
+    },
+    {
+      "pr": 9079,
+      "merge_sha": "3dd9a2495776272fe9a935c2b52d009e6b7d2079",
+      "title": "Merge pull request #9079 from wucm667/fix/issue-9077-versionless-identity",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9079",
+      "diff_sha256": "b2075ce36ef26d5d819c81c9ccee9f24fada9112e53be034f1d98627e124307a",
+      "files": [
+        "backend/internal/pkg/antigravity/attribution_test.go",
+        "backend/internal/pkg/antigravity/request_transformer.go",
+        "backend/internal/service/antigravity_gateway_compat_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/shared/antigravity/system_identity.go",
+        "backend/internal/shared/antigravity/system_identity_codex_test.go"
+      ],
+      "decision": "在 shared/antigravity/system_identity.go 的 systemIdentityOpeners 中补齐无版本号的 Codex 系统提示词前缀匹配（You are Codex, a coding agent / an agent），保留逗号从句与词边界保护。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "客户端系统身份前缀模板再次变更时重开。"
+    },
+    {
+      "pr": 9080,
+      "merge_sha": "e55f9db056281676e3ad71170638561af7164a2f",
+      "title": "Merge pull request #9080 from bin-bash-dev/fix/content-moderation-lazy-queue",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9080",
+      "diff_sha256": "cde02244aa2422432475c798158583cf7424b30a6a4d5f664f3017b90f56ea52",
+      "files": [
+        "backend/internal/service/content_moderation.go",
+        "backend/internal/service/content_moderation_queue_contract_test.go",
+        "backend/internal/service/content_moderation_queue_lazy_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/content_moderation.go",
+        "backend/internal/application/service/content_moderation_lifecycle.go",
+        "backend/internal/application/service/content_moderation_queue.go",
+        "backend/internal/application/service/content_moderation_check.go",
+        "backend/internal/application/service/content_moderation_admin.go"
+      ],
+      "decision": "本站此前已将内容审核异步队列重构为指针任务（避免上游值拷贝通道占用 29.6 MB），本轮进一步把启动时预分配的 100k 槽位通道改为按需倍增（64 起步，未启用时 0 字节）的环形指针队列 + 轻量唤醒信号，同时消除上游在每次 dequeue 热路径创建的 time.NewTimer 分配并严格保持扩容时的 FIFO 顺序。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "内容审核队列改为持久化外部消息队列或多优先级调度时重开。"
+    },
+    {
+      "pr": 9081,
+      "merge_sha": "bb7fb85cd56276a107015845fb5a95886f36d6af",
+      "title": "Merge pull request #9081 from bin-bash-dev/fix/sse-keepalive-retry-accounting",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9081",
+      "diff_sha256": "7e252507564b91ab7e6bb0c3760c9e9692a1abced6210eaade2d66399fda7152",
+      "files": [
+        "backend/internal/handler/openai_responses_passthrough_keepalive_failover_test.go",
+        "backend/internal/service/openai_compact_sse_keepalive.go",
+        "backend/internal/service/openai_compact_sse_keepalive_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/openai_compact_sse_keepalive.go",
+        "backend/internal/application/service/openai_compact_sse_keepalive_restart_test.go"
+      ],
+      "decision": "在 openai_compact_sse_keepalive.go 中引入请求级原子累计器 openAICompactSSEKeepaliveAccounting，允许前一次尝试停止心跳后在下一次换号尝试重新启动等待期心跳，并跨多次尝试累计全部注释字节与 HTTP 200 提交标记，防止二次换号误判已输出语义响应或丢失流内终止降级状态。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "OpenAI Responses/compact 等待期保活机制或响应头提交语义调整时重开。"
+    },
+    {
+      "pr": 9084,
+      "merge_sha": "ab00fef989db057875d3eeef9e34de8eb9d5f44b",
+      "title": "Merge pull request #9084 from r266-tech/codex/command-code-image-modalities",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9084",
+      "diff_sha256": "d7d232a2e26d13cbf87bf765a4db03bcd04291a8eef13776f470f5dd61f3968f",
+      "files": [
+        "backend/internal/service/openai_codex_models_service.go",
+        "backend/internal/service/openai_codex_models_service_test.go"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/modules/modelcatalog/catalog.go",
+        "backend/internal/application/service/openai_codex_models_metadata.go",
+        "backend/internal/application/service/openai_codex_models_service.go"
+      ],
+      "decision": "上游为 PlatformCommandCode 与按分组全账号扫描合成的 BuildCodexModelsManifestForGroup 补充图片输入模态推断。本站未引入 PlatformCommandCode 及分组级账号扫描合成目录（已在历史台账按 retain-local-contract 关闭），而是通过 modules/modelcatalog 同步快照与账号元数据投影维护模型模态。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "项目明确立项引入 PlatformCommandCode 平台或分组级合成 Codex 模型目录时重开。"
+    },
+    {
+      "pr": 9085,
+      "merge_sha": "821701e45bed105e8e98c26d5e3668f98ffee6cc",
+      "title": "Merge pull request #9085 from adamcjm/fix/opencode-user-agent-version",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9085",
+      "diff_sha256": "020b1f6c5b297687e48fade189ba296574482380681580df276406bd05550db5",
+      "files": [
+        "backend/internal/service/openai_opencode_session.go",
+        "backend/internal/service/openai_opencode_session_test.go"
+      ],
+      "status": "retain-local-contract",
+      "current_owners": [
+        "backend/internal/application/service/openai_opencode_session.go",
+        "backend/internal/application/service/openai_gateway_request_build.go"
+      ],
+      "decision": "上游此前强制将发往 opencode.ai 的 User-Agent 覆写为硬编码旧版 1.4.6 触发上游拦截，故升级硬编码版本至 1.19.6 并加环境变量。本站仅采纳了 X-OpenCode-Session 会话头，从未注入硬编码旧版 OpenCode User-Agent，而是保留调用方透传、账号自定义 UA 与请求头覆写契约，不存在旧版硬编码 UA 故障。",
+      "diff_review_closed": true,
+      "capability_complete": false,
+      "reopen_when": "OpenCode 官方接口强制要求所有 API Key 调用必须携带特定 CLI User-Agent 且拒绝常规客户端 UA 时重开。"
+    },
+    {
+      "pr": 9087,
+      "merge_sha": "7b2a5f5d484e3ba054e789c1e9abe13f1170894b",
+      "title": "Merge pull request #9087 from wucm667/fix/issue-9086-tooltip-scroll",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9087",
+      "diff_sha256": "b38c5839a1d5c13642cf6e1c8175042d55682a237e1ea4a1541f8e71726c8c93",
+      "files": [
+        "frontend/src/components/common/HelpTooltip.vue",
+        "frontend/src/components/common/__tests__/HelpTooltip.spec.ts"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "frontend/src/common/widgets/feedback/HelpTooltip.vue",
+        "frontend/src/common/widgets/feedback/__tests__/HelpTooltip.spec.ts"
+      ],
+      "decision": "HelpTooltip 使用 Teleport + position: fixed 定位，移除 updatePosition 中重复叠加的 window.scrollX/scrollY，修复页面滚动后悬浮提示偏移问题并补充视口坐标单测。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "HelpTooltip 改为挂载到局部相对定位容器或引入边界翻转中间件时重开。"
+    },
+    {
+      "pr": 9088,
+      "merge_sha": "164d7056ed95833231491820f1ab0d4f464a56bb",
+      "title": "Merge pull request #9088 from PMExtra/feat/proxy-ip-checked-at",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9088",
+      "diff_sha256": "378fc51cc1420b421592b21a1b9f550bb808fea7a5445c2afab17f38c45f6c9c",
+      "files": [
+        "backend/internal/handler/dto/mappers.go",
+        "backend/internal/handler/dto/types.go",
+        "backend/internal/service/admin_proxy.go",
+        "backend/internal/service/admin_service.go",
+        "backend/internal/service/proxy.go",
+        "frontend/src/i18n/locales/en/admin/resources.ts",
+        "frontend/src/i18n/locales/zh/admin/resources.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/views/admin/ProxiesView.vue"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/proxy.go",
+        "backend/internal/application/service/admin_proxy.go",
+        "backend/internal/transport/http/handler/dto/types.go",
+        "backend/internal/transport/http/handler/dto/mappers.go",
+        "frontend/src/features/admin-proxies/presentation/widgets/ProxyTable.vue",
+        "frontend/src/features/admin-proxies/presentation/pages/ProxiesPage.vue"
+      ],
+      "decision": "直接复用 Redis ProxyLatencyInfo 已持久化的 UpdatedAt、IPAddress 与 Region 字段，在代理列表 DTO 与 admin-proxies 表格中展示去重后的国家/地区/城市、出口 IP 及最后检测时间，无新增数据库列或探测请求开销。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "代理探测缓存结构或列表分页字段裁剪策略变化时重开。"
+    },
+    {
+      "pr": 9093,
+      "merge_sha": "3db5753641fb5462e27616f68e1e5e35f08377a3",
+      "title": "Merge pull request #9093 from pood1e/feat/openai-chat-reasoning-content",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9093",
+      "diff_sha256": "194d2a2f930781f652ae1ea19f4171a828aeece3574313b990387a78b3d19e7d",
+      "files": [
+        "backend/internal/service/openai_gateway_chat_completions_raw.go",
+        "backend/internal/service/openai_gateway_ollama_cloud_cc_reasoning.go",
+        "backend/internal/service/openai_gateway_ollama_cloud_cc_reasoning_test.go",
+        "backend/internal/service/openai_gateway_ollama_cloud_max_tokens_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/openai_deepseek_compat.go",
+        "backend/internal/application/service/openai_gateway_chat_completions_raw.go",
+        "backend/internal/application/service/upstream_sync_20261127_test.go"
+      ],
+      "decision": "在本站 openai_deepseek_compat.go 与 raw Chat Completions 转发入口支持账号级显式开关 extra.openai_chat_reasoning_content：未开启或无 tool_calls 时零分配直接返回；开启时复用单遍线性字节拼接为缺失/null reasoning_content 的 assistant 工具调用历史补空串，避免上游全量 map 反序列化开销。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "管理端账号表单需要暴露该开关的可视化控件或扩展至非 API Key 账号时重开。"
+    },
+    {
+      "pr": 9095,
+      "merge_sha": "76d8d976d546799972b581e7b191fa5102edde7f",
+      "title": "Merge pull request #9095 from pood1e/fix/anthropic-bridge-deepseek-default-effort",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9095",
+      "diff_sha256": "ffe0c2c6a500c143217e7c3e6e527585490972369c481e67b44be7143df901dd",
+      "files": [
+        "backend/internal/service/openai_codex_models_service.go",
+        "backend/internal/service/openai_compat_model.go",
+        "backend/internal/service/openai_messages_effort_policy_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/openai_compat_model.go",
+        "backend/internal/application/service/upstream_sync_20261127_test.go"
+      ],
+      "decision": "在 openai_compat_model.go 的 openAICompatAnthropicReasoningEffort 中，当调用方未显式传入 output_config.effort 且目标模型为 DeepSeek 系列（含 org/deepseek-* 前缀）时，将自适应 thinking 默认映射的 medium 提升为 DeepSeek 支持的 high。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "DeepSeek 官方推理强度档位新增原生 medium 支持或 Anthropic 桥默认档位策略变更时重开。"
+    },
+    {
+      "pr": 9099,
+      "merge_sha": "eef63ee7cda5eef9dc0308bc9e1c1fdae61f41a3",
+      "title": "Merge pull request #9099 from PMExtra/feat/channel-expose-response-model",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9099",
+      "diff_sha256": "dead719e3ba9a2ae6cdd392eeabd08924938304aa9fef6424310c18fd8cfa9d1",
+      "files": [
+        "backend/cmd/server/wire_gen.go",
+        "backend/internal/handler/dto/mappers.go",
+        "backend/internal/handler/dto/mappers_usage_test.go",
+        "backend/internal/handler/dto/types.go",
+        "backend/internal/handler/usage_handler.go",
+        "backend/internal/handler/usage_handler_daily_test.go",
+        "backend/internal/handler/usage_handler_request_type_test.go",
+        "backend/internal/server/api_contract_test.go",
+        "backend/internal/service/channel.go",
+        "backend/internal/service/channel_expose_response_model_test.go",
+        "backend/internal/service/channel_service.go",
+        "frontend/src/components/admin/usage/UsageTable.vue",
+        "frontend/src/components/admin/usage/__tests__/UsageTable.spec.ts",
+        "frontend/src/i18n/locales/en/admin/channels.ts",
+        "frontend/src/i18n/locales/en/dashboard.ts",
+        "frontend/src/i18n/locales/zh/admin/channels.ts",
+        "frontend/src/i18n/locales/zh/dashboard.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/views/admin/ChannelsView.vue",
+        "frontend/src/views/admin/__tests__/ChannelsView.exposeResponseModel.spec.ts"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/channel.go",
+        "backend/internal/application/service/channel_service.go",
+        "backend/internal/transport/http/handler/dto/types.go",
+        "backend/internal/transport/http/handler/dto/mappers.go",
+        "backend/internal/transport/http/handler/usage_handler.go",
+        "frontend/src/features/admin-channels/presentation/channelFormCodec.ts",
+        "frontend/src/features/admin-channels/presentation/pages/ChannelsPage.vue",
+        "frontend/src/features/admin-usage/presentation/widgets/UsageTable.vue"
+      ],
+      "decision": "复用渠道 features_config JSONB 增加 expose_response_model 显式开关，ChannelService 直接从内存渠道缓存判定启用集合（零额外数据库查询），UsageHandler 在用户端列表与详情接口仅对启用中的关联渠道投影 response_model，管理员端诊断字段保持不变。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "用户端模型透明度规则扩展到非渠道分组或导出 CSV 字段时重开。"
+    },
+    {
+      "pr": 9094,
+      "merge_sha": "81ce8356d9a289411987bdefeddc9710340d6d52",
+      "title": "Merge pull request #9094 from pood1e/feat/declare-image-input-models",
+      "url": "https://github.com/Wei-Shaw/sub2api/pull/9094",
+      "diff_sha256": "2ef1c07bf2c4389081d7a6021dd91c59ac84aa3fd6ae04eaa5c6f7cbbf8e48c0",
+      "files": [
+        "backend/internal/service/openai_codex_models_service.go",
+        "backend/internal/service/openai_codex_models_service_test.go"
+      ],
+      "status": "adapted-local-scope",
+      "current_owners": [
+        "backend/internal/application/service/openai_codex_models_metadata.go",
+        "backend/internal/application/service/upstream_sync_20261127_test.go"
+      ],
+      "decision": "在 openai_codex_models_metadata.go 的 CodexManifestProjectionEnabled 与 enrichCodexModelsManifest 中支持账号 extra.image_input_models（大小写不敏感匹配），为自托管 vLLM/SGLang 等 OpenAI API Key 账号声明的视觉模型自动补齐 [\"text\",\"image\"] 输入模态，同时保留显式 model_metadata_overrides 的最高优先级。",
+      "diff_review_closed": true,
+      "capability_complete": true,
+      "reopen_when": "账号编辑器增加 image_input_models 可视化配置或引入分组级合成 Codex 目录时重开。"
+    }
+  ],
+  "counts": {
+    "adapted-local-scope": 19,
+    "retain-local-contract": 2,
+    "reused-current-implementation": 1
+  }
+}

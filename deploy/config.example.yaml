@@ -575,6 +575,12 @@ gateway:
   # Gemini same-account retries before switching accounts (excluding the first request, 0-10)
   # Gemini 同账号重试次数（不含首次请求，0-10 次；默认 4）
   max_same_account_retries_gemini: 4
+  # Disable persistent OpenAI transport-error cooldown (30s for proxy/DNS/network reachability faults, 10m for proxy auth failures)
+  # 禁用持久性 OpenAI 传输层错误临时不可调度（代理/DNS/网络可达性故障默认 30s，代理鉴权失败默认 10m）
+  disable_openai_transport_error_cooldown: false
+  # Omit thinkingConfig.includeThoughts on Antigravity Gemini compatibility requests (default: false)
+  # 在 Antigravity Gemini 兼容转换请求中省略 thinkingConfig.includeThoughts（默认：false）
+  antigravity_gemini_omit_include_thoughts: false
   # Antigravity INTERNAL 500: image faults cool only the failed model.
   # Positive durations are bounded at seven days; 0 keeps the default.
   antigravity_internal500_image_cooldown_seconds: 120

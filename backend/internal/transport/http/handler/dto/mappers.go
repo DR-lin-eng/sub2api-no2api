@@ -3,6 +3,7 @@ package dto
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/application/service"
@@ -513,21 +514,22 @@ func ProxyWithAccountCountFromService(p *service.ProxyWithAccountCount) *ProxyWi
 		return nil
 	}
 	return &ProxyWithAccountCount{
-		Proxy:          *ProxyFromService(&p.Proxy),
-		AccountCount:   p.AccountCount,
-		LatencyMs:      p.LatencyMs,
-		LatencyStatus:  p.LatencyStatus,
-		LatencyMessage: p.LatencyMessage,
-		IPAddress:      p.IPAddress,
-		Country:        p.Country,
-		CountryCode:    p.CountryCode,
-		Region:         p.Region,
-		City:           p.City,
-		QualityStatus:  p.QualityStatus,
-		QualityScore:   p.QualityScore,
-		QualityGrade:   p.QualityGrade,
-		QualitySummary: p.QualitySummary,
-		QualityChecked: p.QualityChecked,
+		Proxy:            *ProxyFromService(&p.Proxy),
+		AccountCount:     p.AccountCount,
+		LatencyMs:        p.LatencyMs,
+		LatencyStatus:    p.LatencyStatus,
+		LatencyMessage:   p.LatencyMessage,
+		LatencyCheckedAt: p.LatencyCheckedAt,
+		IPAddress:        p.IPAddress,
+		Country:          p.Country,
+		CountryCode:      p.CountryCode,
+		Region:           p.Region,
+		City:             p.City,
+		QualityStatus:    p.QualityStatus,
+		QualityScore:     p.QualityScore,
+		QualityGrade:     p.QualityGrade,
+		QualitySummary:   p.QualitySummary,
+		QualityChecked:   p.QualityChecked,
 	}
 }
 
@@ -558,21 +560,22 @@ func ProxyWithAccountCountFromServiceAdmin(p *service.ProxyWithAccountCount) *Ad
 		return nil
 	}
 	return &AdminProxyWithAccountCount{
-		AdminProxy:     *admin,
-		AccountCount:   p.AccountCount,
-		LatencyMs:      p.LatencyMs,
-		LatencyStatus:  p.LatencyStatus,
-		LatencyMessage: p.LatencyMessage,
-		IPAddress:      p.IPAddress,
-		Country:        p.Country,
-		CountryCode:    p.CountryCode,
-		Region:         p.Region,
-		City:           p.City,
-		QualityStatus:  p.QualityStatus,
-		QualityScore:   p.QualityScore,
-		QualityGrade:   p.QualityGrade,
-		QualitySummary: p.QualitySummary,
-		QualityChecked: p.QualityChecked,
+		AdminProxy:       *admin,
+		AccountCount:     p.AccountCount,
+		LatencyMs:        p.LatencyMs,
+		LatencyStatus:    p.LatencyStatus,
+		LatencyMessage:   p.LatencyMessage,
+		LatencyCheckedAt: p.LatencyCheckedAt,
+		IPAddress:        p.IPAddress,
+		Country:          p.Country,
+		CountryCode:      p.CountryCode,
+		Region:           p.Region,
+		City:             p.City,
+		QualityStatus:    p.QualityStatus,
+		QualityScore:     p.QualityScore,
+		QualityGrade:     p.QualityGrade,
+		QualitySummary:   p.QualitySummary,
+		QualityChecked:   p.QualityChecked,
 	}
 }
 
@@ -758,6 +761,23 @@ func UsageLogFromService(l *service.UsageLog) *UsageLog {
 	}
 	u := usageLogFromServiceUser(l)
 	return &u
+}
+
+// ApplyResponseModel populates or clears ResponseModel on a user-facing UsageLog DTO
+// according to whether the associated channel explicitly opted in.
+func (u *UsageLog) ApplyResponseModel(src *service.UsageLog, expose bool) {
+	if u == nil {
+		return
+	}
+	u.ResponseModel = nil
+	if !expose || src == nil || src.UpstreamResponseModel == nil {
+		return
+	}
+	trimmed := strings.TrimSpace(*src.UpstreamResponseModel)
+	if trimmed == "" {
+		return
+	}
+	u.ResponseModel = &trimmed
 }
 
 // UsageLogFromServiceAdmin converts a service UsageLog to DTO for admin users.

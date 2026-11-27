@@ -66,6 +66,7 @@ const messages: Record<string, string> = {
   'usage.requestedModel': 'Requested',
   'usage.sentUpstreamModel': 'Sent upstream',
   'usage.upstreamResponseModel': 'Upstream response',
+  'usage.responseModel': 'Response',
   'usage.modelVariant': 'Possible version variant',
   'usage.modelMismatch': 'Different model',
   'usage.detail.copyRequestId': 'Copy request ID',
@@ -191,6 +192,31 @@ describe('UsageTable audience boundary', () => {
     await nextTick()
     expect(wrapper.text()).not.toContain('Account rate')
     expect(wrapper.text()).not.toContain('Account billed')
+  })
+
+  it('renders opted-in response_model for user audience only when it differs from model', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        audience: 'user',
+        data: [
+          { ...baseImageRow, request_id: 'r-diff', model: 'claude-sonnet-4-5', response_model: 'claude-sonnet-4-5-20250929' },
+          { ...baseImageRow, request_id: 'r-same', model: 'gpt-5.4', response_model: 'gpt-5.4' },
+        ],
+        columns: [{ key: 'model', label: 'Model' }],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+          UsageDetailModal: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Response:')
+    expect(wrapper.text()).toContain('claude-sonnet-4-5-20250929')
   })
 
   it('keeps admin diagnostics visible for admin audiences', () => {

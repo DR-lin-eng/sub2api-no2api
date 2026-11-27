@@ -6,18 +6,106 @@ import (
 	"time"
 )
 
+const initialContentModerationAsyncQueueCap = 64
+
+func (s *ContentModerationService) asyncQueueLen() int {
+	if s == nil {
+		return 0
+	}
+	s.asyncMu.Lock()
+	n := s.asyncSize
+	s.asyncMu.Unlock()
+	return n
+}
+
+func (s *ContentModerationService) pushAsyncTask(task *contentModerationTask, maxSize int) bool {
+	if s == nil || task == nil || s.asyncNotify == nil || s.stopped.Load() {
+		return false
+	}
+	if maxSize <= 0 {
+		maxSize = defaultContentModerationQueueSize
+	}
+	if maxSize > maxContentModerationQueueSize {
+		maxSize = maxContentModerationQueueSize
+	}
+
+	s.asyncMu.Lock()
+	if s.stopped.Load() || s.asyncSize >= maxSize {
+		s.asyncMu.Unlock()
+		return false
+	}
+	if s.asyncSize == len(s.asyncBuf) {
+		nextCap := initialContentModerationAsyncQueueCap
+		if len(s.asyncBuf) > 0 {
+			nextCap = len(s.asyncBuf) * 2
+		}
+		if nextCap > maxSize {
+			nextCap = maxSize
+		}
+		if nextCap < s.asyncSize+1 {
+			nextCap = s.asyncSize + 1
+		}
+		grown := make([]*contentModerationTask, nextCap)
+		if s.asyncSize > 0 {
+			first := len(s.asyncBuf) - s.asyncHead
+			if first > s.asyncSize {
+				first = s.asyncSize
+			}
+			copy(grown, s.asyncBuf[s.asyncHead:s.asyncHead+first])
+			if s.asyncSize > first {
+				copy(grown[first:], s.asyncBuf[:s.asyncSize-first])
+			}
+		}
+		s.asyncBuf = grown
+		s.asyncHead = 0
+	}
+	tail := (s.asyncHead + s.asyncSize) % len(s.asyncBuf)
+	s.asyncBuf[tail] = task
+	s.asyncSize++
+	s.asyncMu.Unlock()
+
+	select {
+	case s.asyncNotify <- struct{}{}:
+	default:
+	}
+	return true
+}
+
+func (s *ContentModerationService) popAsyncTask() (*contentModerationTask, bool) {
+	if s == nil {
+		return nil, false
+	}
+	s.asyncMu.Lock()
+	if s.asyncSize == 0 {
+		s.asyncMu.Unlock()
+		return nil, false
+	}
+	task := s.asyncBuf[s.asyncHead]
+	s.asyncBuf[s.asyncHead] = nil
+	s.asyncHead = (s.asyncHead + 1) % len(s.asyncBuf)
+	s.asyncSize--
+	more := s.asyncSize > 0
+	if s.asyncSize == 0 {
+		s.asyncHead = 0
+	}
+	s.asyncMu.Unlock()
+
+	if more && s.asyncNotify != nil {
+		select {
+		case s.asyncNotify <- struct{}{}:
+		default:
+		}
+	}
+	return task, true
+}
+
 func (s *ContentModerationService) enqueueAsync(input ContentModerationCheckInput, cfg *ContentModerationConfig, content ContentModerationInput, hashText string) {
-	if s == nil || s.asyncQueue == nil || s.stopped.Load() {
+	if s == nil || s.asyncNotify == nil || s.stopped.Load() {
 		return
 	}
 	queueSize := defaultContentModerationQueueSize
 	if cfg != nil && cfg.QueueSize > 0 {
 		queueSize = cfg.QueueSize
-	}
-	if len(s.asyncQueue) >= queueSize {
-		slog.Warn("content_moderation.async_queue_full", "user_id", input.UserID, "endpoint", input.Endpoint, "queue_size", queueSize)
-		s.asyncDropped.Add(1)
-		return
 	}
 	task := &contentModerationTask{
 		input:      input,
@@ -25,33 +113,23 @@ func (s *ContentModerationService) enqueueAsync(input ContentModerationCheckInpu
 		inputHash:  hashText,
 		enqueuedAt: time.Now(),
 	}
-	select {
-	case s.asyncQueue <- task:
-		s.asyncEnqueued.Add(1)
-	case <-s.lifecycleCtx.Done():
+	if !s.pushAsyncTask(task, queueSize) {
+		if !s.stopped.Load() {
+			slog.Warn("content_moderation.async_queue_full", "user_id", input.UserID, "endpoint", input.Endpoint, "queue_size", queueSize)
+		}
 		s.asyncDropped.Add(1)
-	default:
-		slog.Warn("content_moderation.async_queue_full", "user_id", input.UserID, "endpoint", input.Endpoint)
-		s.asyncDropped.Add(1)
+		return
 	}
+	s.asyncEnqueued.Add(1)
 }
 
 func (s *ContentModerationService) enqueueRecord(input ContentModerationCheckInput, cfg *ContentModerationConfig, log *ContentModerationLog, inputHash string, recordHash bool, applySideEffects bool) {
-	if s == nil || s.asyncQueue == nil || log == nil || s.stopped.Load() {
+	if s == nil || s.asyncNotify == nil || log == nil || s.stopped.Load() {
 		return
 	}
 	queueSize := defaultContentModerationQueueSize
 	if cfg != nil && cfg.QueueSize > 0 {
 		queueSize = cfg.QueueSize
-	}
-	if len(s.asyncQueue) >= queueSize {
-		slog.Warn("content_moderation.record_queue_full",
-			"user_id", input.UserID,
-			"endpoint", input.Endpoint,
-			"action", log.Action,
-			"queue_size", queueSize)
-		s.asyncDropped.Add(1)
-		return
 	}
 	task := &contentModerationTask{
 		input:            input,
@@ -62,18 +140,18 @@ func (s *ContentModerationService) enqueueRecord(input ContentModerationCheckInp
 		applySideEffects: applySideEffects,
 		enqueuedAt:       time.Now(),
 	}
-	select {
-	case s.asyncQueue <- task:
-		s.asyncEnqueued.Add(1)
-	case <-s.lifecycleCtx.Done():
+	if !s.pushAsyncTask(task, queueSize) {
+		if !s.stopped.Load() {
+			slog.Warn("content_moderation.record_queue_full",
+				"user_id", input.UserID,
+				"endpoint", input.Endpoint,
+				"action", log.Action,
+				"queue_size", queueSize)
+		}
 		s.asyncDropped.Add(1)
-	default:
-		slog.Warn("content_moderation.record_queue_full",
-			"user_id", input.UserID,
-			"endpoint", input.Endpoint,
-			"action", log.Action)
-		s.asyncDropped.Add(1)
+		return
 	}
+	s.asyncEnqueued.Add(1)
 }
 
 func (s *ContentModerationService) worker(workerCtx context.Context, id int) {
@@ -136,25 +214,36 @@ func (s *ContentModerationService) worker(workerCtx context.Context, id int) {
 }
 
 func (s *ContentModerationService) dequeueAsyncTask(ctx context.Context, idleWait time.Duration) (*contentModerationTask, bool) {
-	if s == nil || s.asyncQueue == nil {
+	if s == nil || s.asyncNotify == nil {
 		return nil, false
 	}
+	if task, ok := s.popAsyncTask(); ok {
+		return task, true
+	}
 	if idleWait <= 0 {
-		select {
-		case task, ok := <-s.asyncQueue:
-			return task, ok
-		case <-ctx.Done():
-			return nil, false
+		for {
+			select {
+			case <-s.asyncNotify:
+				if task, ok := s.popAsyncTask(); ok {
+					return task, true
+				}
+			case <-ctx.Done():
+				return nil, false
+			}
 		}
 	}
 	timer := time.NewTimer(idleWait)
 	defer timer.Stop()
-	select {
-	case task, ok := <-s.asyncQueue:
-		return task, ok
-	case <-ctx.Done():
-		return nil, false
-	case <-timer.C:
-		return nil, false
+	for {
+		select {
+		case <-s.asyncNotify:
+			if task, ok := s.popAsyncTask(); ok {
+				return task, true
+			}
+		case <-ctx.Done():
+			return nil, false
+		case <-timer.C:
+			return nil, false
+		}
 	}
 }

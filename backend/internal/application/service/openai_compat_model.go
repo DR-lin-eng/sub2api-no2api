@@ -121,12 +121,20 @@ func openAIReasoningEffortToClaudeOutputEffort(effort string) string {
 // openAICompatAnthropicReasoningEffort resolves the effort emitted by the
 // Anthropic bridge after the final upstream model is known. Anthropic's max is
 // normally translated to OpenAI xhigh, but GPT-5.6 accepts the original max
-// value on Responses and Chat Completions.
+// value on Responses and Chat Completions. DeepSeek thinking uses low/high/max
+// without medium, so default adaptive thinking promotes medium to high unless
+// the caller explicitly requested an effort level.
 func openAICompatAnthropicReasoningEffort(req *apicompat.AnthropicRequest, upstreamModel, convertedEffort string) string {
 	if convertedEffort == "none" {
 		return convertedEffort
 	}
-	if req == nil || req.OutputConfig == nil || !strings.EqualFold(strings.TrimSpace(req.OutputConfig.Effort), "max") {
+	if req == nil || req.OutputConfig == nil || strings.TrimSpace(req.OutputConfig.Effort) == "" {
+		if convertedEffort == "medium" && isDeepSeekModelName(upstreamModel) {
+			return "high"
+		}
+		return convertedEffort
+	}
+	if !strings.EqualFold(strings.TrimSpace(req.OutputConfig.Effort), "max") {
 		return convertedEffort
 	}
 	if normalized := normalizeOpenAIReasoningEffortForModel(req.OutputConfig.Effort, upstreamModel); normalized != "" {

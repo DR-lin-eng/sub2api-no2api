@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"unsafe"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/claude"
 	"github.com/tidwall/gjson"
@@ -348,16 +349,17 @@ func restoreToolNamesInBytes(data []byte, rw *ToolNameRewrite) []byte {
 	return data
 }
 
-// replaceAllBytes 是 bytes.ReplaceAll 的便捷封装，避免每个调用点各自做 []byte 转换。
+// replaceAllBytes 是 bytes.ReplaceAll 的便捷封装，用零拷贝只读视图执行 bytes.Contains，
+// 仅在真正命中时才分配替换切片，避免流式热路径上每次调用都产生 []byte(from) 堆分配。
 func replaceAllBytes(data []byte, from, to string) []byte {
-	if len(data) == 0 || from == to {
+	if len(data) == 0 || len(from) == 0 || from == to {
 		return data
 	}
-	fromBytes := []byte(from)
-	if !bytes.Contains(data, fromBytes) {
+	fromView := unsafe.Slice(unsafe.StringData(from), len(from))
+	if !bytes.Contains(data, fromView) {
 		return data
 	}
-	return bytes.ReplaceAll(data, fromBytes, []byte(to))
+	return bytes.ReplaceAll(data, fromView, []byte(to))
 }
 
 // toolNameRewriteFromContext 从 gin.Context 取出请求阶段保存的工具名映射。

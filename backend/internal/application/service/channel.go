@@ -296,6 +296,18 @@ func (c *Channel) IsBedrockCCCompatEnabled(platform string) bool {
 	return ok && enabled
 }
 
+const featureKeyExposeResponseModel = "expose_response_model"
+
+// IsResponseModelExposed reports whether this channel opted into exposing the
+// observed upstream response model (`response_model`) on user-facing usage logs.
+func (c *Channel) IsResponseModelExposed() bool {
+	if c == nil || c.FeaturesConfig == nil {
+		return false
+	}
+	enabled, ok := c.FeaturesConfig[featureKeyExposeResponseModel].(bool)
+	return ok && enabled
+}
+
 // deepCopyFeaturesConfig creates a deep copy of FeaturesConfig to prevent cache pollution.
 func deepCopyFeaturesConfig(src map[string]any) map[string]any {
 	dst := make(map[string]any, len(src))

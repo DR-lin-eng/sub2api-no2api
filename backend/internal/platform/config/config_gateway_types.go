@@ -140,6 +140,9 @@ type GatewayConfig struct {
 
 	// Antigravity 429 fallback 限流时间（分钟），解析重置时间失败时使用
 	AntigravityFallbackCooldownMinutes int `mapstructure:"antigravity_fallback_cooldown_minutes"`
+	// AntigravityGeminiOmitIncludeThoughts omits thinkingConfig.includeThoughts on
+	// Antigravity Gemini compatibility requests when true (default false).
+	AntigravityGeminiOmitIncludeThoughts bool `mapstructure:"antigravity_gemini_omit_include_thoughts"`
 	// INTERNAL 500 policy; 0 durations keep defaults, values are capped at seven days.
 	AntigravityInternal500ImageCooldownSeconds int   `mapstructure:"antigravity_internal500_image_cooldown_seconds"`
 	AntigravityInternal500Tier1Seconds         int   `mapstructure:"antigravity_internal500_tier1_seconds"`

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -92,6 +93,13 @@ type accountWindowStatsByStartBatchReader interface {
 
 type accountHourlyUsageStatsBatchReader interface {
 	GetAccountHourlyUsageStatsBatch(ctx context.Context, accountIDs []int64, startTime, endTime time.Time) (map[int64]*usagestats.AccountHourlyUsageStats, error)
+}
+
+// AccountUpstreamErrorCounter provides per-account upstream error counts (excluding
+// rate-limit 429/529, business-limited, and count_tokens rows).
+type AccountUpstreamErrorCounter interface {
+	GetAccountUpstreamErrorCountsBatch(ctx context.Context, accountIDs []int64, startTime time.Time) (map[int64]int64, error)
+	GetAccountDailyUpstreamErrorCounts(ctx context.Context, accountID int64, startTime, endTime time.Time) (map[string]int64, error)
 }
 
 // apiUsageCache 缓存从 Anthropic API 获取的使用率数据（utilization, resets_at）
@@ -304,11 +312,12 @@ func (c *UsageCache) cleanupExpired(now time.Time) {
 // standard_cost: 标准费用（total_cost，不含倍率）
 // user_cost: 用户/API Key 口径费用（actual_cost，受分组倍率影响）
 type WindowStats struct {
-	Requests     int64   `json:"requests"`
-	Tokens       int64   `json:"tokens"`
-	Cost         float64 `json:"cost"`
-	StandardCost float64 `json:"standard_cost"`
-	UserCost     float64 `json:"user_cost"`
+	Requests       int64   `json:"requests"`
+	Tokens         int64   `json:"tokens"`
+	Cost           float64 `json:"cost"`
+	StandardCost   float64 `json:"standard_cost"`
+	UserCost       float64 `json:"user_cost"`
+	UpstreamErrors int64   `json:"upstream_errors"`
 }
 
 // UsageProgress 使用量进度
@@ -503,7 +512,27 @@ type AccountUsageService struct {
 	agentIdentityTaskMu     sync.Mutex
 	agentIdentityWS         agentIdentityWSConnectionInvalidator
 	oauthGatewayLimiter     *OpenAIGatewayService
+	upstreamErrorCounter    AccountUpstreamErrorCounter
 	cfg                     *config.Config
+}
+
+// SetUpstreamErrorCounter overrides the upstream error counter port (primarily for unit tests;
+// production repositories implementing AccountUpstreamErrorCounter are discovered automatically).
+func (s *AccountUsageService) SetUpstreamErrorCounter(counter AccountUpstreamErrorCounter) {
+	if s != nil {
+		s.upstreamErrorCounter = counter
+	}
+}
+
+func (s *AccountUsageService) resolveUpstreamErrorCounter() AccountUpstreamErrorCounter {
+	if s == nil {
+		return nil
+	}
+	if s.upstreamErrorCounter != nil {
+		return s.upstreamErrorCounter
+	}
+	counter, _ := s.usageLogRepo.(AccountUpstreamErrorCounter)
+	return counter
 }
 
 // SetHTTPUpstream attaches the production account-scoped upstream transport.
@@ -1600,13 +1629,13 @@ func (s *AccountUsageService) GetTodayStats(ctx context.Context, accountID int64
 		return nil, fmt.Errorf("get today stats failed: %w", err)
 	}
 
-	return &WindowStats{
-		Requests:     stats.Requests,
-		Tokens:       stats.Tokens,
-		Cost:         stats.Cost,
-		StandardCost: stats.StandardCost,
-		UserCost:     stats.UserCost,
-	}, nil
+	out := windowStatsFromAccountStats(stats)
+	if counter := s.resolveUpstreamErrorCounter(); counter != nil && accountID > 0 {
+		if counts, err := counter.GetAccountUpstreamErrorCountsBatch(ctx, []int64{accountID}, timezone.Today()); err == nil {
+			out.UpstreamErrors = counts[accountID]
+		}
+	}
+	return out, nil
 }
 
 // GetTodayStatsBatch 批量获取账号今日统计，优先走批量 SQL，失败时回退单账号查询。
@@ -1630,12 +1659,29 @@ func (s *AccountUsageService) GetTodayStatsBatch(ctx context.Context, accountIDs
 	}
 
 	startTime := timezone.Today()
+	attachUpstreamErrors := func() {
+		counter := s.resolveUpstreamErrorCounter()
+		if counter == nil {
+			return
+		}
+		counts, err := counter.GetAccountUpstreamErrorCountsBatch(ctx, uniqueIDs, startTime)
+		if err != nil {
+			return
+		}
+		for _, accountID := range uniqueIDs {
+			if ws := result[accountID]; ws != nil {
+				ws.UpstreamErrors = counts[accountID]
+			}
+		}
+	}
+
 	if batchReader, ok := s.usageLogRepo.(accountWindowStatsBatchReader); ok {
 		statsByAccount, err := batchReader.GetAccountWindowStatsBatch(ctx, uniqueIDs, startTime)
 		if err == nil {
 			for _, accountID := range uniqueIDs {
 				result[accountID] = windowStatsFromAccountStats(statsByAccount[accountID])
 			}
+			attachUpstreamErrors()
 			return result, nil
 		}
 	}
@@ -1665,6 +1711,7 @@ func (s *AccountUsageService) GetTodayStatsBatch(ctx context.Context, accountIDs
 			result[accountID] = &WindowStats{}
 		}
 	}
+	attachUpstreamErrors()
 	return result, nil
 }
 
@@ -1673,11 +1720,12 @@ func windowStatsFromAccountStats(stats *usagestats.AccountStats) *WindowStats {
 		return &WindowStats{}
 	}
 	return &WindowStats{
-		Requests:     stats.Requests,
-		Tokens:       stats.Tokens,
-		Cost:         stats.Cost,
-		StandardCost: stats.StandardCost,
-		UserCost:     stats.UserCost,
+		Requests:       stats.Requests,
+		Tokens:         stats.Tokens,
+		Cost:           stats.Cost,
+		StandardCost:   stats.StandardCost,
+		UserCost:       stats.UserCost,
+		UpstreamErrors: stats.UpstreamErrors,
 	}
 }
 
@@ -1756,6 +1804,64 @@ func (s *AccountUsageService) GetAccountUsageStats(ctx context.Context, accountI
 	stats, err := s.usageLogRepo.GetAccountUsageStats(ctx, accountID, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("get account usage stats failed: %w", err)
+	}
+	counter := s.resolveUpstreamErrorCounter()
+	if counter == nil || stats == nil {
+		return stats, nil
+	}
+	dailyErrors, err := counter.GetAccountDailyUpstreamErrorCounts(ctx, accountID, startTime, endTime)
+	if err != nil || len(dailyErrors) == 0 {
+		return stats, nil
+	}
+
+	indexByDate := make(map[string]int, len(stats.History)+len(dailyErrors))
+	for i := range stats.History {
+		indexByDate[stats.History[i].Date] = i
+	}
+	var totalErrors int64
+	addedDays := false
+	for day, count := range dailyErrors {
+		if count <= 0 {
+			continue
+		}
+		totalErrors += count
+		if idx, exists := indexByDate[day]; exists {
+			stats.History[idx].UpstreamErrors = count
+			continue
+		}
+		parsed, _ := time.Parse("2006-01-02", day)
+		stats.History = append(stats.History, usagestats.AccountUsageHistory{
+			Date:           day,
+			Label:          parsed.Format("01/02"),
+			UpstreamErrors: count,
+		})
+		indexByDate[day] = len(stats.History) - 1
+		addedDays = true
+	}
+	if addedDays {
+		sort.Slice(stats.History, func(i, j int) bool {
+			return stats.History[i].Date < stats.History[j].Date
+		})
+	}
+	stats.Summary.TotalUpstreamErrors = totalErrors
+
+	todayStr := timezone.Now().Format("2006-01-02")
+	if todayErrors := dailyErrors[todayStr]; todayErrors > 0 {
+		if stats.Summary.Today != nil && stats.Summary.Today.Date == todayStr {
+			stats.Summary.Today.UpstreamErrors = todayErrors
+		} else if stats.Summary.Today == nil {
+			stats.Summary.Today = &struct {
+				Date           string  `json:"date"`
+				Cost           float64 `json:"cost"`
+				UserCost       float64 `json:"user_cost"`
+				Requests       int64   `json:"requests"`
+				Tokens         int64   `json:"tokens"`
+				UpstreamErrors int64   `json:"upstream_errors"`
+			}{
+				Date:           todayStr,
+				UpstreamErrors: todayErrors,
+			}
+		}
 	}
 	return stats, nil
 }

@@ -1123,6 +1123,34 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 	}
 	defer clientFlusher.Drain()
 
+	toolRestorer := newToolNameStreamRestorer(c)
+	writeRestoredParts := func(parts []string, moreBuffered bool) bool {
+		if clientDisconnected || len(parts) == 0 {
+			return !clientDisconnected
+		}
+		wroteAny := false
+		for _, part := range parts {
+			if part == "" {
+				continue
+			}
+			if _, werr := io.WriteString(w, part); werr != nil {
+				clientDisconnected = true
+				logger.LegacyPrintf("service.gateway", "Client disconnected during streaming, continuing to drain upstream for billing")
+				return false
+			}
+			wroteAny = true
+		}
+		if wroteAny {
+			clientFlusher.Flush(moreBuffered)
+			lastDataAt = time.Now()
+			resetKeepaliveTimer()
+		}
+		return true
+	}
+	flushCarry := func(moreBuffered bool) bool {
+		return writeRestoredParts(toolRestorer.FlushPending(), moreBuffered)
+	}
+
 	for {
 		if len(events) == 0 {
 			clientFlusher.Drain()
@@ -1130,6 +1158,7 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 		select {
 		case ev, ok := <-events:
 			if !ok {
+				_ = flushCarry(false)
 				// 上游完成，返回结果
 				if !sawTerminalEvent {
 					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, fmt.Errorf("stream usage incomplete: missing terminal event")
@@ -1138,6 +1167,7 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 			}
 			if ev.err != nil {
 				if sawTerminalEvent {
+					_ = flushCarry(false)
 					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, nil
 				}
 				// 检测 context 取消（客户端断开会导致 context 取消，进而影响上游读取）
@@ -1150,6 +1180,8 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 				}
 				// 客户端未断开，正常的错误处理
 				if errors.Is(ev.err, bufio.ErrTooLong) {
+					_ = flushCarry(false)
+					clientFlusher.Drain()
 					logger.LegacyPrintf("service.gateway", "SSE line too long: account=%d max_size=%d error=%v", account.ID, maxLineSize, ev.err)
 					sendErrorEvent("response_too_large", fmt.Sprintf("upstream SSE line exceeded %d bytes", maxLineSize))
 					return &streamingResult{usage: usage, firstTokenMs: firstTokenMs}, ev.err
@@ -1176,6 +1208,8 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 						RetryableOnSameAccount: true,
 					}
 				}
+				_ = flushCarry(false)
+				clientFlusher.Drain()
 				sendErrorEvent("stream_read_error", disconnectMsg)
 				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs}, fmt.Errorf("stream read error: %w", ev.err)
 			}
@@ -1191,26 +1225,21 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 				pendingEventLines = pendingEventLines[:0]
 				pendingEventBytes = 0
 				if err != nil {
+					_ = flushCarry(false)
+					clientFlusher.Drain()
 					if clientDisconnected {
 						return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, nil
 					}
 					return nil, err
 				}
 
+				moreBuffered := len(events) > 0
 				for _, block := range outputBlocks {
 					if !clientDisconnected {
-						restored := reverseToolNamesIfPresentString(c, block)
-						if _, werr := io.WriteString(w, restored); werr != nil {
-							clientDisconnected = true
-							logger.LegacyPrintf("service.gateway", "Client disconnected during streaming, continuing to drain upstream for billing")
-							// 不 break：客户端断开后仍需继续合并本事件及后续事件的 usage，
-							// 否则会漏计当前事件携带的 usage 导致少计费。后续写入由
-							// clientDisconnected 守卫跳过。
-						} else {
-							clientFlusher.Flush(len(events) > 0)
-							lastDataAt = time.Now()
-							resetKeepaliveTimer()
-						}
+						// 客户端断开后仍需继续合并本事件及后续事件的 usage，
+						// 否则会漏计当前事件携带的 usage 导致少计费。后续写入由
+						// clientDisconnected 守卫跳过。
+						_ = writeRestoredParts(toolRestorer.RestoreAnthropicSSEBlock(block), moreBuffered)
 					}
 					if data != "" {
 						if firstTokenMs == nil && data != "[DONE]" {
@@ -1229,6 +1258,8 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 			if pendingEventBytes+lineBytes > upstreamSSEEventBufferLimit {
 				logger.LegacyPrintf("service.gateway", "SSE event too large: account=%d max_size=%d", account.ID, upstreamSSEEventBufferLimit)
 				if !clientDisconnected {
+					_ = flushCarry(false)
+					clientFlusher.Drain()
 					sendErrorEvent("response_too_large", fmt.Sprintf("upstream SSE event exceeded %d bytes", upstreamSSEEventBufferLimit))
 				}
 				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: clientDisconnected}, fmt.Errorf("upstream SSE event exceeded %d bytes", upstreamSSEEventBufferLimit)
@@ -1249,6 +1280,8 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 			if s.rateLimitService != nil {
 				s.rateLimitService.HandleStreamTimeout(ctx, account, originalModel)
 			}
+			_ = flushCarry(false)
+			clientFlusher.Drain()
 			sendErrorEvent("stream_timeout", fmt.Sprintf("upstream stream idle for %s", streamInterval))
 			return &streamingResult{usage: usage, firstTokenMs: firstTokenMs}, fmt.Errorf("stream data interval timeout")
 
@@ -1260,6 +1293,7 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 				resetKeepaliveTimer()
 				continue
 			}
+			clientFlusher.Drain()
 			keepaliveBlock := "event: ping\ndata: {\"type\": \"ping\"}\n\n"
 			if useNoopDeltaKeepalive && noopDeltaKeepaliveBlockIndex >= 0 {
 				if block, ok := buildClaudeCodeNoopDeltaKeepalive(noopDeltaKeepaliveBlockIndex, noopDeltaKeepaliveDeltaType); ok {

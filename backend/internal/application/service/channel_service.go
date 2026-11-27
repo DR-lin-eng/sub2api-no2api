@@ -308,6 +308,32 @@ func (s *ChannelService) buildCache(ctx context.Context) (*channelCache, error) 
 	return cache, nil
 }
 
+// ResponseModelExposedChannels returns the set of active channel IDs from channelIDs
+// that opted into exposing `response_model` on user-facing usage logs.
+func (s *ChannelService) ResponseModelExposedChannels(ctx context.Context, channelIDs []int64) map[int64]bool {
+	if s == nil || len(channelIDs) == 0 {
+		return nil
+	}
+	cache, err := s.loadCache(ctx)
+	if err != nil || cache == nil {
+		return nil
+	}
+	var out map[int64]bool
+	for _, channelID := range channelIDs {
+		if channelID <= 0 {
+			continue
+		}
+		ch := cache.byID[channelID]
+		if ch != nil && ch.IsActive() && ch.IsResponseModelExposed() {
+			if out == nil {
+				out = make(map[int64]bool)
+			}
+			out[channelID] = true
+		}
+	}
+	return out
+}
+
 // fetchChannelData 从数据库加载渠道列表和分组平台映射。
 func (s *ChannelService) fetchChannelData(ctx context.Context) ([]Channel, map[int64]string, error) {
 	channels, err := s.repo.ListAll(ctx)

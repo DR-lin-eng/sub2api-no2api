@@ -115,6 +115,7 @@ export interface Proxy {
   latency_ms?: number
   latency_status?: 'success' | 'failed'
   latency_message?: string
+  latency_checked_at?: string | null
   ip_address?: string
   country?: string
   country_code?: string
@@ -547,6 +548,7 @@ export interface WindowStats {
   cost: number // Account cost (account multiplier)
   standard_cost?: number
   user_cost?: number
+  upstream_errors?: number
 }
 
 export interface UsageProgress {

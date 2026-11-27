@@ -544,7 +544,8 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 		}
 	}
 
-	writeEvent := func(evt apicompat.ResponsesStreamEvent) bool {
+	toolRestorer := newToolNameStreamRestorer(c)
+	writeRawEvent := func(evt apicompat.ResponsesStreamEvent) bool {
 		if clientToolRestorer == nil {
 			sse, err := apicompat.ResponsesEventToSSE(evt)
 			if err != nil {
@@ -554,7 +555,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 				)
 				return false
 			}
-			if _, err := c.Writer.Write(reverseToolNamesIfPresent(c, []byte(sse))); err != nil {
+			if _, err := fmt.Fprint(c.Writer, sse); err != nil {
 				logger.L().Info("forward_as_responses stream: client disconnected",
 					zap.String("request_id", requestID),
 				)
@@ -571,7 +572,6 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 			)
 			return false
 		}
-		payload = reverseToolNamesIfPresent(c, payload)
 		payloads, _, err := clientToolRestorer.RestoreEvent(payload)
 		if err != nil {
 			logger.L().Warn("forward_as_responses stream: failed to restore client tools",
@@ -586,6 +586,14 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 				logger.L().Info("forward_as_responses stream: client disconnected",
 					zap.String("request_id", requestID),
 				)
+				return true
+			}
+		}
+		return false
+	}
+	writeEvent := func(evt apicompat.ResponsesStreamEvent) bool {
+		for _, restored := range toolRestorer.RestoreResponsesEvent(evt) {
+			if writeRawEvent(restored) {
 				return true
 			}
 		}
@@ -642,6 +650,18 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 					stream.markClientDisconnected()
 					return resultWithUsage(), nil
 				}
+			}
+			if flushed, ok := toolRestorer.flushResponsesEvent(); ok {
+				if writeRawEvent(flushed) {
+					stream.markClientDisconnected()
+					return resultWithUsage(), nil
+				}
+			}
+			c.Writer.Flush()
+		} else if flushed, ok := toolRestorer.flushResponsesEvent(); ok {
+			if writeRawEvent(flushed) {
+				stream.markClientDisconnected()
+				return resultWithUsage(), nil
 			}
 			c.Writer.Flush()
 		}
