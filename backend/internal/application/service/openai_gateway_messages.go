@@ -54,7 +54,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	} else if changed {
 		body = sanitized
 	}
-	rememberOpenCodeInboundBody(c, body)
+	rememberOpenCodeAccountSession(c, account, body)
 	distillation := s.IsDistillationGroupRequest(c, account)
 	if distillation {
 		body = stripDistillationCacheFields(body)

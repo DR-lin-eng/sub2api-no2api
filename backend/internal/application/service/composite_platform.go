@@ -184,7 +184,7 @@ func DetectModelPlatform(model string) (string, bool) {
 		return PlatformGemini, true
 	case normalized == "grok" || strings.HasPrefix(normalized, "grok-"):
 		return PlatformGrok, true
-	case strings.HasPrefix(normalized, "kimi-"), strings.HasPrefix(normalized, "moonshot-"):
+	case strings.HasPrefix(normalized, "kimi-"), strings.HasPrefix(normalized, "moonshot-"), isKimiK31Model(normalized):
 		return PlatformKimi, true
 	case strings.HasPrefix(normalized, "glm-"):
 		return PlatformZhipu, true

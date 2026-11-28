@@ -238,6 +238,9 @@ func (collector moderationTextCollector) collectContentValue(value gjson.Result,
 		addModerationImage(images, value.Get("image_url.url").String())
 		addModerationImage(images, value.Get("image_url").String())
 		addModerationImage(images, value.Get("url").String())
+		if typ == "image" && value.Get("source.type").Str == "url" {
+			addModerationImage(images, value.Get("source.url").Str)
+		}
 		addModerationImageData(images, value.Get("source.media_type").String(), value.Get("source.data").String())
 		addModerationImageData(images, value.Get("source.mediaType").String(), value.Get("source.data").String())
 		addModerationImageData(images, value.Get("media_type").String(), value.Get("data").String())

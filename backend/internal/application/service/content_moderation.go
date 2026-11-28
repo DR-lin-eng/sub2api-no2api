@@ -26,6 +26,7 @@ const (
 	ContentModerationActionHashBlock    = "hash_block"
 	ContentModerationActionKeywordBlock = "keyword_block"
 	ContentModerationActionError        = "error"
+	ContentModerationActionImageSafety  = "image_safety"
 	ContentModerationActionCyberPolicy  = "cyber_policy" // cyber_policy 硬阻断的风控日志 action（封号计数排除按此值过滤）
 
 	contentModerationKeywordCategory = "keyword"

@@ -1,4 +1,4 @@
-"""Verify the 2026-11-27 upstream review ledger."""
+"""Verify a frozen upstream review ledger."""
 import argparse
 import hashlib
 import json
@@ -9,7 +9,6 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-LEDGER = json.loads((HERE / "UPSTREAM_PRS.json").read_text())
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument(
@@ -17,7 +16,9 @@ parser.add_argument(
     action="store_true",
     help="also require the reviewed upstream head to be an ancestor of HEAD",
 )
+parser.add_argument("--ledger", type=Path, default=HERE / "UPSTREAM_PRS.json")
 args = parser.parse_args()
+LEDGER = json.loads(args.ledger.read_text())
 
 
 def git(*git_args):
@@ -25,8 +26,13 @@ def git(*git_args):
 
 
 entries = LEDGER["entries"]
+pr_numbers = [entry["pr"] for entry in entries if entry["pr"] is not None]
+assert len(pr_numbers) == len(set(pr_numbers)), "duplicate PR in first-parent review"
+upstream_range = LEDGER["upstream_base"] + ".." + LEDGER["upstream_head"]
+if "upstream_commit_count" in LEDGER:
+    assert int(git("rev-list", "--count", upstream_range)) == LEDGER["upstream_commit_count"], "commit count mismatch"
 commits = (
-    git("log", "--reverse", "--first-parent", "--format=%H", LEDGER["upstream_base"] + ".." + LEDGER["upstream_head"])
+    git("log", "--reverse", "--first-parent", "--format=%H", upstream_range)
     .decode()
     .splitlines()
 )

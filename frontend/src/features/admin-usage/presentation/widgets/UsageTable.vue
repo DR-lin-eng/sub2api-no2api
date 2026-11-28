@@ -43,6 +43,10 @@
             <span class="ml-1 text-gray-500 dark:text-gray-400">#{{ row.user_id }}</span>
           </div>
         </template>
+        <template #cell-username="{ row }">
+          <span v-if="isAdminAudience" class="block max-w-48 truncate" :title="row.user?.username">{{ row.user?.username || '—' }}</span>
+        </template>
+
 
         <template #cell-api_key="{ row }">
           <span class="text-sm text-gray-900 dark:text-white">{{ row.api_key?.name || '-' }}</span>
@@ -351,7 +355,8 @@
   <Teleport to="body">
     <div
       v-if="tokenTooltipVisible"
-      class="fixed z-[9999] pointer-events-none -translate-y-1/2"
+      ref="tokenTooltipPanel"
+      class="fixed z-[9999] pointer-events-none max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden"
       :style="{
         left: tokenTooltipPosition.x + 'px',
         top: tokenTooltipPosition.y + 'px'
@@ -426,7 +431,6 @@
             <span class="font-semibold text-blue-400">{{ ((tokenTooltipData?.input_tokens || 0) + (tokenTooltipData?.output_tokens || 0) + (tokenTooltipData?.cache_creation_tokens || 0) + (tokenTooltipData?.cache_read_tokens || 0)).toLocaleString() }}</span>
           </div>
         </div>
-        <div class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-gray-900 border-t-transparent dark:border-r-gray-800"></div>
       </div>
     </div>
   </Teleport>
@@ -435,7 +439,8 @@
   <Teleport to="body">
     <div
       v-if="tooltipVisible"
-      class="fixed z-[9999] pointer-events-none -translate-y-1/2"
+      ref="tooltipPanel"
+      class="fixed z-[9999] pointer-events-none max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden"
       :style="{
         left: tooltipPosition.x + 'px',
         top: tooltipPosition.y + 'px'
@@ -563,7 +568,6 @@
             </div>
           </template>
         </div>
-        <div class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-gray-900 border-t-transparent dark:border-r-gray-800"></div>
       </div>
     </div>
   </Teleport>
@@ -578,7 +582,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
+import { getFloatingTooltipPosition } from '@/core/utils/floatingPanel'
 import { useI18n } from 'vue-i18n'
 import { useClipboard } from '@/common/composables/useClipboard'
 import { formatDateTime, formatReasoningEffort } from '@/core/utils/format'
@@ -675,7 +680,7 @@ const ipGeoBatchLoading = ref(false)
 
 const effectiveColumns = computed(() => isAdminAudience.value
   ? props.columns
-  : props.columns.filter((column) => column.key !== 'account' && column.key !== 'reasoning_tokens'))
+  : props.columns.filter((column) => column.key !== 'account' && column.key !== 'reasoning_tokens' && column.key !== 'username'))
 const showIpGeoToolbar = computed(() => effectiveColumns.value.some((col) => col.key === 'ip_address'))
 
 const sentUpstreamModel = (row: AdminUsageLog): string => row.upstream_model?.trim() || row.model?.trim() || ''
@@ -731,11 +736,13 @@ const copyRequestId = async (requestId: string) => {
 
 // Tooltip state - cost
 const tooltipVisible = ref(false)
+const tooltipPanel = ref<HTMLElement | null>(null)
 const tooltipPosition = ref({ x: 0, y: 0 })
 const tooltipData = ref<AdminUsageLog | null>(null)
 
 // Tooltip state - token
 const tokenTooltipVisible = ref(false)
+const tokenTooltipPanel = ref<HTMLElement | null>(null)
 const tokenTooltipPosition = ref({ x: 0, y: 0 })
 const tokenTooltipData = ref<AdminUsageLog | null>(null)
 
@@ -799,11 +806,17 @@ const formatOutputTokenSpeed = (row: AdminUsageLog): string => {
 // Cost tooltip functions
 const showTooltip = (event: MouseEvent, row: AdminUsageLog) => {
   const target = event.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
   tooltipData.value = row
-  tooltipPosition.value.x = rect.right + 8
-  tooltipPosition.value.y = rect.top + rect.height / 2
   tooltipVisible.value = true
+  void nextTick(() => {
+    const panel = tooltipPanel.value
+    if (!panel || !target.isConnected) return
+    const position = getFloatingTooltipPosition(
+      target.getBoundingClientRect(), panel.offsetWidth, panel.offsetHeight,
+      window.innerWidth, window.innerHeight, 'right'
+    )
+    tooltipPosition.value = { x: position.left, y: position.top }
+  })
 }
 
 const hideTooltip = () => {
@@ -814,11 +827,17 @@ const hideTooltip = () => {
 // Token tooltip functions
 const showTokenTooltip = (event: MouseEvent, row: AdminUsageLog) => {
   const target = event.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
   tokenTooltipData.value = row
-  tokenTooltipPosition.value.x = rect.right + 8
-  tokenTooltipPosition.value.y = rect.top + rect.height / 2
   tokenTooltipVisible.value = true
+  void nextTick(() => {
+    const panel = tokenTooltipPanel.value
+    if (!panel || !target.isConnected) return
+    const position = getFloatingTooltipPosition(
+      target.getBoundingClientRect(), panel.offsetWidth, panel.offsetHeight,
+      window.innerWidth, window.innerHeight, 'right'
+    )
+    tokenTooltipPosition.value = { x: position.left, y: position.top }
+  })
 }
 
 const hideTokenTooltip = () => {

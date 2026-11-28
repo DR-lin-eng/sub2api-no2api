@@ -91,7 +91,7 @@ describe('PendingOAuthCreateAccountForm', () => {
     expect(wrapper.text()).toContain('auth.alreadyHaveAccount')
   })
 
-  it('hides email verification controls when public settings disable email verification', async () => {
+  it('still requests an email code when public registration verification is off', async () => {
     getPublicSettings.mockResolvedValue({
       email_verify_enabled: false,
       turnstile_enabled: false,
@@ -108,16 +108,17 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     await flushPromises()
     await wrapper.get('[data-testid="linuxdo-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="linuxdo-create-account-verify-code"]').setValue('123456')
     await wrapper.get('form').trigger('submit.prevent')
 
-    expect(wrapper.find('[data-testid="linuxdo-create-account-verify-code"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="linuxdo-create-account-send-code"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="linuxdo-create-account-verify-code"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="linuxdo-create-account-send-code"]').exists()).toBe(true)
     expect(wrapper.emitted('submit')).toEqual([
       [
         {
           email: 'prefill@example.com',
           password: 'secret-123',
-          verifyCode: ''
+          verifyCode: '123456'
         }
       ]
     ])

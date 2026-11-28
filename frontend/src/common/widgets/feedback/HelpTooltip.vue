@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, useTemplateRef, nextTick } from 'vue'
+import { onBeforeUnmount, ref, useTemplateRef, nextTick } from 'vue'
+import { getFloatingTooltipPosition } from '@/core/utils/floatingPanel'
 
 const props = withDefaults(defineProps<{
   content?: string
@@ -16,12 +17,23 @@ const tooltipRef = useTemplateRef<HTMLElement>('tooltip')
 const tooltipStyle = ref({ top: '0px', left: '0px' })
 
 function openTooltip() {
+  if (show.value) return
   show.value = true
-  nextTick(updatePosition)
+  window.addEventListener('resize', onViewportChange)
+  window.addEventListener('scroll', onViewportChange, true)
+  if (props.trigger === 'click') {
+    document.addEventListener('click', onDocumentClick, true)
+    document.addEventListener('keydown', onDocumentKeydown)
+  }
+  void nextTick(updatePosition)
 }
 
 function closeTooltip() {
   show.value = false
+  document.removeEventListener('click', onDocumentClick, true)
+  document.removeEventListener('keydown', onDocumentKeydown)
+  window.removeEventListener('resize', onViewportChange)
+  window.removeEventListener('scroll', onViewportChange, true)
 }
 
 function onEnter() {
@@ -65,28 +77,17 @@ function onViewportChange() {
 }
 
 function updatePosition() {
-  const el = triggerRef.value
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  tooltipStyle.value = {
-    top: `${rect.top}px`,
-    left: `${rect.left + rect.width / 2}px`,
-  }
+  const trigger = triggerRef.value
+  const panel = tooltipRef.value
+  if (!show.value || !trigger || !panel) return
+  const position = getFloatingTooltipPosition(
+    trigger.getBoundingClientRect(), panel.offsetWidth, panel.offsetHeight,
+    window.innerWidth, window.innerHeight, 'above'
+  )
+  tooltipStyle.value = { top: `${position.top}px`, left: `${position.left}px` }
 }
 
-onMounted(() => {
-  document.addEventListener('click', onDocumentClick, true)
-  document.addEventListener('keydown', onDocumentKeydown)
-  window.addEventListener('resize', onViewportChange)
-  window.addEventListener('scroll', onViewportChange, true)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocumentClick, true)
-  document.removeEventListener('keydown', onDocumentKeydown)
-  window.removeEventListener('resize', onViewportChange)
-  window.removeEventListener('scroll', onViewportChange, true)
-})
+onBeforeUnmount(closeTooltip)
 </script>
 
 <template>
@@ -95,6 +96,8 @@ onBeforeUnmount(() => {
     class="group relative ml-1 inline-flex items-center align-middle"
     @mouseenter="onEnter"
     @mouseleave="onLeave"
+    @focusin="onEnter"
+    @focusout="onLeave"
     @click="onClick"
   >
     <!-- Trigger Icon -->
@@ -121,10 +124,10 @@ onBeforeUnmount(() => {
         v-show="show"
         role="tooltip"
         :class="[
-          'fixed z-[99999] -translate-x-1/2 -translate-y-full rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-xl ring-1 ring-white/10 dark:bg-gray-800',
+          'fixed z-[99999] max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] overflow-auto rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-xl ring-1 ring-white/10 dark:bg-gray-800',
           props.widthClass,
         ]"
-        :style="{ top: `calc(${tooltipStyle.top} - 8px)`, left: tooltipStyle.left }"
+        :style="tooltipStyle"
       >
         <button
           v-if="props.trigger === 'click'"
@@ -138,7 +141,6 @@ onBeforeUnmount(() => {
           </svg>
         </button>
         <slot>{{ content }}</slot>
-        <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
       </div>
     </Teleport>
   </div>

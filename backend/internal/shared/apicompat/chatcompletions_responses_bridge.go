@@ -361,6 +361,9 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 			continue
 		case "function_call":
 			arguments := rawString(item["arguments"])
+			if rawArguments := bytesTrimSpace(item["arguments"]); len(rawArguments) > 0 && rawArguments[0] == '{' {
+				arguments = string(rawArguments)
+			}
 			if strings.TrimSpace(arguments) == "" {
 				arguments = "{}"
 			}
@@ -526,6 +529,16 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 		if role == "assistant" {
 			message.ReasoningContent = reasoningForAssistant()
 			pendingReasoning = ""
+			if len(messages) > 0 {
+				previous := &messages[len(messages)-1]
+				if previous.Role == "assistant" && len(previous.ToolCalls) > 0 {
+					previous.Content = joinAssistantCommentary(previous.Content, message.Content)
+					if previous.ReasoningContent == "" {
+						previous.ReasoningContent = message.ReasoningContent
+					}
+					continue
+				}
+			}
 		} else {
 			pendingReasoning = ""
 			lastTurnReasoning = ""
@@ -562,6 +575,34 @@ func AgentMessageText(raw json.RawMessage) string {
 		}
 	}
 	return builder.String()
+}
+
+func joinAssistantCommentary(previous, next json.RawMessage) json.RawMessage {
+	previous, next = bytesTrimSpace(previous), bytesTrimSpace(next)
+	if len(previous) == 0 || bytes.Equal(previous, []byte("null")) || bytes.Equal(previous, []byte(`""`)) {
+		return next
+	}
+	if len(next) == 0 || bytes.Equal(next, []byte("null")) || bytes.Equal(next, []byte(`""`)) {
+		return previous
+	}
+	if previous[0] == '"' && next[0] == '"' {
+		joined, _ := json.Marshal(rawString(previous) + "\n\n" + rawString(next))
+		return joined
+	}
+	var parts []json.RawMessage
+	for _, content := range []json.RawMessage{previous, next} {
+		if content[0] == '[' {
+			var decoded []json.RawMessage
+			if json.Unmarshal(content, &decoded) == nil {
+				parts = append(parts, decoded...)
+			}
+		} else {
+			text, _ := json.Marshal(ChatContentPart{Type: "text", Text: rawString(content)})
+			parts = append(parts, text)
+		}
+	}
+	joined, _ := json.Marshal(parts)
+	return joined
 }
 
 // extractToolOutputMedia rewrites recognized image nodes only. Outputs without
@@ -1450,10 +1491,14 @@ type ChatCompletionsToResponsesStreamState struct {
 	Reasoning strings.Builder
 
 	// Tool-call lifecycle, keyed by the upstream tool_call index.
-	ToolCalls           map[int]*ChatToolCall
-	ToolItemIDs         map[int]string
-	ToolOutputIndex     map[int]int
-	toolArgumentBuffers map[int]*strings.Builder
+	ToolCalls            map[int]*ChatToolCall
+	ToolItemIDs          map[int]string
+	ToolOutputIndex      map[int]int
+	toolArgumentBuffers  map[int]*strings.Builder
+	toolCallOrder        []int
+	lastToolCallSlot     int
+	toolCallSlotsByID    map[string]int
+	toolCallIndexAliases map[int]int
 
 	// CustomTools 是客户端请求中 custom/freeform 工具的名字集合（见
 	// CustomToolNames）。命中的调用按 custom_tool_call 生命周期下发，codex 才能
@@ -1522,6 +1567,41 @@ func NewChatCompletionsToResponsesStreamStateWithOptions(model string, options C
 		toolAnnounced:    make(map[int]bool),
 		literalThinking:  parser,
 	}
+}
+
+// Index-less providers identify new calls by ID. Negative internal slots keep
+// them independent from explicit wire indices, including sparse indices.
+func (state *ChatCompletionsToResponsesStreamState) toolCallSlot(call ChatToolCall) int {
+	if call.Index != nil && *call.Index >= 0 {
+		index := *call.Index
+		if alias, ok := state.toolCallIndexAliases[index]; ok {
+			return alias
+		}
+		if _, known := state.ToolCalls[index]; known || call.ID == "" {
+			return index
+		}
+		if slot, ok := state.toolCallSlotsByID[call.ID]; ok && slot < 0 {
+			if state.toolCallIndexAliases == nil {
+				state.toolCallIndexAliases = make(map[int]int)
+			}
+			state.toolCallIndexAliases[index] = slot
+			return slot
+		}
+		return index
+	}
+	if call.ID == "" && len(state.toolCallOrder) != 0 {
+		return state.lastToolCallSlot
+	}
+	if state.toolCallSlotsByID == nil {
+		state.toolCallSlotsByID = make(map[string]int)
+		for _, slot := range state.toolCallOrder {
+			state.toolCallSlotsByID[state.ToolCalls[slot].ID] = slot
+		}
+	}
+	if slot, ok := state.toolCallSlotsByID[call.ID]; ok {
+		return slot
+	}
+	return -1 - len(state.ToolCalls)
 }
 
 func (state *ChatCompletionsToResponsesStreamState) allocOutputIndex() int {
@@ -1601,10 +1681,7 @@ func ChatCompletionsChunkToResponsesEvents(
 			if state.literalThinking != nil {
 				events = append(events, appendLiteralThinkingText(state, state.literalThinking.flush())...)
 			}
-			idx := 0
-			if toolCall.Index != nil {
-				idx = *toolCall.Index
-			}
+			idx := state.toolCallSlot(toolCall)
 			stored, ok := state.ToolCalls[idx]
 			if !ok {
 				// A tool call closes any open reasoning item and visible text
@@ -1623,6 +1700,7 @@ func ChatCompletionsChunkToResponsesEvents(
 				// Reset so the accumulator below does not duplicate that chunk.
 				copyCall.Function.Arguments = ""
 				state.ToolCalls[idx] = &copyCall
+				state.toolCallOrder = append(state.toolCallOrder, idx)
 				stored = &copyCall
 				state.ToolItemIDs[idx] = generateItemID()
 				state.ToolOutputIndex[idx] = state.allocOutputIndex()
@@ -1633,6 +1711,10 @@ func ChatCompletionsChunkToResponsesEvents(
 				if toolCall.Function.Name != "" {
 					stored.Function.Name = toolCall.Function.Name
 				}
+			}
+			state.lastToolCallSlot = idx
+			if state.toolCallSlotsByID != nil && toolCall.ID != "" {
+				state.toolCallSlotsByID[toolCall.ID] = idx
 			}
 			events = append(events, announceChatToolItem(state, idx, stored, false)...)
 			if toolCall.Function.Arguments != "" {
@@ -1741,15 +1823,20 @@ func FinalizeChatCompletionsResponsesStream(state *ChatCompletionsToResponsesStr
 	// Mirrors cc-switch's finalize_tools.
 	events = append(events, closeChatToolItems(state)...)
 
+	// 终止事件名必须与 response.status 一致：被 max_tokens 截断的流以
+	// response.incomplete 收尾（与 Anthropic→Responses 转换器及原生上游一致），
+	// 否则只看事件类型的客户端会把截断当作正常完成。
+	eventType := "response.completed"
 	status := "completed"
 	var incompleteDetails *ResponsesIncompleteDetails
 	if state.FinishReason == "length" {
+		eventType = "response.incomplete"
 		status = "incomplete"
 		incompleteDetails = &ResponsesIncompleteDetails{Reason: "max_output_tokens"}
 	}
 
 	state.CompletedSent = true
-	events = append(events, chatToResponsesEvent(state, "response.completed", &ResponsesStreamEvent{
+	events = append(events, chatToResponsesEvent(state, eventType, &ResponsesStreamEvent{
 		Response: &ResponsesResponse{
 			ID:                state.ResponseID,
 			Object:            "response",
@@ -1992,11 +2079,8 @@ func closeChatToolItems(state *ChatCompletionsToResponsesStreamState) []Response
 		return nil
 	}
 	var events []ResponsesStreamEvent
-	for i := 0; i < len(state.ToolCalls); i++ {
-		toolCall, ok := state.ToolCalls[i]
-		if !ok || toolCall == nil {
-			continue
-		}
+	for _, i := range state.toolCallOrder {
+		toolCall := state.ToolCalls[i]
 		itemID, opened := state.ToolItemIDs[i]
 		if !opened {
 			continue
@@ -2109,11 +2193,8 @@ func (state *ChatCompletionsToResponsesStreamState) chatOutput() []ResponsesOutp
 			Status: "completed",
 		})
 	}
-	for i := 0; i < len(state.ToolCalls); i++ {
-		toolCall, ok := state.ToolCalls[i]
-		if !ok || toolCall == nil {
-			continue
-		}
+	for _, i := range state.toolCallOrder {
+		toolCall := state.ToolCalls[i]
 		arguments := toolCall.Function.Arguments
 		if strings.TrimSpace(arguments) == "" {
 			arguments = "{}"

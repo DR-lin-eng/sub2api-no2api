@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -163,7 +164,7 @@ func (f *AntigravityQuotaFetcher) buildUsageInfo(modelsResp *antigravity.FetchAv
 		}
 
 		// remainingFraction 是剩余比例 (0.0-1.0)，转换为使用率百分比
-		utilization := int((1.0 - modelInfo.QuotaInfo.RemainingFraction) * 100)
+		utilization := math.Min(math.Max((1.0-modelInfo.QuotaInfo.RemainingFraction)*100, 0), 100)
 
 		info.AntigravityQuota[modelName] = &AntigravityModelQuota{
 			Utilization: utilization,

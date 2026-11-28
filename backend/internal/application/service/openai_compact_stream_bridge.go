@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ctxkey"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -113,6 +114,11 @@ func writeOpenAICompactSSEFailureMessage(c *gin.Context, statusCode int, errType
 		return
 	}
 	MarkOpsStreamError(c, errType, message, statusCode)
+	model := c.GetString("ops_model")
+	if c.Request != nil {
+		requested, _ := c.Request.Context().Value(ctxkey.Model).(string)
+		model = compositeClientModel(c.Request.Context(), firstNonEmpty(model, requested))
+	}
 	payload, err := json.Marshal(map[string]any{
 		"type":            "response.failed",
 		"sequence_number": 0,
@@ -120,6 +126,7 @@ func writeOpenAICompactSSEFailureMessage(c *gin.Context, statusCode int, errType
 			"id":         "resp_" + strings.ReplaceAll(uuid.NewString(), "-", ""),
 			"object":     "response",
 			"created_at": time.Now().Unix(),
+			"model":      model,
 			"status":     "failed",
 			"output":     []any{},
 			"error": map[string]any{

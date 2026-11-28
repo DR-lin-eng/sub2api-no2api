@@ -194,7 +194,7 @@ describe('admin UsageView request ID column visibility', () => {
     )
     expect(localStorage.setItem).toHaveBeenCalledWith(
       'usage-hidden-columns-version',
-      'request-id-hidden-by-default',
+      'username-hidden-by-default',
     )
 
     await wrapper.get('button[title="Column settings"]').trigger('click')

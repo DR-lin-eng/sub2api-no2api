@@ -46,44 +46,39 @@ const stats = {
 describe('UsageStatsCards', () => {
   it('shows cache token breakdown values', () => {
     const wrapper = mount(UsageStatsCards, {
-      props: {
-        stats,
-      },
-      global: {
-        stubs: {
-          Icon: true,
-        },
-      },
+      props: { stats },
+      global: { stubs: { Icon: true, Teleport: true } }
     })
 
-    const text = wrapper.text()
-    expect(text).toContain('Cache: 34')
-    expect(text).toContain('Cache Token Breakdown')
-    expect(text).toContain('Cache Creation')
-    expect(text).toContain('12')
-    expect(text).toContain('Cache Read')
-    expect(text).toContain('22')
+    try {
+      expect(wrapper.text()).toContain('Cache: 34')
+      const breakdown = wrapper.get('[data-testid="cache-breakdown-tooltip"]').text()
+      expect(breakdown).toContain('Cache Token Breakdown')
+      expect(breakdown).toContain('Cache Creation')
+      expect(breakdown).toContain('12')
+      expect(breakdown).toContain('Cache Read')
+      expect(breakdown).toContain('22')
+    } finally {
+      wrapper.unmount()
+    }
   })
 
-  it('keeps the cache breakdown tooltip inside narrow viewports', () => {
+  it('opens the cache breakdown for keyboard users', async () => {
     const wrapper = mount(UsageStatsCards, {
-      props: {
-        stats,
-      },
-      global: {
-        stubs: {
-          Icon: true,
-        },
-      },
+      props: { stats },
+      attachTo: document.body,
+      global: { stubs: { Teleport: true } }
     })
 
-    const tooltip = wrapper.get('[data-testid="cache-breakdown-tooltip"]')
-    expect(tooltip.classes()).toContain('right-0')
-    expect(tooltip.classes()).toContain('sm:left-1/2')
-    expect(tooltip.classes()).toContain('sm:-translate-x-1/2')
-    expect(tooltip.classes()).toContain('hidden')
-    expect(tooltip.classes()).toContain('group-hover:block')
-    expect(tooltip.classes()).not.toContain('opacity-0')
+    try {
+      const tooltip = wrapper.get('[role="tooltip"]').element as HTMLElement
+      expect(tooltip.style.display).toBe('none')
+      await wrapper.get('.group').trigger('focusin')
+      expect((wrapper.get('[role="tooltip"]').element as HTMLElement).style.display).not.toBe('none')
+      expect(tooltip.textContent).toContain('Cache Read')
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('ignores injected account cost for user audiences', () => {

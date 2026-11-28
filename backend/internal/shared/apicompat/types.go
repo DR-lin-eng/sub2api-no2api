@@ -119,9 +119,10 @@ func (b AnthropicContentBlock) MarshalJSON() ([]byte, error) {
 
 // AnthropicImageSource describes the source data for an image content block.
 type AnthropicImageSource struct {
-	Type      string `json:"type"` // "base64"
+	Type      string `json:"type"` // "base64" or "url"
 	MediaType string `json:"media_type"`
 	Data      string `json:"data"`
+	URL       string `json:"url,omitempty"`
 }
 
 // AnthropicTool describes a tool available to the model.
@@ -281,13 +282,22 @@ func (i *ResponsesInputItem) UnmarshalJSON(data []byte) error {
 	type alias ResponsesInputItem
 	var wire struct {
 		*alias
-		Output json.RawMessage `json:"output"`
+		Arguments json.RawMessage `json:"arguments"`
+		Output    json.RawMessage `json:"output"`
 	}
 
 	*i = ResponsesInputItem{}
 	wire.alias = (*alias)(i)
 	if err := json.Unmarshal(data, &wire); err != nil {
 		return err
+	}
+
+	if args := bytes.TrimSpace(wire.Arguments); len(args) > 0 && !bytes.Equal(args, []byte("null")) {
+		if args[0] == '{' {
+			i.Arguments = string(args)
+		} else if err := json.Unmarshal(args, &i.Arguments); err != nil {
+			return err
+		}
 	}
 
 	output := bytes.TrimSpace(wire.Output)

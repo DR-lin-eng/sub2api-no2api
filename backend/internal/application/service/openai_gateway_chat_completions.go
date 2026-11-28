@@ -69,7 +69,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	defaultMappedModel string,
 	compatPromptCacheTenantIsolated bool,
 ) (*OpenAIForwardResult, error) {
-	rememberOpenCodeInboundBody(c, body)
+	rememberOpenCodeAccountSession(c, account, body)
 	distillation := s.IsDistillationGroupRequest(c, account)
 	if distillation {
 		body = stripDistillationCacheFields(body)
