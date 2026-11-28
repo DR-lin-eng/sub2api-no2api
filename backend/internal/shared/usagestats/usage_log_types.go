@@ -339,36 +339,39 @@ type BatchAPIKeyUsageStats struct {
 
 // AccountUsageHistory represents daily usage history for an account
 type AccountUsageHistory struct {
-	Date       string  `json:"date"`
-	Label      string  `json:"label"`
-	Requests   int64   `json:"requests"`
-	Tokens     int64   `json:"tokens"`
-	Cost       float64 `json:"cost"`        // 标准计费（total_cost）
-	ActualCost float64 `json:"actual_cost"` // 账号口径费用（total_cost * account_rate_multiplier）
-	UserCost   float64 `json:"user_cost"`   // 用户口径费用（actual_cost，受分组倍率影响）
+	Date           string  `json:"date"`
+	Label          string  `json:"label"`
+	Requests       int64   `json:"requests"`
+	Tokens         int64   `json:"tokens"`
+	Cost           float64 `json:"cost"`        // 标准计费（total_cost）
+	ActualCost     float64 `json:"actual_cost"` // 账号口径费用（total_cost * account_rate_multiplier）
+	UserCost       float64 `json:"user_cost"`   // 用户口径费用（actual_cost，受分组倍率影响）
+	UpstreamErrors int64   `json:"upstream_errors"`
 }
 
 // AccountUsageSummary represents summary statistics for an account
 type AccountUsageSummary struct {
-	Days              int      `json:"days"`
-	ActualDaysUsed    int      `json:"actual_days_used"`
-	TotalCost         float64  `json:"total_cost"`      // 账号口径费用
-	TotalUserCost     float64  `json:"total_user_cost"` // 用户口径费用
-	TotalStandardCost float64  `json:"total_standard_cost"`
-	TotalRequests     int64    `json:"total_requests"`
-	TotalTokens       int64    `json:"total_tokens"`
-	AvgDailyCost      float64  `json:"avg_daily_cost"` // 账号口径日均
-	AvgDailyUserCost  float64  `json:"avg_daily_user_cost"`
-	AvgDailyRequests  float64  `json:"avg_daily_requests"`
-	AvgDailyTokens    float64  `json:"avg_daily_tokens"`
-	AvgDurationMs     float64  `json:"avg_duration_ms"`
-	AvgFirstTokenMs   *float64 `json:"avg_first_token_ms"`
-	Today             *struct {
-		Date     string  `json:"date"`
-		Cost     float64 `json:"cost"`
-		UserCost float64 `json:"user_cost"`
-		Requests int64   `json:"requests"`
-		Tokens   int64   `json:"tokens"`
+	Days                int      `json:"days"`
+	ActualDaysUsed      int      `json:"actual_days_used"`
+	TotalCost           float64  `json:"total_cost"`      // 账号口径费用
+	TotalUserCost       float64  `json:"total_user_cost"` // 用户口径费用
+	TotalStandardCost   float64  `json:"total_standard_cost"`
+	TotalRequests       int64    `json:"total_requests"`
+	TotalTokens         int64    `json:"total_tokens"`
+	TotalUpstreamErrors int64    `json:"total_upstream_errors"`
+	AvgDailyCost        float64  `json:"avg_daily_cost"` // 账号口径日均
+	AvgDailyUserCost    float64  `json:"avg_daily_user_cost"`
+	AvgDailyRequests    float64  `json:"avg_daily_requests"`
+	AvgDailyTokens      float64  `json:"avg_daily_tokens"`
+	AvgDurationMs       float64  `json:"avg_duration_ms"`
+	AvgFirstTokenMs     *float64 `json:"avg_first_token_ms"`
+	Today               *struct {
+		Date           string  `json:"date"`
+		Cost           float64 `json:"cost"`
+		UserCost       float64 `json:"user_cost"`
+		Requests       int64   `json:"requests"`
+		Tokens         int64   `json:"tokens"`
+		UpstreamErrors int64   `json:"upstream_errors"`
 	} `json:"today"`
 	HighestCostDay *struct {
 		Date     string  `json:"date"`

@@ -254,6 +254,13 @@
               </div>
               <Toggle v-model="form.apply_pricing_to_account_stats" :aria-label="t('admin.channels.form.applyPricingToAccountStats')" />
             </div>
+            <div class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600">
+              <div>
+                <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ t('admin.channels.form.exposeResponseModel') }}</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.exposeResponseModelDesc') }}</p>
+              </div>
+              <Toggle v-model="form.expose_response_model" :aria-label="t('admin.channels.form.exposeResponseModel')" />
+            </div>
           </section>
           <section
             v-for="section in enabledSections" v-show="activePlatform === section.platform" :key="section.platform"
@@ -545,6 +552,7 @@ const form = reactive({
   billing_model_source: 'channel_mapped' as BillingModelSource,
   platforms: [] as PlatformSection[],
   apply_pricing_to_account_stats: false,
+  expose_response_model: false,
 })
 
 let abortController: AbortController | null = null
@@ -765,9 +773,10 @@ function accountStatsRulesToAPI(): AccountStatsPricingRule[] {
 
 // ── Form ↔ API conversion ──
 function formToAPI() {
+  const options = { expose_response_model: form.expose_response_model }
   return editingChannel.value
-    ? buildChannelAPIFields(form.platforms, editingChannel.value.features_config)
-    : buildChannelAPIFields(enabledSections.value)
+    ? buildChannelAPIFields(form.platforms, editingChannel.value.features_config, options)
+    : buildChannelAPIFields(enabledSections.value, undefined, options)
 }
 
 function apiToForm(channel: Channel): PlatformSection[] {
@@ -863,6 +872,7 @@ function resetForm() {
   form.billing_model_source = 'channel_mapped'
   form.platforms = []
   form.apply_pricing_to_account_stats = false
+  form.expose_response_model = false
   configTab.value = 'basic'
   activePlatform.value = null
   pickerMode.value = null
@@ -888,6 +898,7 @@ async function openEditDialog(channel: Channel) {
   form.restrict_models = channel.restrict_models || false
   form.billing_model_source = channel.billing_model_source || 'channel_mapped'
   form.apply_pricing_to_account_stats = channel.apply_pricing_to_account_stats || false
+  form.expose_response_model = channel.features_config?.expose_response_model === true
   // Must load groups first so apiToForm can map groupID → platform
   await loadDialogChoices()
   if (editingChannel.value?.id !== channel.id || choicesState.value !== 'ready') return

@@ -268,11 +268,6 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			startTime,
 		)
 	}
-	// The passthrough branch above has consumed the original body. The regular
-	// Responses path must not retain the pre-normalization body through a long
-	// streaming response.
-	originalBody = nil
-
 	bodyModified := false
 	var reqBody map[string]any
 	var fingerprintIDs *codexFingerprintIDs
@@ -646,8 +641,6 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalBody, body, "http")
-	integrityOriginalBody = nil
-	canonicalImageIntentBody = nil
 	imageBillingModel := ""
 	imageSizeTier := ""
 	imageInputSize := ""

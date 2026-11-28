@@ -179,6 +179,8 @@ export default {
         billingModelSourceUpstream: '以最终模型计费',
         billingModelSourceResponse: '按上游响应模型计费',
         billingModelSourceHint: '控制使用哪个模型名称进行定价查找',
+        exposeResponseModel: '对用户展示上游响应模型',
+        exposeResponseModelDesc: '开启后，当上游实际响应模型与请求模型不同时，用户端使用记录中将展示响应模型。',
         selectedCount: '已选 {count} 个',
         searchGroups: '搜索分组...',
         noGroupsMatch: '没有匹配的分组',

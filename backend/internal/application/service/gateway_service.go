@@ -912,12 +912,54 @@ func (s *GatewayService) GenerateSessionHash(parsed *ParsedRequest) string {
 	return ""
 }
 
+// StickySessionCASCache is implemented by Redis-backed GatewayCache backends
+// to atomically bind or refresh sticky sessions without clobbering concurrent rebinds.
+type StickySessionCASCache interface {
+	CompareAndSetSessionAccountID(ctx context.Context, groupID int64, sessionHash string, accountID int64, failedOverAccountIDs []int64, ttl time.Duration) (bool, error)
+}
+
 // BindStickySession sets session -> account binding with standard TTL.
 func (s *GatewayService) BindStickySession(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
 	if sessionHash == "" || accountID <= 0 || s.cache == nil {
 		return nil
 	}
 	return s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, accountID, stickySessionTTL)
+}
+
+// BindStickySessionUnlessRebound atomically binds or refreshes sessionHash -> accountID
+// only when the session is unbound, already bound to accountID, or still bound to one
+// of failedOverAccountIDs from this request's failover chain. If another concurrent
+// request already rebound the session to a different healthy account, that newer binding
+// is preserved.
+func (s *GatewayService) BindStickySessionUnlessRebound(ctx context.Context, groupID *int64, sessionHash string, accountID int64, failedOverAccountIDs []int64) error {
+	if sessionHash == "" || accountID <= 0 || s.cache == nil {
+		return nil
+	}
+	gid := derefGroupID(groupID)
+	if casCache, ok := s.cache.(StickySessionCASCache); ok {
+		_, err := casCache.CompareAndSetSessionAccountID(ctx, gid, sessionHash, accountID, failedOverAccountIDs, stickySessionTTL)
+		return err
+	}
+
+	currentID, err := s.cache.GetSessionAccountID(ctx, gid, sessionHash)
+	if err != nil {
+		if errors.Is(err, ErrStickySessionNotFound) {
+			return s.cache.SetSessionAccountID(ctx, gid, sessionHash, accountID, stickySessionTTL)
+		}
+		return err
+	}
+	if currentID <= 0 {
+		return s.cache.SetSessionAccountID(ctx, gid, sessionHash, accountID, stickySessionTTL)
+	}
+	if currentID == accountID {
+		return s.cache.RefreshSessionTTL(ctx, gid, sessionHash, stickySessionTTL)
+	}
+	for _, failedID := range failedOverAccountIDs {
+		if failedID == currentID {
+			return s.cache.SetSessionAccountID(ctx, gid, sessionHash, accountID, stickySessionTTL)
+		}
+	}
+	return nil
 }
 
 // GetCachedSessionAccountID retrieves the account ID bound to a sticky session.

@@ -872,7 +872,6 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		)
 	}
 	s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalFirstMessage, firstClientMessage, "websocket_passthrough")
-	integrityOriginalFirstMessage = nil
 	if err := s.admitOpenAIOAuthGatewayModelRequest(withOpenAIOAuthGatewayTurnKey(ctx, 1), account); err != nil {
 		return openAIOAuthGatewayRateLimitWSFailover(err, 1, firstClientMessage)
 	}
@@ -1297,7 +1296,6 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				usageMeta.updateFromResponseCreate(out, model, requestModelForThisFrame)
 				acceptedTurn = true
 				s.observeOpenAIRequestIntegrity(ctx, c, account, integrityOriginalPayload, out, "websocket_passthrough")
-				integrityOriginalPayload = nil
 			}
 			return out, blocked, policyErr
 		},

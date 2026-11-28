@@ -128,7 +128,7 @@ func validCodexPageSnapshot(text string) bool {
 }
 
 func mayContainStandaloneCodexContext(body []byte) bool {
-	for _, name := range []string{"codex_apps_", "browser_info", "goal_objective", "untrusted_cont", "ide_context", "proposed_plan"} {
+	for _, name := range []string{"codex_apps_", "browser_info", "goal_objective", "untrusted_cont", "ide_context", "proposed_plan", "terminal_info"} {
 		if bytes.Contains(body, []byte(name)) {
 			return true
 		}
@@ -138,7 +138,7 @@ func mayContainStandaloneCodexContext(body []byte) bool {
 
 func validCodexUntrustedContext(name, output string) bool {
 	switch name {
-	case "browser_info", "goal_objective", "untrusted_context", "ide_context":
+	case "browser_info", "goal_objective", "untrusted_context", "ide_context", "terminal_info":
 		return strings.TrimSpace(output) != ""
 	case "untrusted_content":
 		// Codex's fallback for an unnamed context source can carry any text, including an empty value.

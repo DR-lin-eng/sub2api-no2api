@@ -72,6 +72,12 @@
             </div>
             <span v-else class="font-medium text-gray-900 dark:text-white">{{ row.model }}</span>
             <div
+              v-if="!isAdminAudience && row.response_model && row.response_model !== row.model"
+              class="break-all pl-3 text-[11px] text-gray-500 dark:text-gray-400"
+            >
+              <span class="mr-1">↳ {{ t('usage.responseModel') }}:</span>{{ row.response_model }}
+            </div>
+            <div
               v-if="isAdminAudience && row.upstream_model_mismatch === true && row.upstream_response_model"
               class="break-all pl-3 text-[11px]"
               :class="isLikelyModelVariant(row) ? 'text-amber-600 dark:text-amber-400' : 'text-orange-600 dark:text-orange-400'"

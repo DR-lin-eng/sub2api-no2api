@@ -233,7 +233,7 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 			"group_id", contentModerationLogGroupID(input.GroupID),
 			"endpoint", input.Endpoint,
 			"protocol", input.Protocol,
-			"queue_len", len(s.asyncQueue))
+			"queue_len", s.asyncQueueLen())
 		s.enqueueAsync(input, cfg, content, hashText)
 		return allow, nil
 	}

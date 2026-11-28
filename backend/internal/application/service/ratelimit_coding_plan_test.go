@@ -34,3 +34,29 @@ func TestCodingPlanQuota403DoesNotReclassifyOrdinaryAccounts(t *testing.T) {
 	require.False(t, isCodingPlanQuotaExhausted403(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, body, "usage limit"))
 	require.False(t, isCodingPlanQuotaExhausted403(&Account{Platform: PlatformKimi, Type: AccountTypeAPIKey}, body, "usage limit"))
 }
+
+func TestZhipuPlatformOverload1305UsesShort429Cooldown(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	windowReset := now.Add(4 * time.Hour)
+	account := &Account{
+		ID:       88,
+		Platform: PlatformZhipu,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"account_mode": AccountModeCoding,
+			"base_url":     "https://open.bigmodel.cn/api/coding/paas/v4",
+		},
+		Extra: cnQuotaExtraUpdates(PlatformZhipu, []CNQuotaTier{
+			{Window: "5h", UsedPercent: 35, ResetAt: windowReset.Format(time.RFC3339)},
+		}, now),
+	}
+	repo := &rateLimitAccountRepoStub{}
+	svc := &RateLimitService{accountRepo: repo}
+	body := []byte(`{"error":{"code":"1305","message":"当前API请求过多，请稍后重试。"}}`)
+	svc.handle429(context.Background(), account, nil, body, "glm-4.6")
+
+	require.Zero(t, repo.setErrorCalls)
+	require.Equal(t, 1, repo.rateLimitedCalls)
+	require.Less(t, time.Until(repo.lastRateLimitedResetAt), 5*time.Minute,
+		"Zhipu 1305 platform overload 429 must use short seconds-level cooldown instead of multi-hour window reset")
+}

@@ -46,7 +46,7 @@ import { useAppStore } from '@/core/stores/appStore'
 import { useAuthStore } from '@/features/auth'
 import * as accountQueries from '@/features/admin-accounts/data/datasources/adminAccountQueries'
 import * as accountActions from '@/features/admin-accounts/data/datasources/adminAccountActions'
-import { getAll as getAllProxies } from '@/features/admin-proxies/data/datasources/adminProxiesDatasource'
+import { getAllWithCount as getAllProxies } from '@/features/admin-proxies/data/datasources/adminProxiesDatasource'
 import { getAll as getAllGroups } from '@/features/admin-groups/data/datasources/adminGroupQueries'
 import { useTableLoader } from '@/common/composables/useTableLoader'
 import { useSwipeSelect, type SwipeSelectVirtualContext } from '@/common/composables/useSwipeSelect'
@@ -1483,13 +1483,11 @@ onMounted(async () => {
   load()
   loadUpstreamBillingProbeGlobalState()
   resumeUpstreamBillingRateRefresh()
-  try {
-    const [p, g] = await Promise.all([getAllProxies(), getAllGroups()])
-    proxies.value = p
-    groups.value = g
-  } catch (error) {
-    console.error('Failed to load proxies/groups:', error)
-  }
+  const [p, g] = await Promise.allSettled([getAllProxies(), getAllGroups()])
+  if (p.status === 'fulfilled') proxies.value = p.value
+  else console.error('Failed to load proxies:', p.reason)
+  if (g.status === 'fulfilled') groups.value = g.value
+  else console.error('Failed to load groups:', g.reason)
   window.addEventListener('scroll', handleScroll, true)
   window.addEventListener('resize', handleViewportResize)
   document.addEventListener('click', handleClickOutside)

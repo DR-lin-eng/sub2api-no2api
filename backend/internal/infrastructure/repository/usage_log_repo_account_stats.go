@@ -7,6 +7,7 @@ import (
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/timezone"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/usagestats"
+	"github.com/lib/pq"
 )
 
 type accountUsageAggregateRow struct {
@@ -350,17 +351,19 @@ func buildAccountUsageSummary(history []usagestats.AccountUsageHistory, startTim
 			continue
 		}
 		summary.Today = &struct {
-			Date     string  `json:"date"`
-			Cost     float64 `json:"cost"`
-			UserCost float64 `json:"user_cost"`
-			Requests int64   `json:"requests"`
-			Tokens   int64   `json:"tokens"`
+			Date           string  `json:"date"`
+			Cost           float64 `json:"cost"`
+			UserCost       float64 `json:"user_cost"`
+			Requests       int64   `json:"requests"`
+			Tokens         int64   `json:"tokens"`
+			UpstreamErrors int64   `json:"upstream_errors"`
 		}{
-			Date:     history[i].Date,
-			Cost:     history[i].ActualCost,
-			UserCost: history[i].UserCost,
-			Requests: history[i].Requests,
-			Tokens:   history[i].Tokens,
+			Date:           history[i].Date,
+			Cost:           history[i].ActualCost,
+			UserCost:       history[i].UserCost,
+			Requests:       history[i].Requests,
+			Tokens:         history[i].Tokens,
+			UpstreamErrors: history[i].UpstreamErrors,
 		}
 		break
 	}
@@ -412,4 +415,89 @@ func accountUsageCalendarDayCount(startTime, endTime time.Time) int {
 		return 30
 	}
 	return days
+}
+
+// GetAccountUpstreamErrorCountsBatch aggregates provider upstream errors (excluding
+// rate-limit 429/529, business-limited, and count_tokens rows) since startTime.
+func (r *usageLogRepository) GetAccountUpstreamErrorCountsBatch(ctx context.Context, accountIDs []int64, startTime time.Time) (map[int64]int64, error) {
+	normalizedIDs := normalizePositiveInt64IDs(accountIDs)
+	result := make(map[int64]int64, len(normalizedIDs))
+	if len(normalizedIDs) == 0 {
+		return result, nil
+	}
+
+	query := `
+		SELECT
+			account_id,
+			COUNT(*) AS upstream_errors
+		FROM ops_error_logs
+		WHERE account_id = ANY($1)
+			AND created_at >= $2
+			AND error_owner = 'provider'
+			AND COALESCE(is_business_limited, FALSE) = FALSE
+			AND COALESCE(is_count_tokens, FALSE) = FALSE
+			AND COALESCE(upstream_status_code, status_code, 0) NOT IN (429, 529)
+		GROUP BY account_id
+	`
+	rows, err := r.sql.QueryContext(ctx, query, pq.Array(normalizedIDs), startTime)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var accountID, count int64
+		if err := rows.Scan(&accountID, &count); err != nil {
+			return nil, err
+		}
+		result[accountID] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// GetAccountDailyUpstreamErrorCounts aggregates daily provider upstream errors for
+// one account in [startTime, endTime) using the same application timezone as
+// GetAccountUsageStats so daily buckets never drift across midnight boundaries.
+func (r *usageLogRepository) GetAccountDailyUpstreamErrorCounts(ctx context.Context, accountID int64, startTime, endTime time.Time) (map[string]int64, error) {
+	result := make(map[string]int64)
+	if accountID <= 0 {
+		return result, nil
+	}
+
+	tzName := resolveUsageStatsTimezone()
+	query := `
+		SELECT
+			TO_CHAR(created_at AT TIME ZONE $4, 'YYYY-MM-DD') AS day,
+			COUNT(*) AS upstream_errors
+		FROM ops_error_logs
+		WHERE account_id = $1
+			AND created_at >= $2
+			AND created_at < $3
+			AND error_owner = 'provider'
+			AND COALESCE(is_business_limited, FALSE) = FALSE
+			AND COALESCE(is_count_tokens, FALSE) = FALSE
+			AND COALESCE(upstream_status_code, status_code, 0) NOT IN (429, 529)
+		GROUP BY 1
+	`
+	rows, err := r.sql.QueryContext(ctx, query, accountID, startTime, endTime, tzName)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var day string
+		var count int64
+		if err := rows.Scan(&day, &count); err != nil {
+			return nil, err
+		}
+		result[day] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

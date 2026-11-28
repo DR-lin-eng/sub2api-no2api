@@ -56,10 +56,6 @@ var openAIWSJPEGBufferPool = sync.Pool{New: func() any {
 	return new(bytes.Buffer)
 }}
 
-func (s *OpenAIGatewayService) prepareOpenAIWSImagePayload(payload []byte) ([]byte, openAIWSImageCompressionResult) {
-	return s.prepareOpenAIWSImagePayloadForAccount(nil, payload)
-}
-
 func (s *OpenAIGatewayService) prepareOpenAIWSImagePayloadForAccount(account *Account, payload []byte) ([]byte, openAIWSImageCompressionResult) {
 	cfg := s.openAIWSImageCompressionConfig()
 	if account != nil && account.IsOpenAIApiKey() && !cfg.APIKeyEnabled {
@@ -426,7 +422,10 @@ func encodeOpenAIWSImage(rawURL string, profile openAIWSImageProfile, cfg config
 	stddraw.Draw(dst, dst.Bounds(), &image.Uniform{C: color.White}, image.Point{}, stddraw.Src)
 	xdraw.ApproxBiLinear.Scale(dst, dst.Bounds(), src, bounds, stddraw.Over, nil)
 
-	buffer := openAIWSJPEGBufferPool.Get().(*bytes.Buffer)
+	buffer, ok := openAIWSJPEGBufferPool.Get().(*bytes.Buffer)
+	if !ok || buffer == nil {
+		buffer = new(bytes.Buffer)
+	}
 	buffer.Reset()
 	defer func() {
 		buffer.Reset()

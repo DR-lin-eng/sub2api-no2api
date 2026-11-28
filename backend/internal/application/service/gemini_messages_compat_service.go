@@ -2555,13 +2555,22 @@ func isGeminiBase64Alphabet(c byte) bool {
 
 func extractGeminiUsage(data []byte) *ClaudeUsage {
 	usage := gjson.GetBytes(data, "usageMetadata")
-	if !usage.Exists() {
+	if !usage.IsObject() {
 		return nil
 	}
-	prompt := int(usage.Get("promptTokenCount").Int())
-	cand := int(usage.Get("candidatesTokenCount").Int())
-	cached := int(usage.Get("cachedContentTokenCount").Int())
-	thoughts := int(usage.Get("thoughtsTokenCount").Int())
+	promptField := usage.Get("promptTokenCount")
+	candField := usage.Get("candidatesTokenCount")
+	cachedField := usage.Get("cachedContentTokenCount")
+	thoughtsField := usage.Get("thoughtsTokenCount")
+	hasCounter := (promptField.Exists() && promptField.Type != gjson.Null) ||
+		(candField.Exists() && candField.Type != gjson.Null) ||
+		(cachedField.Exists() && cachedField.Type != gjson.Null) ||
+		(thoughtsField.Exists() && thoughtsField.Type != gjson.Null)
+
+	prompt := int(promptField.Int())
+	cand := int(candField.Int())
+	cached := int(cachedField.Int())
+	thoughts := int(thoughtsField.Int())
 
 	// 从 candidatesTokensDetails 提取 IMAGE 模态 token 数
 	imageTokens := 0
@@ -2569,11 +2578,20 @@ func extractGeminiUsage(data []byte) *ClaudeUsage {
 	if candidateDetails.Exists() {
 		candidateDetails.ForEach(func(_, detail gjson.Result) bool {
 			if detail.Get("modality").String() == "IMAGE" {
-				imageTokens = int(detail.Get("tokenCount").Int())
+				tokenCountField := detail.Get("tokenCount")
+				if tokenCountField.Exists() && tokenCountField.Type != gjson.Null {
+					hasCounter = true
+					imageTokens = int(tokenCountField.Int())
+				}
 				return false
 			}
 			return true
 		})
+	}
+
+	reasoningTokens := apicompat.ReasoningTokensFromUsage(usage)
+	if !hasCounter && reasoningTokens == nil {
+		return nil
 	}
 
 	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
@@ -2581,7 +2599,7 @@ func extractGeminiUsage(data []byte) *ClaudeUsage {
 	return &ClaudeUsage{
 		InputTokens:          max(prompt-cached, 0),
 		OutputTokens:         cand + thoughts,
-		ReasoningTokens:      apicompat.ReasoningTokensFromUsage(usage),
+		ReasoningTokens:      reasoningTokens,
 		CacheReadInputTokens: cached,
 		ImageOutputTokens:    imageTokens,
 	}

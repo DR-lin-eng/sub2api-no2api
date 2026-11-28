@@ -137,11 +137,6 @@ func (s *OpenAIGatewayService) shouldBypassOpenAIWSForSize(ctx context.Context, 
 	return s.shouldRouteOpenAIWSHTTPPayloadForAccount(account, body) && s.openAIWSHTTPRoutingAllowed(ctx, c, account, body, canonicalBody)
 }
 
-func (s *OpenAIGatewayService) shouldRouteOpenAIWSHTTPPayload(payload []byte) bool {
-	return s.openAIWSHTTPBridgeEnabled() &&
-		int64(len(payload)) >= s.openAIWSHTTPBridgeThresholdBytes()
-}
-
 func (s *OpenAIGatewayService) shouldRouteOpenAIWSHTTPPayloadForAccount(account *Account, payload []byte) bool {
 	return s.openAIWSHTTPBridgeEnabled() &&
 		int64(len(payload)) >= s.openAIWSHTTPBridgeThresholdBytesForAccount(account)

@@ -69,7 +69,7 @@ vi.mock('@/features/admin-accounts/data/datasources/adminAccountActions', async 
   queryUpstreamQuota: vi.fn()
 }))
 
-vi.mock('@/features/admin-proxies/data/datasources/adminProxiesDatasource', () => ({ getAll: getAllProxies }))
+vi.mock('@/features/admin-proxies/data/datasources/adminProxiesDatasource', () => ({ getAll: getAllProxies, getAllWithCount: getAllProxies }))
 vi.mock('@/features/admin-groups/data/datasources/adminGroupQueries', () => ({ getAll: getAllGroups }))
 
 vi.mock('@/core/stores/appStore', () => ({

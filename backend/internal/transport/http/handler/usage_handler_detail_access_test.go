@@ -40,7 +40,7 @@ func (s *usageDetailSettingRepoStub) GetMultiple(context.Context, []string) (map
 
 func newUsageDetailTestRouter(usageRepo *usageDetailRepoStub, settingService *service.SettingService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	h := NewUsageHandler(service.NewUsageService(usageRepo, nil, nil, nil), nil, nil, settingService)
+	h := NewUsageHandler(service.NewUsageService(usageRepo, nil, nil, nil), nil, nil, settingService, nil)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 42})

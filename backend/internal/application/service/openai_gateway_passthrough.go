@@ -429,7 +429,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthroughOnce(
 				transportCtx = withOpenAITransportRetryCandidate(ctx)
 			}
 			failoverErr := s.handleOpenAIUpstreamTransportError(transportCtx, c, account, err, true)
-			if typed, ok := failoverErr.(*UpstreamFailoverError); ok && !classifyOpenAITransportError(err).Persistent {
+			if typed, ok := failoverErr.(*UpstreamFailoverError); ok && !classifyOpenAITransportError(err).Persistent() {
 				markOpenAIPassthroughTransportRetry(typed)
 			}
 			return nil, failoverErr
@@ -2396,7 +2396,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			return resultWithUsage(), err
 		}
 		if !openAIStreamClientOutputStarted(c, clientOutputStarted) && !sawOutputProgressEvent {
-			if classifyOpenAITransportError(err).Persistent {
+			if classifyOpenAITransportError(err).Persistent() {
 				return resultWithUsage(), s.handleOpenAIUpstreamTransportError(ctx, c, account, err, true)
 			}
 			if isOpenAITransportTimeout(err) && isOpenAITransportRetryCandidate(ctx) && !IsOpenAIStreamResponseHeaderTimeout(err) {
@@ -2476,7 +2476,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 			return nil, err
 		}
 		failoverErr := s.handleOpenAIUpstreamTransportError(ctx, c, account, err, true)
-		if typed, ok := failoverErr.(*UpstreamFailoverError); ok && !classifyOpenAITransportError(err).Persistent {
+		if typed, ok := failoverErr.(*UpstreamFailoverError); ok && !classifyOpenAITransportError(err).Persistent() {
 			markOpenAIPassthroughTransportRetry(typed)
 		}
 		return nil, failoverErr

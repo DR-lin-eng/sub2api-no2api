@@ -46,6 +46,13 @@
           formatCurrency(props.stats.user_cost)
         }}</span>
       </div>
+      <!-- Upstream Errors -->
+      <div v-if="(props.stats.upstream_errors ?? 0) > 0" class="flex items-center gap-1">
+        <span class="text-gray-500 dark:text-gray-400">{{ t('admin.accounts.stats.upstreamErrors') }}:</span>
+        <span class="font-medium text-red-600 dark:text-red-400">{{
+          formatNumber(props.stats.upstream_errors ?? 0)
+        }}</span>
+      </div>
     </div>
 
     <!-- No data -->

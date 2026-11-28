@@ -179,6 +179,8 @@ export default {
         billingModelSourceUpstream: 'Bill by final upstream model',
         billingModelSourceResponse: 'Bill by upstream response model',
         billingModelSourceHint: 'Controls which model name is used for pricing lookup',
+        exposeResponseModel: 'Show Response Model in User Usage Logs',
+        exposeResponseModelDesc: 'When enabled, user usage logs display the upstream response model when it differs from the requested model.',
         selectedCount: '{count} selected',
         searchGroups: 'Search groups...',
         noGroupsMatch: 'No groups match your search',

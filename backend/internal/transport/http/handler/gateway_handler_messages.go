@@ -563,6 +563,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 	for {
 		fs := NewFailoverState(h.maxAccountSwitches, hasBoundSession)
+		var attemptedAccountIDs []int64
 		retryWithFallback := false
 
 		for {
@@ -759,6 +760,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					reqLog.Warn("gateway.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 				}
 			}
+			attemptedAccountIDs = append(attemptedAccountIDs, account.ID)
 			// 账号槽位/等待计数需要在超时或断开时安全回收
 			accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
@@ -1027,14 +1029,20 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 			}
 
-			// 绑定粘性会话（成功转发后绑定/刷新）
-			// - 无现有绑定（首次请求）：创建绑定
-			// - 选中账号与粘性账号一致：刷新 TTL
-			// - 粘性账号因负载/RPM 被跳过、选中了其他账号：不覆盖原绑定，
+			// 绑定粘性会话（成功转发后原子 CAS 绑定/刷新，不覆盖并发请求的新绑定）
+			// - 无现有绑定（首次请求）：若未被并发请求改绑则创建绑定
+			// - 选中账号与原粘性账号一致：仅当仍指向该账号时刷新 TTL
+			// - 本次请求经历了故障转移（len(attemptedAccountIDs) > 1）：若仍指向空或本轮已失败账号则改绑到当前成功账号
+			// - 粘性账号仅因负载/RPM 被临时跳过（首跳即选其他账号）：不覆盖原绑定，
 			//   下次请求粘性账号恢复后仍可命中
-			if sessionKey != "" && (sessionBoundAccountID == 0 || sessionBoundAccountID == account.ID) {
+			shouldWriteBackSticky := sessionBoundAccountID == 0 || sessionBoundAccountID == account.ID || len(attemptedAccountIDs) > 1
+			if sessionKey != "" && shouldWriteBackSticky {
+				var failedOverAccountIDs []int64
+				if len(attemptedAccountIDs) > 1 {
+					failedOverAccountIDs = attemptedAccountIDs[:len(attemptedAccountIDs)-1]
+				}
 				bindCtx, cancelBind := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 5*time.Second)
-				bindErr := h.gatewayService.BindStickySession(bindCtx, currentAPIKey.GroupID, sessionKey, account.ID)
+				bindErr := h.gatewayService.BindStickySessionUnlessRebound(bindCtx, currentAPIKey.GroupID, sessionKey, account.ID, failedOverAccountIDs)
 				cancelBind()
 				if err := bindErr; err != nil {
 					reqLog.Warn("gateway.bind_sticky_session_failed", zap.Int64("account_id", account.ID), zap.Error(err))

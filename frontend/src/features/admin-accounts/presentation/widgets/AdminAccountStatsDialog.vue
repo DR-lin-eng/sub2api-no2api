@@ -89,6 +89,13 @@
             </p>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.stats.totalCalls') }}
+              <span
+                v-if="(stats.summary.total_upstream_errors ?? 0) > 0"
+                class="text-red-600 dark:text-red-400"
+              >
+                · {{ t('admin.accounts.stats.upstreamErrors') }}:
+                {{ formatNumber(stats.summary.total_upstream_errors ?? 0) }}
+              </span>
             </p>
           </div>
 
@@ -195,6 +202,17 @@
                 }}</span>
                 <span class="text-sm font-semibold text-gray-900 dark:text-white">{{
                   formatTokens(stats.summary.today?.tokens || 0)
+                }}</span>
+              </div>
+              <div
+                v-if="(stats.summary.today?.upstream_errors || 0) > 0"
+                class="flex items-center justify-between"
+              >
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{
+                  t('admin.accounts.stats.upstreamErrors')
+                }}</span>
+                <span class="text-sm font-semibold text-red-600 dark:text-red-400">{{
+                  formatNumber(stats.summary.today?.upstream_errors || 0)
                 }}</span>
               </div>
             </div>
@@ -550,6 +568,15 @@ const trendChartData = computed(() => {
         data: stats.value.history.map((h) => h.requests),
         borderColor: '#f97316',
         backgroundColor: 'rgba(249, 115, 22, 0.1)',
+        fill: false,
+        tension: 0.3,
+        yAxisID: 'y1'
+      },
+      {
+        label: t('admin.accounts.stats.upstreamErrors'),
+        data: stats.value.history.map((h) => h.upstream_errors ?? 0),
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
         fill: false,
         tension: 0.3,
         yAxisID: 'y1'

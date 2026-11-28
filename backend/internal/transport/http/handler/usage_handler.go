@@ -53,6 +53,7 @@ type UsageHandler struct {
 	apiKeyService  *service.APIKeyService
 	opsService     *service.OpsService
 	settingService *service.SettingService
+	channelService *service.ChannelService
 }
 
 // NewUsageHandler creates a new UsageHandler
@@ -61,13 +62,49 @@ func NewUsageHandler(
 	apiKeyService *service.APIKeyService,
 	opsService *service.OpsService,
 	settingService *service.SettingService,
+	channelService *service.ChannelService,
 ) *UsageHandler {
 	return &UsageHandler{
 		usageService:   usageService,
 		apiKeyService:  apiKeyService,
 		opsService:     opsService,
 		settingService: settingService,
+		channelService: channelService,
 	}
+}
+
+func (h *UsageHandler) userUsageLogs(c *gin.Context, records []service.UsageLog) []dto.UsageLog {
+	out := make([]dto.UsageLog, 0, len(records))
+	if len(records) == 0 {
+		return out
+	}
+	var exposedChannels map[int64]bool
+	if h != nil && h.channelService != nil {
+		var channelIDs []int64
+		seen := make(map[int64]struct{})
+		for i := range records {
+			cid := records[i].ChannelID
+			if cid == nil || *cid <= 0 {
+				continue
+			}
+			if _, exists := seen[*cid]; exists {
+				continue
+			}
+			seen[*cid] = struct{}{}
+			channelIDs = append(channelIDs, *cid)
+		}
+		if len(channelIDs) > 0 {
+			exposedChannels = h.channelService.ResponseModelExposedChannels(c.Request.Context(), channelIDs)
+		}
+	}
+	acceptLang := c.GetHeader("Accept-Language")
+	for i := range records {
+		item := dto.UsageLogFromService(&records[i]).Localized(acceptLang)
+		expose := records[i].ChannelID != nil && exposedChannels[*records[i].ChannelID]
+		item.ApplyResponseModel(&records[i], expose)
+		out = append(out, *item)
+	}
+	return out
 }
 
 func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) (*userUsageFilters, bool) {
@@ -248,10 +285,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 		return
 	}
 
-	out := make([]dto.UsageLog, 0, len(records))
-	for i := range records {
-		out = append(out, *dto.UsageLogFromService(&records[i]).Localized(c.GetHeader("Accept-Language")))
-	}
+	out := h.userUsageLogs(c, records)
 	response.Paginated(c, out, result.Total, page, pageSize)
 }
 
@@ -402,7 +436,8 @@ func (h *UsageHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.UsageLogFromService(record).Localized(c.GetHeader("Accept-Language")))
+	items := h.userUsageLogs(c, []service.UsageLog{*record})
+	response.Success(c, &items[0])
 }
 
 // Stats handles getting usage statistics

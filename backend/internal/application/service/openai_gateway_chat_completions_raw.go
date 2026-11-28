@@ -215,6 +215,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletionsWithStartTime(ctx cont
 		writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return nil, err
 	}
+	upstreamBody = ensureOpenAIChatReasoningContentOptIn(account, upstreamBody)
 	customUA := account.GetOpenAIUserAgent()
 	if customUA == "" && account.IsGrokOAuth() {
 		customUA = grokUpstreamUserAgent

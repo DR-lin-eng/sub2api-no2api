@@ -16,6 +16,7 @@ export interface UsageLog {
   request_id: string
   session_id?: string | null
   model: string
+  response_model?: string | null
   service_tier?: string | null
   reasoning_effort?: string | null
   inbound_endpoint?: string | null
@@ -521,6 +522,7 @@ export interface AccountUsageHistory {
   cost: number
   actual_cost: number // Account cost (account multiplier)
   user_cost: number // User/API key billed cost (group multiplier)
+  upstream_errors?: number
 }
 
 export interface AccountUsageSummary {
@@ -531,6 +533,7 @@ export interface AccountUsageSummary {
   total_standard_cost: number
   total_requests: number
   total_tokens: number
+  total_upstream_errors?: number
   avg_daily_cost: number // Account cost
   avg_daily_user_cost: number
   avg_daily_requests: number
@@ -543,6 +546,7 @@ export interface AccountUsageSummary {
     user_cost: number
     requests: number
     tokens: number
+    upstream_errors?: number
   } | null
   highest_cost_day: {
     date: string

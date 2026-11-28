@@ -121,6 +121,7 @@ export function buildAccountStatsPricingRules(
 export function buildChannelAPIFields(
   sections: PlatformSection[],
   existingFeaturesConfig?: Record<string, unknown>,
+  options?: { expose_response_model?: boolean },
 ): ChannelAPIFields {
   const groupIds: number[] = []
   const modelPricing: ChannelModelPricing[] = []
@@ -172,6 +173,9 @@ export function buildChannelAPIFields(
   featuresConfig.bedrock_cc_compat = sections.some(
     section => section.enabled && supportsChannelOption(section.platform, 'bedrock_cc_compat') && section.bedrock_cc_compat
   )
+  if (options?.expose_response_model !== undefined) {
+    featuresConfig.expose_response_model = !!options.expose_response_model
+  }
 
   return {
     group_ids: Array.from(new Set(groupIds)),

@@ -152,6 +152,69 @@ func ensureDeepSeekChatReasoningPlaceholders(account *Account, body []byte) []by
 	return append(updated, body[cursor:]...)
 }
 
+// OpenAIChatReasoningContentExtraKey enables assistant tool-call reasoning_content
+// backfill on raw Chat Completions for OpenAI API-key relays whose custom model IDs
+// do not expose reasoning semantics automatically (e.g. kimi-for-coding).
+const OpenAIChatReasoningContentExtraKey = "openai_chat_reasoning_content"
+
+func shouldBackfillOpenAIChatReasoningContent(account *Account) bool {
+	if account == nil || account.Platform != PlatformOpenAI || account.Type != AccountTypeAPIKey || len(account.Extra) == 0 {
+		return false
+	}
+	enabled, ok := account.Extra[OpenAIChatReasoningContentExtraKey].(bool)
+	return ok && enabled
+}
+
+// ensureOpenAIChatReasoningContentOptIn sets reasoning_content: "" on assistant
+// tool_calls turns that omit or null reasoning_content when the account opted in.
+// Uses a single-pass byte splice after a cheap substring pre-check.
+func ensureOpenAIChatReasoningContentOptIn(account *Account, body []byte) []byte {
+	if !shouldBackfillOpenAIChatReasoningContent(account) || !bytes.Contains(body, []byte("tool_calls")) {
+		return body
+	}
+	messages := gjson.GetBytes(body, "messages")
+	if !messages.IsArray() {
+		return body
+	}
+	var updated []byte
+	cursor := 0
+	valid := true
+	messages.ForEach(func(_, message gjson.Result) bool {
+		if strings.TrimSpace(message.Get("role").String()) != "assistant" {
+			return true
+		}
+		toolCalls := message.Get("tool_calls")
+		if !toolCalls.IsArray() || len(toolCalls.Array()) == 0 {
+			return true
+		}
+		rc := message.Get("reasoning_content")
+		if rc.Exists() && rc.Type != gjson.Null {
+			return true
+		}
+		start, end := message.Index, message.Index+len(message.Raw)
+		if start < cursor || end > len(body) || !bytes.Equal(body[start:end], []byte(message.Raw)) {
+			valid = false
+			return false
+		}
+		next, err := sjson.Set(message.Raw, "reasoning_content", "")
+		if err != nil {
+			valid = false
+			return false
+		}
+		if updated == nil {
+			updated = make([]byte, 0, len(body)+64)
+		}
+		updated = append(updated, body[cursor:start]...)
+		updated = append(updated, next...)
+		cursor = end
+		return true
+	})
+	if !valid || updated == nil {
+		return body
+	}
+	return append(updated, body[cursor:]...)
+}
+
 // normalizeDeepSeekResponsesRequestBody adapts the stateless native DeepSeek
 // Responses endpoint and its image serde. DeepSeek accepts the standard
 // Responses shape but requires store=false, no previous_response_id, and an

@@ -748,6 +748,7 @@ const applyLatencyResult = (
     target.city = undefined
   }
   target.latency_message = result.message
+  target.latency_checked_at = new Date().toISOString()
 }
 
 const summarizeQualityStatus = (result: ProxyQualityCheckResult): Proxy['quality_status'] => {
@@ -768,7 +769,16 @@ const applyQualityResult = (proxyId: number, result: ProxyQualityCheckResult) =>
 }
 
 const formatLocation = (proxy: Proxy) => {
-  const parts = [proxy.country, proxy.city].filter(Boolean) as string[]
+  const seen = new Set<string>()
+  const parts: string[] = []
+  for (const raw of [proxy.country, proxy.region, proxy.city]) {
+    const trimmed = raw?.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    parts.push(trimmed)
+  }
   return parts.join(' · ')
 }
 

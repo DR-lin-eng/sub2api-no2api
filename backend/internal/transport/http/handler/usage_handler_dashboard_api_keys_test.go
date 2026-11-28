@@ -114,7 +114,7 @@ func TestDashboardAPIKeysUsageExposesPendingCosts(t *testing.T) {
 	}}, nil, nil, nil)
 	apiKeySvc := service.NewAPIKeyService(&dashboardAPIKeyOwnershipRepoStub{}, nil, nil, nil, nil, nil, nil)
 	apiKeySvc.SetPendingUsageReader(&dashboardPendingUsageReaderStub{costs: map[int64]float64{7: 0.75}})
-	handler := NewUsageHandler(usageSvc, apiKeySvc, nil, nil)
+	handler := NewUsageHandler(usageSvc, apiKeySvc, nil, nil, nil)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 42})
@@ -144,7 +144,7 @@ func TestDashboardAPIKeysPendingUsageIsLightweightAndOwnershipScoped(t *testing.
 	gin.SetMode(gin.TestMode)
 	apiKeySvc := service.NewAPIKeyService(&dashboardAPIKeyOwnershipRepoStub{validIDs: []int64{7}}, nil, nil, nil, nil, nil, nil)
 	apiKeySvc.SetPendingUsageReader(&dashboardPendingUsageReaderStub{costs: map[int64]float64{7: 0.75, 8: 99}})
-	handler := NewUsageHandler(nil, apiKeySvc, nil, nil)
+	handler := NewUsageHandler(nil, apiKeySvc, nil, nil, nil)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 42})
@@ -173,7 +173,7 @@ func TestDashboardAPIKeysPendingUsageReportsRedisUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	apiKeySvc := service.NewAPIKeyService(&dashboardAPIKeyOwnershipRepoStub{}, nil, nil, nil, nil, nil, nil)
 	apiKeySvc.SetPendingUsageReader(&dashboardPendingUsageReaderStub{err: errors.New("redis unavailable")})
-	handler := NewUsageHandler(nil, apiKeySvc, nil, nil)
+	handler := NewUsageHandler(nil, apiKeySvc, nil, nil, nil)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 42})

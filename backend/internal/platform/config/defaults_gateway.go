@@ -126,6 +126,7 @@ func setGatewayDefaults() {
 	viper.SetDefault("gateway.image_concurrency.wait_timeout_seconds", 30)
 	viper.SetDefault("gateway.image_concurrency.max_waiting_requests", 100)
 	viper.SetDefault("gateway.antigravity_fallback_cooldown_minutes", 1)
+	viper.SetDefault("gateway.antigravity_gemini_omit_include_thoughts", false)
 	viper.SetDefault("gateway.antigravity_internal500_image_cooldown_seconds", 120)
 	viper.SetDefault("gateway.antigravity_internal500_tier1_seconds", 1800)
 	viper.SetDefault("gateway.antigravity_internal500_tier2_seconds", 7200)

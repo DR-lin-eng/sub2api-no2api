@@ -1402,6 +1402,7 @@ export default {
         cost: 'Cost',
         requests: 'Requests',
         tokens: 'Tokens',
+        upstreamErrors: 'Upstream Errors',
         highestCostDay: 'Highest Cost Day',
         highestRequestDay: 'Highest Request Day',
         date: 'Date',

@@ -468,6 +468,7 @@ export default {
     upstreamModel: 'Upstream',
     sentUpstreamModel: 'Sent upstream',
     upstreamResponseModel: 'Upstream response',
+    responseModel: 'Response',
     upstreamModelMismatch: 'Response model mismatch',
     modelVariant: 'Possible version variant',
     modelMismatch: 'Different model',

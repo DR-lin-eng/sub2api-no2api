@@ -4,14 +4,63 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/modules/modelcatalog"
 )
 
+// ImageInputModelsExtraKey lets custom OpenAI API-key accounts (e.g. vLLM/SGLang)
+// declare model IDs whose Codex /models manifest should advertise ["text","image"].
+const ImageInputModelsExtraKey = "image_input_models"
+
+var codexTextAndImageModalitiesJSON = json.RawMessage(`["text","image"]`)
+
+// AccountDeclaresImageInputModel reports whether account.Extra["image_input_models"]
+// lists modelID (case-insensitively).
+func AccountDeclaresImageInputModel(account *Account, modelID string) bool {
+	target := strings.TrimSpace(modelID)
+	if account == nil || target == "" || len(account.Extra) == 0 {
+		return false
+	}
+	raw, ok := account.Extra[ImageInputModelsExtraKey]
+	if !ok || raw == nil {
+		return false
+	}
+	switch items := raw.(type) {
+	case []string:
+		for _, item := range items {
+			if strings.EqualFold(strings.TrimSpace(item), target) {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range items {
+			if s, ok := item.(string); ok && strings.EqualFold(strings.TrimSpace(s), target) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func accountHasDeclaredImageInputModels(account *Account) bool {
+	if account == nil || len(account.Extra) == 0 {
+		return false
+	}
+	switch items := account.Extra[ImageInputModelsExtraKey].(type) {
+	case []string:
+		return len(items) > 0
+	case []any:
+		return len(items) > 0
+	default:
+		return false
+	}
+}
+
 // CodexManifestProjectionEnabled requires local conditional validation whenever
 // account metadata may affect the body, independently of upstream cache ETags.
 func CodexManifestProjectionEnabled(account *Account) bool {
-	return account != nil && (!account.IsOpenAIPassthroughEnabled() || account.IsOpenAIPassthroughModelFilterEnabled() || (account.IsOpenAI() && (account.IsOAuth() || account.IsShadow())))
+	return account != nil && (!account.IsOpenAIPassthroughEnabled() || account.IsOpenAIPassthroughModelFilterEnabled() || accountHasDeclaredImageInputModels(account) || (account.IsOpenAI() && (account.IsOAuth() || account.IsShadow())))
 }
 
 func codexMetadataOverrides(account *Account) map[string]modelcatalog.Descriptor {
@@ -73,6 +122,9 @@ func enrichCodexModelsManifest(body []byte, account *Account) ([]byte, error) {
 		}
 		merged := modelcatalog.Fill(entry, fallback)
 		delete(merged, "id")
+		if AccountDeclaresImageInputModel(account, id) {
+			merged["input_modalities"] = codexTextAndImageModalitiesJSON
+		}
 		merged = applyCodexMetadataOverride(merged, overrides[id])
 		normalizeCodexReasoningLevels(merged)
 		encoded, err := json.Marshal(merged)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '../accountUsageRefresh'
+import { buildAccountUsageRefreshKey, buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '../accountUsageRefresh'
 
 describe('buildOpenAIUsageRefreshKey', () => {
   it('会在 codex 快照变化时生成不同 key', () => {
@@ -123,5 +123,38 @@ describe('buildGrokUsageRefreshKey', () => {
 
   it('returns an empty key for non-Grok accounts', () => {
     expect(buildGrokUsageRefreshKey({ platform: 'openai', extra: {} } as any)).toBe('')
+  })
+})
+
+describe('buildAccountUsageRefreshKey (Gemini)', () => {
+  it('changes when Gemini quota tier or official/custom base_url scope changes, without churning between custom relays', () => {
+    const base = {
+      id: 11,
+      platform: 'gemini',
+      type: 'apikey',
+      updated_at: '2026-11-27T00:00:00Z',
+      last_used_at: null,
+      credentials: {
+        tier_id: 'aistudio_free',
+        base_url: 'https://generativelanguage.googleapis.com'
+      }
+    } as any
+
+    const paidTier = {
+      ...base,
+      credentials: { ...base.credentials, tier_id: 'aistudio_paid' }
+    }
+    const relayOne = {
+      ...base,
+      credentials: { ...base.credentials, base_url: 'https://relay-a.example.com/v1beta' }
+    }
+    const relayTwo = {
+      ...base,
+      credentials: { ...base.credentials, base_url: 'https://relay-b.example.com/v1beta' }
+    }
+
+    expect(buildAccountUsageRefreshKey(base)).not.toBe(buildAccountUsageRefreshKey(paidTier))
+    expect(buildAccountUsageRefreshKey(base)).not.toBe(buildAccountUsageRefreshKey(relayOne))
+    expect(buildAccountUsageRefreshKey(relayOne)).toBe(buildAccountUsageRefreshKey(relayTwo))
   })
 })
