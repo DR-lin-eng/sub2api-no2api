@@ -46,34 +46,36 @@ const stats = {
 describe('UsageStatsCards', () => {
   it('shows cache token breakdown values', () => {
     const wrapper = mount(UsageStatsCards, {
-      props: {
-        stats,
-      },
-      global: {
-        stubs: {
-          Icon: true,
-        },
-      },
+      props: { stats },
+      global: { stubs: { Icon: true, Teleport: true } }
     })
 
-    const text = wrapper.text()
-    expect(text).toContain('Cache: 34')
-    expect(text).toContain('Cache Token Breakdown')
-    const breakdown = document.body.querySelector('[data-testid="cache-breakdown-tooltip"]')?.textContent
-    expect(breakdown).toContain('Cache Creation')
-    expect(breakdown).toContain('12')
-    expect(breakdown).toContain('Cache Read')
-    expect(breakdown).toContain('22')
+    try {
+      expect(wrapper.text()).toContain('Cache: 34')
+      const breakdown = wrapper.get('[data-testid="cache-breakdown-tooltip"]').text()
+      expect(breakdown).toContain('Cache Token Breakdown')
+      expect(breakdown).toContain('Cache Creation')
+      expect(breakdown).toContain('12')
+      expect(breakdown).toContain('Cache Read')
+      expect(breakdown).toContain('22')
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('opens the cache breakdown for keyboard users', async () => {
-    const wrapper = mount(UsageStatsCards, { attachTo: document.body, props: { stats } })
+    const wrapper = mount(UsageStatsCards, {
+      props: { stats },
+      attachTo: document.body,
+      global: { stubs: { Teleport: true } }
+    })
 
     try {
-      await wrapper.get('button').trigger('focusin')
-      const tooltip = document.body.querySelector('[data-testid="cache-breakdown-tooltip"]')
-      expect(tooltip?.closest<HTMLElement>('[role="tooltip"]')?.style.display).not.toBe('none')
-      expect(tooltip?.textContent).toContain('Cache Read')
+      const tooltip = wrapper.get('[role="tooltip"]').element as HTMLElement
+      expect(tooltip.style.display).toBe('none')
+      await wrapper.get('.group').trigger('focusin')
+      expect((wrapper.get('[role="tooltip"]').element as HTMLElement).style.display).not.toBe('none')
+      expect(tooltip.textContent).toContain('Cache Read')
     } finally {
       wrapper.unmount()
     }

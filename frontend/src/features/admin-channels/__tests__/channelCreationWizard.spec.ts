@@ -74,7 +74,7 @@ it('saves only the chosen provider even if a replaced provider finishes a model 
   await wrapper.get('fieldset input[value="2"]').setValue(true)
   await wrapper.get('form').trigger('submit')
   expect(create).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-    name: 'Custom channel', group_ids: [2], model_pricing: [], features_config: { bedrock_cc_compat: false },
+    name: 'Custom channel', group_ids: [2], model_pricing: [], features_config: { bedrock_cc_compat: false, expose_response_model: false },
   }))
 })
 
