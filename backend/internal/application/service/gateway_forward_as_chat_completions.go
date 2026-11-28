@@ -191,6 +191,10 @@ func (s *GatewayService) ForwardAsChatCompletions(
 	// 且客户端在 body 里传了 thinking.type=enabled，补中默认 effort。
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, mappedModel)
 
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && s.rateLimitService != nil && account.IsAnthropicOAuthOrSetupToken() {
+		s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
+	}
+
 	// 14. Handle normal response
 	// Read Anthropic SSE → convert to Responses events → convert to CC format
 	var result *ForwardResult

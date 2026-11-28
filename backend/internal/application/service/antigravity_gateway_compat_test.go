@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/platform/config"
@@ -595,28 +596,32 @@ func TestAntigravityCompatStreamErrorCommitsSingleTerminalFrame(t *testing.T) {
 
 func TestAntigravityCompatKeepaliveAfterFirstEvent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	svc := newAntigravityCompatService(
-		config.GatewayConfig{MaxLineSize: defaultMaxLineSize, StreamKeepaliveInterval: 1},
-		nil,
-	)
-	c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/responses", nil)
-	reader, writer := io.Pipe()
-	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: reader}
-	done := make(chan error, 1)
+	synctest.Test(t, func(t *testing.T) {
+		svc := newAntigravityCompatService(
+			config.GatewayConfig{MaxLineSize: defaultMaxLineSize, StreamKeepaliveInterval: 1},
+			nil,
+		)
+		c, recorder := newAntigravityCompatContext(http.MethodPost, "/v1/responses", nil)
+		reader, writer := io.Pipe()
+		resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: reader}
+		done := make(chan error, 1)
 
-	go func() {
-		_, err := svc.handleResponsesStreamingFromAntigravity(c, resp, time.Now(), "gemini-3.1-pro-high")
-		done <- err
-	}()
-	_, err := io.WriteString(
-		writer,
-		`data: {"response":{"responseId":"resp_3757","candidates":[{"content":{"parts":[{"text":"partial"}]}}],"usageMetadata":{"promptTokenCount":8,"candidatesTokenCount":1}}}`+"\n\n",
-	)
-	require.NoError(t, err)
-	time.Sleep(1200 * time.Millisecond)
-	require.NoError(t, writer.Close())
-	require.NoError(t, <-done)
-	require.Contains(t, recorder.Body.String(), ": ping\n\n")
-	require.Contains(t, recorder.Header().Get("Content-Type"), "text/event-stream")
-	require.NoError(t, reader.Close())
+		go func() {
+			_, err := svc.handleResponsesStreamingFromAntigravity(c, resp, time.Now(), "gemini-3.1-pro-high")
+			done <- err
+		}()
+		_, err := io.WriteString(
+			writer,
+			`data: {"response":{"responseId":"resp_3757","candidates":[{"content":{"parts":[{"text":"partial"}]}}],"usageMetadata":{"promptTokenCount":8,"candidatesTokenCount":1}}}`+"\n\n",
+		)
+		require.NoError(t, err)
+		synctest.Wait()
+		time.Sleep(2200 * time.Millisecond)
+		synctest.Wait()
+		require.NoError(t, writer.Close())
+		require.NoError(t, <-done)
+		require.GreaterOrEqual(t, strings.Count(recorder.Body.String(), ": ping\n\n"), 2)
+		require.Contains(t, recorder.Header().Get("Content-Type"), "text/event-stream")
+		require.NoError(t, reader.Close())
+	})
 }

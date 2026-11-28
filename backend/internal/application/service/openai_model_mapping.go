@@ -56,6 +56,15 @@ var openAIOAuthForeignModelPrefixes = []string{
 	"yi-",
 }
 
+func isKimiK31Model(model string) bool {
+	switch strings.ToLower(lastOpenAIModelSegment(model)) {
+	case "k3.1-pro", "k3.1-pro-highspeed", "kimi-k3.1-pro":
+		return true
+	default:
+		return false
+	}
+}
+
 // isOpenAIOAuthServableModel 判断「空 model_mapping 的 OpenAI OAuth 账号」能否
 // 服务请求模型。只有 Codex 已知模型和 Claude Messages 的可归一化家族才放行；
 // 真正未知的模型应在调度阶段交给 API Key/显式映射账号，避免先把原始别名发到
@@ -66,7 +75,7 @@ func isOpenAIOAuthServableModel(requestedModel string) bool {
 		return true // 空模型交由上层必填校验处理
 	}
 	// Kimi Code 官方 bare model ID：无厂商前缀，prefix 黑名单挡不住。
-	if model == "k3" || model == "k3-256k" {
+	if model == "k3" || model == "k3-256k" || isKimiK31Model(model) {
 		return false
 	}
 	for _, prefix := range openAIOAuthForeignModelPrefixes {
@@ -255,7 +264,7 @@ func isOpenAIOAuthSyncedModel(requestedModel string, supportedModels []string) b
 	if lowerModel == "" {
 		return true
 	}
-	if lowerModel == "k3" || lowerModel == "k3-256k" {
+	if lowerModel == "k3" || lowerModel == "k3-256k" || isKimiK31Model(lowerModel) {
 		return false
 	}
 	for _, prefix := range openAIOAuthForeignModelPrefixes {

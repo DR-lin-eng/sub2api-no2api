@@ -136,7 +136,17 @@ func AnthropicToResponsesResponse(resp *AnthropicResponse) *ResponsesResponse {
 		}
 	}
 
+	if details := resp.Usage.OutputTokensDetails; details != nil && details.ThinkingTokens != nil {
+		out.Usage.OutputTokensDetails = anthropicReasoningDetails(*details.ThinkingTokens, resp.Usage.OutputTokens)
+	}
 	return out
+}
+
+func anthropicReasoningDetails(thinking, total int) *ResponsesOutputTokensDetails {
+	if bounded := min(thinking, total); bounded > 0 {
+		return &ResponsesOutputTokensDetails{ReasoningTokens: bounded}
+	}
+	return nil
 }
 
 // anthropicStopReasonToResponsesStatus maps Anthropic stop_reason to Responses status.
@@ -209,6 +219,7 @@ type AnthropicEventToResponsesState struct {
 	// emitting the OpenAI Responses usage.
 	InputTokens              int
 	OutputTokens             int
+	ReasoningTokens          int
 	CacheReadInputTokens     int
 	CacheCreationInputTokens int
 	CacheCreation            AnthropicCacheCreation
@@ -313,6 +324,12 @@ func anthToResHandleMessageStart(evt *AnthropicStreamEvent, state *AnthropicEven
 		}
 		if evt.Message.Usage.CacheReadInputTokens > 0 {
 			state.CacheReadInputTokens = evt.Message.Usage.CacheReadInputTokens
+		}
+		if evt.Message.Usage.OutputTokens > 0 {
+			state.OutputTokens = evt.Message.Usage.OutputTokens
+		}
+		if details := evt.Message.Usage.OutputTokensDetails; details != nil && details.ThinkingTokens != nil {
+			state.ReasoningTokens = *details.ThinkingTokens
 		}
 		state.mergeCacheCreationUsage(evt.Message.Usage)
 	}
@@ -570,6 +587,9 @@ func anthToResHandleMessageDelta(evt *AnthropicStreamEvent, state *AnthropicEven
 		if evt.Usage.CacheReadInputTokens > 0 {
 			state.CacheReadInputTokens = evt.Usage.CacheReadInputTokens
 		}
+		if details := evt.Usage.OutputTokensDetails; details != nil && details.ThinkingTokens != nil {
+			state.ReasoningTokens = *details.ThinkingTokens
+		}
 		state.mergeCacheCreationUsage(*evt.Usage)
 	}
 	if evt.Delta != nil && evt.Delta.StopReason != "" {
@@ -710,6 +730,8 @@ func makeResponsesCompletedEvent(
 			CachedTokens: state.CacheReadInputTokens,
 		}
 	}
+
+	usage.OutputTokensDetails = anthropicReasoningDetails(state.ReasoningTokens, state.OutputTokens)
 
 	var responseError *ResponsesError
 	if state.ThinkingReplayError != "" {

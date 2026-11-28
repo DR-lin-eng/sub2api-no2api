@@ -59,31 +59,24 @@ describe('UsageStatsCards', () => {
     const text = wrapper.text()
     expect(text).toContain('Cache: 34')
     expect(text).toContain('Cache Token Breakdown')
-    expect(text).toContain('Cache Creation')
-    expect(text).toContain('12')
-    expect(text).toContain('Cache Read')
-    expect(text).toContain('22')
+    const breakdown = document.body.querySelector('[data-testid="cache-breakdown-tooltip"]')?.textContent
+    expect(breakdown).toContain('Cache Creation')
+    expect(breakdown).toContain('12')
+    expect(breakdown).toContain('Cache Read')
+    expect(breakdown).toContain('22')
   })
 
-  it('keeps the cache breakdown tooltip inside narrow viewports', () => {
-    const wrapper = mount(UsageStatsCards, {
-      props: {
-        stats,
-      },
-      global: {
-        stubs: {
-          Icon: true,
-        },
-      },
-    })
+  it('opens the cache breakdown for keyboard users', async () => {
+    const wrapper = mount(UsageStatsCards, { attachTo: document.body, props: { stats } })
 
-    const tooltip = wrapper.get('[data-testid="cache-breakdown-tooltip"]')
-    expect(tooltip.classes()).toContain('right-0')
-    expect(tooltip.classes()).toContain('sm:left-1/2')
-    expect(tooltip.classes()).toContain('sm:-translate-x-1/2')
-    expect(tooltip.classes()).toContain('hidden')
-    expect(tooltip.classes()).toContain('group-hover:block')
-    expect(tooltip.classes()).not.toContain('opacity-0')
+    try {
+      await wrapper.get('button').trigger('focusin')
+      const tooltip = document.body.querySelector('[data-testid="cache-breakdown-tooltip"]')
+      expect(tooltip?.closest<HTMLElement>('[role="tooltip"]')?.style.display).not.toBe('none')
+      expect(tooltip?.textContent).toContain('Cache Read')
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('ignores injected account cost for user audiences', () => {

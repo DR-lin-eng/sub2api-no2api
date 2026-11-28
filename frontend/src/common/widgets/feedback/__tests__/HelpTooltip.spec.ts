@@ -105,7 +105,7 @@ describe('HelpTooltip', () => {
       await trigger.trigger('mouseenter')
       await nextTick()
       const tooltip = getTooltipElement()
-      expect(tooltip.style.top).toBe('calc(42px)')
+      expect(tooltip.style.top).toBe('42px')
       expect(tooltip.style.left).toBe('90px')
       wrapper.unmount()
     } finally {

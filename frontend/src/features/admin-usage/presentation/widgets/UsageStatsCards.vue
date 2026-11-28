@@ -15,48 +15,30 @@
       <div>
         <p class="text-xs font-medium text-gray-500">{{ t('usage.totalTokens') }}</p>
         <p class="text-xl font-bold">{{ formatTokens(stats?.total_tokens || 0) }}</p>
-        <p class="flex flex-wrap items-center gap-x-1 text-xs text-gray-500">
+        <div class="flex flex-wrap items-center gap-x-1 text-xs text-gray-500">
           <span>{{ t('usage.in') }}: {{ formatTokens(stats?.total_input_tokens || 0) }}</span>
           <span>/</span>
           <span>{{ t('usage.out') }}: {{ formatTokens(stats?.total_output_tokens || 0) }}</span>
           <span>/</span>
-          <span class="group relative inline-flex cursor-help items-center gap-0.5" tabindex="0">
-            <span>{{ cacheLabel() }}: {{ formatTokens(stats?.total_cache_tokens || 0) }}</span>
-            <svg
-              class="h-3.5 w-3.5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span
-              data-testid="cache-breakdown-tooltip"
-              class="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden w-56 rounded-lg border border-gray-200 bg-white p-3 text-left text-xs text-gray-700 shadow-lg group-hover:block group-focus:block sm:left-1/2 sm:right-auto sm:-translate-x-1/2 dark:border-dark-600 dark:bg-dark-800 dark:text-dark-200"
-            >
-              <span class="mb-2 block font-medium text-gray-900 dark:text-white">
-                {{ cacheDetailLabel() }}
-              </span>
-              <span class="flex items-center justify-between gap-3">
+          <HelpTooltip width-class="w-56">
+            <template #trigger>
+              <button type="button" class="inline-flex cursor-help items-center gap-0.5">
+                <span>{{ cacheLabel() }}: {{ formatTokens(stats?.total_cache_tokens || 0) }}</span>
+              </button>
+            </template>
+            <div data-testid="cache-breakdown-tooltip" class="text-left">
+              <strong class="mb-2 block">{{ cacheDetailLabel() }}</strong>
+              <div class="flex justify-between gap-3">
                 <span>{{ t('usage.cacheCreationTokensLabel') }}</span>
-                <span class="tabular-nums">
-                  {{ formatTokens(stats?.total_cache_creation_tokens || 0) }}
-                </span>
-              </span>
-              <span class="mt-1 flex items-center justify-between gap-3">
+                <span class="tabular-nums">{{ formatTokens(stats?.total_cache_creation_tokens || 0) }}</span>
+              </div>
+              <div class="mt-1 flex justify-between gap-3">
                 <span>{{ t('usage.cacheReadTokensLabel') }}</span>
-                <span class="tabular-nums">
-                  {{ formatTokens(stats?.total_cache_read_tokens || 0) }}
-                </span>
-              </span>
-            </span>
-          </span>
-        </p>
+                <span class="tabular-nums">{{ formatTokens(stats?.total_cache_read_tokens || 0) }}</span>
+              </div>
+            </div>
+          </HelpTooltip>
+        </div>
       </div>
     </div>
     <div class="card p-4 flex items-center gap-3">
@@ -95,6 +77,7 @@ import { useI18n } from 'vue-i18n'
 import type { AdminUsageStatsResponse } from '@/features/admin-usage/data/datasources/adminUsageDatasource'
 import type { UsageStatsResponse } from '@/types'
 import Icon from '@/common/widgets/icons/Icon.vue'
+import HelpTooltip from '@/common/widgets/feedback/HelpTooltip.vue'
 
 const props = withDefaults(defineProps<{
   stats: (AdminUsageStatsResponse | UsageStatsResponse) | null

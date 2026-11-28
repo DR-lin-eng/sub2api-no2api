@@ -43,6 +43,7 @@ const bareAntigravity429Body = `{"error":{"code":429,"message":"Resource has bee
 func runBare429Loop(t *testing.T, c *gin.Context, account *Account, body string) (cooled bool) {
 	t.Helper()
 	svc := &AntigravityGatewayService{}
+	upstream := &fixed429Upstream{body: body}
 	result, err := svc.antigravityRetryLoop(antigravityRetryLoopParams{
 		prefix:         "[test]",
 		ctx:            context.Background(),
@@ -51,13 +52,20 @@ func runBare429Loop(t *testing.T, c *gin.Context, account *Account, body string)
 		action:         "streamGenerateContent",
 		body:           []byte(`{"input":"test"}`),
 		c:              c,
-		httpUpstream:   &fixed429Upstream{body: body},
+		httpUpstream:   upstream,
 		requestedModel: "gemini-4-argon-high",
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			cooled = true
 			return nil
 		},
 	})
+	if classifyAntigravity429([]byte(body)) == antigravity429QuotaExhausted && !isBareAntigravity429(http.StatusTooManyRequests, []byte(body)) {
+		switchErr, ok := IsAntigravityAccountSwitchError(err)
+		require.True(t, ok, "expected quota exhaustion to request a different account, got %v", err)
+		require.Equal(t, account.ID, switchErr.OriginalAccountID)
+		require.Equal(t, 1, upstream.calls)
+		return cooled
+	}
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, result.resp)

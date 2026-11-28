@@ -54,3 +54,30 @@ export const getFloatingPanelPosition = (
     maxHeight
   }
 }
+
+export function getFloatingTooltipPosition(
+  anchor: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom' | 'width' | 'height'>,
+  width: number,
+  height: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  placement: 'above' | 'right'
+) {
+  const gap = 8
+  const fitsRight = anchor.right + gap + width <= viewportWidth - gap
+  const fitsLeft = anchor.left - gap - width >= gap
+  const centered = anchor.left + (anchor.width - width) / 2
+  let left = centered
+  let top = anchor.top - gap - height
+  if (placement === 'right' && (fitsRight || fitsLeft)) {
+    left = fitsRight ? anchor.right + gap : anchor.left - gap - width
+    top = anchor.top + (anchor.height - height) / 2
+  } else if (top < gap) {
+    top = anchor.bottom + gap
+  }
+
+  return {
+    left: Math.max(gap, Math.min(left, viewportWidth - width - gap)),
+    top: Math.max(gap, Math.min(top, viewportHeight - height - gap))
+  }
+}

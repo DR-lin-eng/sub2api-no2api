@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
+	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/ctxkey"
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/logger"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -106,6 +107,17 @@ func IsAntigravityAccountSwitchError(err error) (*AntigravityAccountSwitchError,
 		return switchErr, true
 	}
 	return nil, false
+}
+
+func antigravitySwitchToFailover(err error) *UpstreamFailoverError {
+	switchErr, ok := IsAntigravityAccountSwitchError(err)
+	if !ok {
+		return nil
+	}
+	return &UpstreamFailoverError{
+		StatusCode:        http.StatusServiceUnavailable,
+		ForceCacheBilling: switchErr.IsStickySession,
+	}
 }
 
 // PromptTooLongError 表示上游明确返回 prompt too long
@@ -546,6 +558,9 @@ func (s *AntigravityGatewayService) buildClaudeTestRequest(projectID, mappedMode
 
 func (s *AntigravityGatewayService) getClaudeTransformOptions(ctx context.Context) antigravity.TransformOptions {
 	opts := antigravity.DefaultTransformOptions()
+	if group, ok := ctx.Value(ctxkey.Group).(*Group); ok && IsGroupContextValid(group) {
+		opts.EnableMCPXML = group.MCPXMLInject
+	}
 	if s.settingService == nil {
 		return opts
 	}

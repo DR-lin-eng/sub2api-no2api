@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/httputil"
@@ -253,5 +254,23 @@ func TestFromBodyForRouteReturnsFirstCandidate(t *testing.T) {
 	got := FromBodyForRoute("", "application/json", []byte(`{"model":"first","model":"last"}`))
 	if got != "first" {
 		t.Fatalf("dispatch helper keeps gjson-first semantics, got %q", got)
+	}
+}
+
+func BenchmarkFromBodyCandidatesLargeRequest(b *testing.B) {
+	for _, sample := range []struct {
+		name string
+		size int
+	}{{"1MiB", 1 << 20}, {"8MiB", 8 << 20}} {
+		b.Run(sample.name, func(b *testing.B) {
+			body := []byte(`{"model":"public-model","session":{"model":"live-model"},"input":"` + strings.Repeat("x", sample.size) + `"}`)
+			b.ReportAllocs()
+			b.SetBytes(int64(len(body)))
+			for b.Loop() {
+				if models := FromBodyCandidates("", "application/json", body); len(models) != 1 || models[0] != "public-model" {
+					b.Fatalf("unexpected model candidates: %v", models)
+				}
+			}
+		})
 	}
 }

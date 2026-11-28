@@ -2,9 +2,13 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/DR-lin-eng/sub2api-no2api/internal/shared/antigravity"
 	"github.com/stretchr/testify/require"
@@ -75,6 +79,16 @@ func signedThinkingHistoryBody() []byte {
 }
 
 func TestFilterThinkingBlocksSignedHistorySkipsDecode(t *testing.T) {
+	const childFlag = "SUB2API_SIGNED_HISTORY_ALLOC_CHILD"
+	if os.Getenv(childFlag) != "1" {
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestFilterThinkingBlocksSignedHistorySkipsDecode$", "-test.count=1")
+		cmd.Env = append(os.Environ(), childFlag+"=1")
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, "%s", output)
+		return
+	}
 	body := signedThinkingHistoryBody()
 	allocs := testing.AllocsPerRun(5, func() {
 		got := filterThinkingBlocksInternal(body, false)

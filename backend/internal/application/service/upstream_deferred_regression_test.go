@@ -87,7 +87,9 @@ func TestOpenAIStreamStatusAliasesPreserveSemanticAndOutwardContracts(t *testing
 func TestGeminiSDKCommentCompatibility(t *testing.T) {
 	require.True(t, geminiClientRejectsSSEComments("google-genai-sdk/1.71.0 gl-go/go1.28"))
 	require.True(t, geminiClientRejectsSSEComments("google-genai-sdk/1.0 gl-python/3.12"))
-	require.False(t, geminiClientRejectsSSEComments("google-genai-sdk/1.0 gl-node/24"))
+	require.True(t, geminiClientRejectsSSEComments("google-genai-sdk/1.30.0 gl-node/v24.22.3"))
+	require.False(t, geminiClientRejectsSSEComments("google-genai-sdk/1.32.0 gl-node/24"))
+	require.False(t, geminiClientRejectsSSEComments("google-genai-sdk/invalid gl-node/24"))
 	require.False(t, geminiClientRejectsSSEComments("custom-client gl-go/go1.28"))
 }
 

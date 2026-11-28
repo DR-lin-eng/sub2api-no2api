@@ -2,7 +2,7 @@
   <AppLayout>
     <AccountsTableView :context="accountTableViewContext" />
     <UpstreamModelSyncResultsDialog :show="showModelSyncResults" :running="syncingUpstreamModels" :results="modelSyncResults" :completed="modelSyncCompleted" :total="modelSyncTotal" @close="showModelSyncResults = false" />
-    <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
+    <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="handleAccountsCreated" />
     <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
@@ -1479,13 +1479,35 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
+let proxyRequest = 0
+let appliedProxyRequest = 0
+async function loadProxies() {
+  const seq = ++proxyRequest
+  try {
+    const options = await getAllProxies()
+    if (seq > appliedProxyRequest) {
+      appliedProxyRequest = seq
+      proxies.value = options
+    }
+  } catch (error) {
+    console.error('Failed to load proxies:', error)
+  }
+}
+
+watch([showCreate, showEdit, showBulkEdit], (current, previous) => {
+  if (current.some((open, i) => open && !previous[i])) void loadProxies()
+})
+
+function handleAccountsCreated() {
+  void reload()
+  if (showCreate.value) void loadProxies()
+}
+
 onMounted(async () => {
   load()
   loadUpstreamBillingProbeGlobalState()
   resumeUpstreamBillingRateRefresh()
-  const [p, g] = await Promise.allSettled([getAllProxies(), getAllGroups()])
-  if (p.status === 'fulfilled') proxies.value = p.value
-  else console.error('Failed to load proxies:', p.reason)
+  const [, g] = await Promise.allSettled([loadProxies(), getAllGroups()])
   if (g.status === 'fulfilled') groups.value = g.value
   else console.error('Failed to load groups:', g.reason)
   window.addEventListener('scroll', handleScroll, true)

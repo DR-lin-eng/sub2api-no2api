@@ -1,9 +1,9 @@
 package service
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -16,14 +16,22 @@ const (
 	openCodeInboundBodyContextKey = "opencode_inbound_body"
 )
 
-// rememberOpenCodeInboundBody keeps the client request body so protocol
-// conversion (Responses↔Anthropic↔Chat Completions) can still recover
-// prompt_cache_key / metadata.user_id after those fields are dropped.
+func rememberOpenCodeAccountSession(c *gin.Context, account *Account, body []byte) {
+	if account != nil && account.Type == AccountTypeAPIKey && shouldSendOpenCodeSessionHeader(account, account.GetOpenAIBaseURL()) {
+		rememberOpenCodeInboundBody(c, body)
+	} else {
+		clearOpenCodeInboundBody(c)
+	}
+}
+
+// rememberOpenCodeInboundBody keeps just the session identifier across protocol
+// conversion, including when it removes prompt_cache_key or metadata.user_id.
 func rememberOpenCodeInboundBody(c *gin.Context, body []byte) {
 	if c == nil || len(body) == 0 {
 		return
 	}
-	c.Set(openCodeInboundBodyContextKey, body)
+	session := sanitizeSessionID(openCodeSessionIDFromPayload(body))
+	c.Set(openCodeInboundBodyContextKey, strings.Clone(session))
 }
 
 func clearOpenCodeInboundBody(c *gin.Context) {
@@ -31,21 +39,6 @@ func clearOpenCodeInboundBody(c *gin.Context) {
 		return
 	}
 	c.Set(openCodeInboundBodyContextKey, nil)
-}
-
-func openCodeInboundBodies(c *gin.Context) [][]byte {
-	if c == nil {
-		return nil
-	}
-	raw, ok := c.Get(openCodeInboundBodyContextKey)
-	if !ok {
-		return nil
-	}
-	body, ok := raw.([]byte)
-	if !ok || len(body) == 0 {
-		return nil
-	}
-	return [][]byte{body}
 }
 
 // applyOpenCodeSessionHeader sets x-opencode-session on outbound inference
@@ -63,8 +56,7 @@ func applyOpenCodeSessionHeader(c *gin.Context, account *Account, targetURL stri
 		return
 	}
 
-	payloads := append(openCodeInboundBodies(c), bodies...)
-	sessionID := resolveOpenCodeSessionID(c, headers, shouldGenerateOpenCodeSession(account, targetURL), payloads...)
+	sessionID := resolveOpenCodeSessionID(c, headers, shouldGenerateOpenCodeSession(account, targetURL), bodies...)
 	if sessionID == "" {
 		return
 	}
@@ -110,6 +102,11 @@ func resolveOpenCodeSessionID(c *gin.Context, headers http.Header, generate bool
 			return sessionID
 		}
 		if sessionID := sanitizeSessionID(explicitOpenAIHeaderSessionID(c)); sessionID != "" {
+			return sessionID
+		}
+	}
+	if c != nil {
+		if sessionID := c.GetString(openCodeInboundBodyContextKey); sessionID != "" {
 			return sessionID
 		}
 	}
@@ -160,7 +157,9 @@ func openCodeSessionHintBody(promptCacheKey string) []byte {
 	if key == "" {
 		return nil
 	}
-	return []byte(`{"prompt_cache_key":` + strconv.Quote(key) + `}`)
+	encoded, _ := json.Marshal(key)
+	hint := append([]byte(`{"prompt_cache_key":`), encoded...)
+	return append(hint, '}')
 }
 
 func existingOpenCodeSessionHeader(headers http.Header) string {

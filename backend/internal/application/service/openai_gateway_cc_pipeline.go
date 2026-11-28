@@ -217,6 +217,9 @@ func (s *OpenAIGatewayService) sendCCUpstreamRequest(
 	// reasoning_content. Fill only missing fields at the shared Chat endpoint;
 	// non-DeepSeek requests remain byte-identical.
 	body = ensureDeepSeekChatReasoningPlaceholders(account, body)
+	if account != nil && account.Type == AccountTypeAPIKey {
+		body = prepareGeminiStudioChatHistory(targetURL, body)
+	}
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, http.MethodPost, targetURL, bytes.NewReader(body))
 	releaseUpstreamCtx()

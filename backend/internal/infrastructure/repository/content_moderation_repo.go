@@ -194,7 +194,7 @@ SELECT COUNT(*)
 FROM content_moderation_logs
 WHERE user_id = $1
   AND flagged = TRUE
-  AND action <> 'hash_block'
+  AND action NOT IN ('hash_block', 'image_safety')
   AND ($3::bool IS FALSE OR action <> 'cyber_policy')
   AND created_at >= $2
   AND created_at > COALESCE((SELECT at FROM last_auto_ban), '-infinity'::timestamptz)
@@ -256,13 +256,13 @@ func buildContentModerationLogWhere(filter service.ContentModerationLogFilter) (
 	}
 	switch strings.ToLower(strings.TrimSpace(filter.Result)) {
 	case "hit", "flagged":
-		where = append(where, "l.flagged = TRUE")
+		where = append(where, "(l.flagged = TRUE OR l.action = 'image_safety')")
 	case "blocked", "block":
-		where = append(where, "l.action IN ('block', 'keyword_block', 'hash_block')")
+		where = append(where, "l.action IN ('block', 'keyword_block', 'hash_block', 'image_safety')")
 	case "pass", "allow":
-		where = append(where, "l.flagged = FALSE AND l.error = ''")
+		where = append(where, "l.flagged = FALSE AND l.error = '' AND l.action <> 'image_safety'")
 	case "error":
-		where = append(where, "l.error <> ''")
+		where = append(where, "l.error <> '' AND l.action <> 'image_safety'")
 	}
 	if filter.GroupID != nil {
 		add("l.group_id = $%d", *filter.GroupID)

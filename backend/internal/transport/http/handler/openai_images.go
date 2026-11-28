@@ -298,6 +298,12 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			} else {
 				var imageUpstreamErr *service.OpenAIImagesUpstreamError
 				if errors.As(err, &imageUpstreamErr) {
+					h.contentModerationService.RecordImageSafetyEvent(c.Request.Context(), service.ContentModerationCheckInput{
+						RequestID: c.Writer.Header().Get("X-Request-ID"),
+						UserID:    subject.UserID, APIKeyID: apiKey.ID, APIKeyName: apiKey.Name,
+						GroupID: apiKey.GroupID, Endpoint: c.Request.URL.Path,
+						Provider: account.Platform, Model: clientRequestModel,
+					}, imageUpstreamErr)
 					retryableServerError := service.IsOpenAIImagesRetryableUpstreamError(imageUpstreamErr)
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, account.GetMappedModel(requestModel), !retryableServerError, nil)
 					logEvent := "openai.images.upstream_user_error"

@@ -39,7 +39,7 @@
       :disabled="isSubmitting || isSendingCode"
       :input-id="`${testIdPrefix}-local-captcha`"
     />
-    <div v-if="emailVerifyEnabled" class="flex gap-3">
+    <div class="flex gap-3">
       <input
         v-model="verifyCode"
         :data-testid="`${testIdPrefix}-create-account-verify-code`"
@@ -66,10 +66,10 @@
         }}
       </button>
     </div>
-    <p v-if="emailVerifyEnabled && sendCodeSuccess" class="text-sm text-green-600 dark:text-green-400">
+    <p v-if="sendCodeSuccess" class="text-sm text-green-600 dark:text-green-400">
       {{ t('auth.codeSentSuccess') }}
     </p>
-    <p v-else-if="emailVerifyEnabled" class="text-xs text-gray-500 dark:text-dark-400">
+    <p v-else class="text-xs text-gray-500 dark:text-dark-400">
       {{ t('auth.verificationCodeHint') }}
     </p>
     <input
@@ -345,7 +345,7 @@ async function handleSubmit() {
   emit('submit', {
     email: trimmedEmail,
     password: password.value,
-    verifyCode: emailVerifyEnabled.value ? verifyCode.value.trim() : '',
+    verifyCode: verifyCode.value.trim(),
     invitationCode: invitationCode.value.trim() || undefined,
     ...(!emailVerifyEnabled.value && inlineHumanVerificationRequired.value
       ? { captchaToken: turnstileToken.value }

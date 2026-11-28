@@ -456,6 +456,7 @@ const DummyThoughtSignature = "skip_thought_signature_validator"
 func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDummyThought, multimodalToolResults bool) ([]GeminiPart, bool, error) {
 	var parts []GeminiPart
 	var toolMediaParts []GeminiPart
+	var toolResults []GeminiPart
 	strippedThinking := false
 
 	// 尝试解析为字符串
@@ -559,15 +560,14 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
 					response.Parts = append(response.Parts, GeminiFunctionResponsePart{InlineData: part.InlineData})
 				}
 			}
-			parts = append(parts, GeminiPart{FunctionResponse: response})
+			toolResults = append(toolResults, GeminiPart{FunctionResponse: response})
 			if !multimodalToolResults {
 				toolMediaParts = append(toolMediaParts, inlineParts...)
 			}
 		}
 	}
-	parts = append(parts, toolMediaParts...)
-
-	return parts, strippedThinking, nil
+	toolResults = append(toolResults, parts...)
+	return append(toolResults, toolMediaParts...), strippedThinking, nil
 }
 
 // parseToolResultContentWithInlineParts decodes once and keeps binary data out

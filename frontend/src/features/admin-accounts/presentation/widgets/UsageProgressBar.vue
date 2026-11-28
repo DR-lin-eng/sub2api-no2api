@@ -29,7 +29,7 @@
     <div class="flex items-center gap-1">
       <!-- Label badge (fixed width for alignment) -->
       <span
-        :class="['w-[32px] shrink-0 rounded px-1 text-center text-[10px] font-medium', labelClass]"
+        :class="['min-w-[32px] shrink-0 whitespace-nowrap rounded px-1 text-center text-[10px] font-medium', labelClass]"
       >
         {{ label }}
       </span>
@@ -43,7 +43,7 @@
       </div>
 
       <!-- Percentage -->
-      <span :class="['w-[32px] shrink-0 text-right text-[10px] font-medium', textClass]">
+      <span :class="['min-w-[32px] shrink-0 text-right text-[10px] font-medium tabular-nums', textClass]">
         {{ displayPercent }}
       </span>
 
@@ -70,6 +70,7 @@ const props = defineProps<{
   windowStats?: WindowStats | null
   showNowWhenIdle?: boolean
   remainingCapacity?: boolean
+  precisePercent?: boolean
 }>()
 
 const { t } = useI18n()
@@ -158,6 +159,10 @@ const barWidth = computed(() => {
 
 // Display percentage (cap at 999% for readability)
 const displayPercent = computed(() => {
+  if (props.precisePercent && props.utilization > 0 && props.utilization < 100) {
+    if (props.utilization < 0.01) return '<0.01%'
+    return `${Math.min(99.99, props.utilization).toFixed(2)}%`
+  }
   const percent = Math.round(
     props.remainingCapacity
       ? Math.min(Math.max(props.utilization, 0), 100)

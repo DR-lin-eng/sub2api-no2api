@@ -93,12 +93,12 @@ func TestBuildUsageInfo_BasicModels(t *testing.T) {
 
 	sonnetQuota := info.AntigravityQuota["claude-sonnet-4-20250514"]
 	require.NotNil(t, sonnetQuota)
-	require.Equal(t, 25, sonnetQuota.Utilization) // (1 - 0.75) * 100 = 25
+	require.Equal(t, 25.0, sonnetQuota.Utilization) // (1 - 0.75) * 100 = 25
 	require.Equal(t, "2026-03-08T12:00:00Z", sonnetQuota.ResetTime)
 
 	geminiQuota := info.AntigravityQuota["gemini-2.5-pro"]
 	require.NotNil(t, geminiQuota)
-	require.Equal(t, 50, geminiQuota.Utilization) // (1 - 0.50) * 100 = 50
+	require.Equal(t, 50.0, geminiQuota.Utilization) // (1 - 0.50) * 100 = 50
 	require.Equal(t, "2026-03-08T15:00:00Z", geminiQuota.ResetTime)
 
 	// AntigravityQuotaDetails
@@ -342,7 +342,7 @@ func TestBuildUsageInfo_FullUtilization(t *testing.T) {
 
 	quota := info.AntigravityQuota["claude-sonnet-4-20250514"]
 	require.NotNil(t, quota)
-	require.Equal(t, 100, quota.Utilization)
+	require.Equal(t, 100.0, quota.Utilization)
 }
 
 func TestBuildUsageInfo_ZeroUtilization(t *testing.T) {
@@ -361,7 +361,7 @@ func TestBuildUsageInfo_ZeroUtilization(t *testing.T) {
 	info := fetcher.buildUsageInfo(modelsResp, "", "", nil)
 	quota := info.AntigravityQuota["claude-sonnet-4-20250514"]
 	require.NotNil(t, quota)
-	require.Equal(t, 0, quota.Utilization)
+	require.Equal(t, 0.0, quota.Utilization)
 }
 
 func TestBuildUsageInfo_AICredits(t *testing.T) {

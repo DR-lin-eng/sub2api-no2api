@@ -145,7 +145,7 @@ func TestStream_ValidToolCallAtOutputLimitRemainsIncomplete(t *testing.T) {
 		case "response.function_call_arguments.done":
 			sawArgsDone = true
 			require.Equal(t, `{}`, event.Arguments)
-		case "response.completed":
+		case "response.incomplete":
 			require.NotNil(t, event.Response)
 			sawIncomplete = event.Response.Status == "incomplete"
 		}

@@ -126,6 +126,24 @@ func (s *AntigravityGatewayService) handleSmartRetry(p antigravityRetryLoopParam
 		}
 	}
 
+	if resp.StatusCode == http.StatusTooManyRequests && category == antigravity429QuotaExhausted &&
+		p.account.Platform == PlatformAntigravity && !isBareAntigravity429(resp.StatusCode, respBody) {
+		p.handleError(p.ctx, p.prefix, p.account, resp.StatusCode, resp.Header, respBody, p.requestedModel, p.groupID, p.sessionHash, p.isStickySession)
+		appendOpsUpstreamError(p.c, OpsUpstreamErrorEvent{
+			Platform: p.account.Platform, AccountID: p.account.ID, AccountName: p.account.Name,
+			UpstreamStatusCode: resp.StatusCode, UpstreamRequestID: resp.Header.Get("x-request-id"),
+			Kind: "failover", Message: "Antigravity quota exhausted",
+		})
+		return &smartRetryResult{
+			action: smartRetryActionBreakWithResp,
+			switchError: &AntigravityAccountSwitchError{
+				OriginalAccountID: p.account.ID,
+				RateLimitedModel:  p.requestedModel,
+				IsStickySession:   p.isStickySession,
+			},
+		}
+	}
+
 	// 情况1: retryDelay >= 阈值，限流模型并切换账号
 	if shouldRateLimitModel {
 		// 单账号 503 退避重试模式：不设限流、不切换账号，改为原地等待+重试
@@ -247,10 +265,13 @@ func (s *AntigravityGatewayService) handleSmartRetry(p antigravityRetryLoopParam
 				_ = retryResp.Body.Close()
 			}
 
-			// 解析新的重试信息，用于下次重试的等待时间（MODEL_CAPACITY_EXHAUSTED 使用固定循环，跳过）
-			if !isModelCapacityExhausted && attempt < maxAttempts && lastRetryBody != nil {
-				newShouldRetry, _, newWaitDuration, _, _ := shouldTriggerAntigravitySmartRetry(p.account, lastRetryBody)
-				if newShouldRetry && newWaitDuration > 0 {
+			// Honor updated reset information even on the final attempt: it also
+			// determines the cooldown below. A long delay requests model limiting
+			// rather than another in-place retry, but is still authoritative.
+			// Capacity exhaustion retains its separate fixed retry/cooldown policy.
+			if !isModelCapacityExhausted && lastRetryBody != nil {
+				newShouldRetry, newShouldRateLimit, newWaitDuration, newModelName, newIsCapacity := shouldTriggerAntigravitySmartRetry(p.account, lastRetryBody)
+				if !newIsCapacity && (newShouldRetry || newShouldRateLimit) && newModelName == modelName && newWaitDuration > 0 {
 					waitDuration = newWaitDuration
 				}
 			}
