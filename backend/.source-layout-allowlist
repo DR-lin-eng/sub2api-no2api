@@ -41,6 +41,7 @@ internal/application/service/openai_compat_model_test.go
 internal/application/service/openai_gateway_grok.go
 internal/application/service/openai_gateway_grok_test.go
 internal/application/service/openai_gateway_messages.go
+internal/application/service/openai_gateway_forward.go
 internal/application/service/openai_gateway_passthrough.go
 internal/application/service/openai_gateway_record_usage_test.go
 internal/application/service/openai_gateway_request_body.go

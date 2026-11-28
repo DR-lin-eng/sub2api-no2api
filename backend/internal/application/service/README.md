@@ -22,6 +22,7 @@
 | `openai_oauth_body_compression.go`, `openai_oauth_compression_recovery.go` | OAuth HTTP 默认 zstd 压缩，以及裸 400/显式编码 415 的请求级单次兼容恢复；每个新请求仍默认压缩，保留完整输入、身份和安全重放边界 |
 | `openai_http200_stream_recovery.go`, `openai_http200_json_error.go`, `openai_responses_error_event.go` | HTTP 200 通用失败的安全单次恢复、JSON 错误惰性适配和输出后断流的 Responses 终止事件；保留已输出数据及 zstd 协商状态 |
 | `openai_ws_size_recovery.go` | 内嵌图片/大 JSON 请求发送前的 HTTP 选路、1009/断连后一次安全回退与完整历史重放边界 |
+| `openai_ws_image_compression.go` | 有界内嵌图片扫描、Alpha/EXIF 安全策略、JPEG 阶梯压缩、双预算 WS 路由准备和字符串化工具输出兼容 |
 | `openai_ws_fallback_response.go` | WS 终止错误的 HTTP/SSE 映射、1009 大小限制提示与已提交响应保护 |
 | `openai_ws_non_streaming*.go` | HTTP 非流式请求的有界 WS 输出聚合、终态校验，以及预热模式下可安全重放的临时 5xx HTTP 恢复 |
 | `openai_live*` | Codex CLI/旧 Desktop Live、Sideband 控制、分钟结算和持久恢复 |

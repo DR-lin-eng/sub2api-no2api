@@ -465,14 +465,26 @@ func TestLoadDefaultOpenAIWSConfig(t *testing.T) {
 	if cfg.Gateway.OpenAIWS.PrewarmCooldownMS != 300 {
 		t.Fatalf("Gateway.OpenAIWS.PrewarmCooldownMS = %d, want 300", cfg.Gateway.OpenAIWS.PrewarmCooldownMS)
 	}
-	if cfg.Gateway.OpenAIWS.ClientReadLimitBytes != 64*1024*1024 {
-		t.Fatalf("Gateway.OpenAIWS.ClientReadLimitBytes = %d, want %d", cfg.Gateway.OpenAIWS.ClientReadLimitBytes, 64*1024*1024)
+	if cfg.Gateway.OpenAIWS.ClientReadLimitBytes != 132*1024*1024 {
+		t.Fatalf("Gateway.OpenAIWS.ClientReadLimitBytes = %d, want %d", cfg.Gateway.OpenAIWS.ClientReadLimitBytes, 132*1024*1024)
+	}
+	if cfg.Gateway.OpenAIWS.UpstreamMessageReadLimitBytes != 132*1024*1024 {
+		t.Fatalf("Gateway.OpenAIWS.UpstreamMessageReadLimitBytes = %d, want %d", cfg.Gateway.OpenAIWS.UpstreamMessageReadLimitBytes, 132*1024*1024)
 	}
 	if !cfg.Gateway.OpenAIWS.HTTPBridgeEnabled {
 		t.Fatalf("Gateway.OpenAIWS.HTTPBridgeEnabled = false, want true")
 	}
 	if cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes != 15*1024*1024 {
 		t.Fatalf("Gateway.OpenAIWS.HTTPBridgeThresholdBytes = %d, want %d", cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes, 15*1024*1024)
+	}
+	if cfg.Gateway.OpenAIWS.WSMaxRequestBytes != 100*1024*1024 {
+		t.Fatalf("Gateway.OpenAIWS.WSMaxRequestBytes = %d, want %d", cfg.Gateway.OpenAIWS.WSMaxRequestBytes, 100*1024*1024)
+	}
+	if cfg.Gateway.OpenAIWS.APIKeyWSMaxRequestBytes != 100*1024*1024 {
+		t.Fatalf("Gateway.OpenAIWS.APIKeyWSMaxRequestBytes = %d, want %d", cfg.Gateway.OpenAIWS.APIKeyWSMaxRequestBytes, 100*1024*1024)
+	}
+	if cfg.Gateway.OpenAIWS.ImageCompression.APIKeyEnabled != true {
+		t.Fatalf("Gateway.OpenAIWS.ImageCompression.APIKeyEnabled = %v, want true", cfg.Gateway.OpenAIWS.ImageCompression.APIKeyEnabled)
 	}
 	if cfg.Gateway.OpenAIWS.RetryBackoffInitialMS != 120 {
 		t.Fatalf("Gateway.OpenAIWS.RetryBackoffInitialMS = %d, want 120", cfg.Gateway.OpenAIWS.RetryBackoffInitialMS)

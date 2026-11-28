@@ -223,11 +223,50 @@ func validateGatewayOpenAIWebSocket(c *Config) error {
 	if c.Gateway.OpenAIWS.ClientReadLimitBytes <= 0 {
 		return fmt.Errorf("gateway.openai_ws.client_read_limit_bytes must be positive")
 	}
+	if c.Gateway.OpenAIWS.UpstreamMessageReadLimitBytes <= 0 {
+		return fmt.Errorf("gateway.openai_ws.upstream_message_read_limit_bytes must be positive")
+	}
 	if c.Gateway.OpenAIWS.HTTPBridgeThresholdBytes < 0 {
 		return fmt.Errorf("gateway.openai_ws.http_bridge_threshold_bytes must be non-negative")
 	}
 	if c.Gateway.OpenAIWS.HTTPBridgeEnabled && c.Gateway.OpenAIWS.HTTPBridgeThresholdBytes == 0 {
 		return fmt.Errorf("gateway.openai_ws.http_bridge_threshold_bytes must be positive when http_bridge_enabled is true")
+	}
+	if c.Gateway.OpenAIWS.WSMaxRequestBytes <= 0 {
+		return fmt.Errorf("gateway.openai_ws.ws_max_request_bytes must be positive")
+	}
+	if c.Gateway.OpenAIWS.APIKeyWSMaxRequestBytes <= 0 {
+		return fmt.Errorf("gateway.openai_ws.apikey_ws_max_request_bytes must be positive")
+	}
+	imageCompression := c.Gateway.OpenAIWS.ImageCompression
+	if mode := strings.ToLower(strings.TrimSpace(imageCompression.Mode)); mode != "" {
+		switch mode {
+		case "shadow", "adaptive":
+		default:
+			return fmt.Errorf("gateway.openai_ws.image_compression.mode must be one of shadow|adaptive")
+		}
+	}
+	if imageCompression.Enabled {
+		if imageCompression.TargetRequestBytes <= 0 {
+			return fmt.Errorf("gateway.openai_ws.image_compression.target_request_bytes must be positive when enabled")
+		}
+		if imageCompression.MinRequestBytes < 0 || imageCompression.MinImageBytes < 0 {
+			return fmt.Errorf("gateway.openai_ws.image_compression minimum byte limits must be non-negative")
+		}
+		if imageCompression.MaxEdgePixels <= 0 || imageCompression.MaxDecodedPixelsPerImage <= 0 || imageCompression.MaxTotalDecodedPixels <= 0 {
+			return fmt.Errorf("gateway.openai_ws.image_compression pixel limits must be positive")
+		}
+		if imageCompression.MaxImagesPerRequest <= 0 || imageCompression.MaxTotalEncodeMS <= 0 {
+			return fmt.Errorf("gateway.openai_ws.image_compression image and time limits must be positive")
+		}
+		if len(imageCompression.QualityLadder) == 0 {
+			return fmt.Errorf("gateway.openai_ws.image_compression.quality_ladder must not be empty")
+		}
+		for _, quality := range imageCompression.QualityLadder {
+			if quality < 1 || quality > 100 {
+				return fmt.Errorf("gateway.openai_ws.image_compression.quality_ladder values must be within 1..100")
+			}
+		}
 	}
 	if c.Gateway.OpenAIWS.FallbackCooldownSeconds < 0 {
 		return fmt.Errorf("gateway.openai_ws.fallback_cooldown_seconds must be non-negative")

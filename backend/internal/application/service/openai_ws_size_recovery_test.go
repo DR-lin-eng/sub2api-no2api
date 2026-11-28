@@ -83,7 +83,7 @@ func TestOpenAIWSSizeHTTPThresholdAndRetryBudget(t *testing.T) {
 	svc := &OpenAIGatewayService{cfg: &config.Config{}}
 	svc.cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
 	svc.cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 1024
-	account := &Account{ID: 18, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	account := &Account{ID: 18, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	small := []byte(`{"input":"hello","store":false}`)
@@ -92,7 +92,7 @@ func TestOpenAIWSSizeHTTPThresholdAndRetryBudget(t *testing.T) {
 	require.True(t, svc.shouldBypassOpenAIWSForSize(context.Background(), c, account, large, large))
 	svc.markOpenAIWSHTTPRecovery(c, account, small, "ws_message_too_big_http")
 	require.True(t, svc.shouldBypassOpenAIWSForSize(context.Background(), c, account, small, small), "reselecting the same account must not replenish its WS attempt")
-	other := &Account{ID: 19, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	other := &Account{ID: 19, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
 	require.False(t, svc.shouldBypassOpenAIWSForSize(context.Background(), c, other, small, small))
 }
 
@@ -105,12 +105,12 @@ func TestOpenAIWSInlineImageHTTPRouting(t *testing.T) {
 		name, body string
 		want       bool
 	}{
-		{"inline image", `{"input":[{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}]}]}`, true},
-		{"hosted image tool", `{"input":[{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}]}],"tools":[{"type":"image_generation"}]}`, true},
-		{"hosted MCP tool", `{"input":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}],"tools":[{"type":"mcp"}]}`, true},
-		{"explicit storage", `{"input":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}],"store":true}`, true},
-		{"legacy image URL", `{"input":[{"content":[{"type":"image_url","image_url":{"url":"DATA:IMAGE/JPEG;base64,AQID"}}]}]}`, true},
-		{"paired image tool output", `{"input":[{"type":"function_call","call_id":"c"},{"type":"function_call_output","call_id":"c","output":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}]}]}`, true},
+		{"inline image", `{"input":[{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}]}]}`, false},
+		{"hosted image tool", `{"input":[{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}]}],"tools":[{"type":"image_generation"}]}`, false},
+		{"hosted MCP tool", `{"input":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}],"tools":[{"type":"mcp"}]}`, false},
+		{"explicit storage", `{"input":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}],"store":true}`, false},
+		{"legacy image URL", `{"input":[{"content":[{"type":"image_url","image_url":{"url":"DATA:IMAGE/JPEG;base64,AQID"}}]}]}`, false},
+		{"paired image tool output", `{"input":[{"type":"function_call","call_id":"c"},{"type":"function_call_output","call_id":"c","output":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}]}]}`, false},
 		{"remote image", `{"input":[{"type":"input_image","image_url":"https://example.com/photo.png"}]}`, false},
 		{"file reference", `{"input":[{"type":"input_image","file_id":"file_image"}]}`, false},
 		{"text mentions data URL", `{"input":[{"content":[{"type":"input_text","text":"data:image/png;base64,AQID"}]}]}`, false},
@@ -131,6 +131,7 @@ func TestOpenAIWSInlineImageHTTPRouting(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	svc.cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = false
+	svc.cfg.Gateway.OpenAIWS.WSMaxRequestBytes = 1
 	require.False(t, svc.shouldBypassOpenAIWSForSize(context.Background(), c, account, image, image))
 	require.False(t, svc.shouldBridgeOpenAIWSHTTP(account, image, ""))
 	require.False(t, svc.shouldBridgeOpenAIWSPassthroughFirstMessage(account, image))
@@ -140,7 +141,8 @@ func TestOpenAIWSInitialRoutingDoesNotRelaxReplaySafety(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := &OpenAIGatewayService{cfg: &config.Config{}}
 	svc.cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
-	account := &Account{ID: 21, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	svc.cfg.Gateway.OpenAIWS.WSMaxRequestBytes = 1
+	account := &Account{ID: 21, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
 	for _, field := range []string{`"store":true`, `"background":true`, `"conversation":"conv_1"`, `"tools":[{"type":"image_generation"}]`, `"tools":[{"type":"mcp"}]`} {
 		t.Run(field, func(t *testing.T) {
 			body := []byte(`{"input":[{"type":"input_image","image_url":"data:image/png;base64,AQID"}],` + field + `}`)

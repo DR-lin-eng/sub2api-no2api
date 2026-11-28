@@ -32,6 +32,7 @@ func (s *OpenAIGatewayService) openAIWSHTTPRoutingAllowed(ctx context.Context, c
 
 func (s *OpenAIGatewayService) openAIWSHTTPRecoveryAllowed(ctx context.Context, c *gin.Context, account *Account, body, canonicalBody []byte) bool {
 	return s.openAIWSHTTPTransportAllowed(ctx, c, account) &&
+		openAIOriginalRequestReplaySafe(c) &&
 		openAIWSHTTPReplaySafeBody(body) && openAIWSHTTPReplaySafeBody(canonicalBody)
 }
 
@@ -133,49 +134,12 @@ func (s *OpenAIGatewayService) shouldBypassOpenAIWSForSize(ctx context.Context, 
 	if requestAlreadyFellBack {
 		return s.openAIWSHTTPRecoveryAllowed(ctx, c, account, body, canonicalBody)
 	}
-	return s.shouldRouteOpenAIWSHTTPPayload(body) && s.openAIWSHTTPRoutingAllowed(ctx, c, account, body, canonicalBody)
+	return s.shouldRouteOpenAIWSHTTPPayloadForAccount(account, body) && s.openAIWSHTTPRoutingAllowed(ctx, c, account, body, canonicalBody)
 }
 
-func (s *OpenAIGatewayService) shouldRouteOpenAIWSHTTPPayload(payload []byte) bool {
+func (s *OpenAIGatewayService) shouldRouteOpenAIWSHTTPPayloadForAccount(account *Account, payload []byte) bool {
 	return s.openAIWSHTTPBridgeEnabled() &&
-		(int64(len(payload)) >= s.openAIWSHTTPBridgeThresholdBytes() || openAIWSHasInlineImageInput(payload))
-}
-
-// Inline image bytes can exceed the upstream's WS limit independently of token
-// count or the configured text threshold. Inspect only structured input parts;
-// text, tool declarations and remote URLs must not trigger this route.
-func openAIWSHasInlineImageInput(payload []byte) bool {
-	var hasImage func(gjson.Result, int) bool
-	hasImage = func(value gjson.Result, depth int) bool {
-		if depth > 8 {
-			return false
-		}
-		if value.IsArray() {
-			found := false
-			value.ForEach(func(_, item gjson.Result) bool {
-				found = hasImage(item, depth+1)
-				return !found
-			})
-			return found
-		}
-		if !value.IsObject() {
-			return false
-		}
-		switch value.Get("type").String() {
-		case "input_image", "image_url":
-			imageURL := value.Get("image_url")
-			if imageURL.IsObject() {
-				imageURL = imageURL.Get("url")
-			}
-			url := strings.TrimSpace(imageURL.String())
-			const prefix = "data:image/"
-			if len(url) >= len(prefix) && strings.EqualFold(url[:len(prefix)], prefix) {
-				return true
-			}
-		}
-		return hasImage(value.Get("content"), depth+1) || hasImage(value.Get("output"), depth+1)
-	}
-	return hasImage(gjson.GetBytes(payload, "input"), 0)
+		int64(len(payload)) >= s.openAIWSHTTPBridgeThresholdBytesForAccount(account)
 }
 
 func (s *OpenAIGatewayService) prepareOpenAIWSHTTPFallback(ctx context.Context, c *gin.Context, account *Account, wsErr error, body, canonicalBody []byte) bool {
@@ -223,5 +187,5 @@ func (s *OpenAIGatewayService) markOpenAIWSHTTPRecovery(c *gin.Context, account 
 	c.Set("openai_ws_transport_decision", string(OpenAIUpstreamTransportHTTPSSE))
 	c.Set("openai_ws_transport_reason", reason)
 	logOpenAIWSModeInfo("fallback_http_sse account_id=%d reason=%s request_bytes=%d input_bytes=%d tools_bytes=%d threshold_bytes=%d",
-		account.ID, reason, len(body), len(gjson.GetBytes(body, "input").Raw), len(gjson.GetBytes(body, "tools").Raw), s.openAIWSHTTPBridgeThresholdBytes())
+		account.ID, reason, len(body), len(gjson.GetBytes(body, "input").Raw), len(gjson.GetBytes(body, "tools").Raw), s.openAIWSHTTPBridgeThresholdBytesForAccount(account))
 }

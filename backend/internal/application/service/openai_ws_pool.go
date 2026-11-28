@@ -2171,6 +2171,7 @@ func (p *openAIWSConnPool) dialConn(ctx context.Context, req openAIWSAcquireRequ
 			Err:             errors.New("openai ws dialer returned nil connection"),
 		}
 	}
+	applyOpenAIWSMessageReadLimit(conn, p.cfg, req.Account)
 	id := p.nextConnID(req.Account.ID)
 	pooledConn := newOpenAIWSConn(id, req.Account.ID, conn, handshakeHeaders)
 	pooledConn.handshakeCompatibility = openAIWSAcquireCompatibility(req)

@@ -26,6 +26,7 @@ func TestOpenAIWSMultiImageFirstTurnHTTPBridge(t *testing.T) {
 				Enabled: true, APIKeyEnabled: true, ResponsesWebsocketsV2: true,
 				ModeRouterV2Enabled: true, IngressModeDefault: mode,
 				HTTPBridgeEnabled: true, HTTPBridgeThresholdBytes: 15 * 1024 * 1024,
+				WSMaxRequestBytes: 1,
 			}
 			upstream := &httpUpstreamRecorder{resp: &http.Response{
 				StatusCode: http.StatusOK,
